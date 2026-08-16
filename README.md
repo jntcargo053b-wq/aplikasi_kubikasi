@@ -19,8 +19,13 @@ Data contoh yang ditampilkan sesuai dengan tabel dari file Excel (total VOL 5000
 ## Setup pertama kali (penting)
 
 Project ini baru berisi `lib/` + `pubspec.yaml` — folder platform native
-(`android/`, `ios/`, dll) belum ada. Sebelum build/jalan pertama kali,
-jalankan di root project:
+(`android/`, `ios/`, dll) belum ada, atau kalau sebelumnya ada di repo,
+itu adalah stub tidak lengkap (bukan hasil `flutter create` asli)
+sehingga Gradle menolaknya dengan error "not a Gradle project". Folder
+`android/` yang tidak lengkap itu sudah dihapus dari repo ini. **Jangan**
+membuat file `android/build.gradle` atau `AndroidManifest.xml` secara
+manual — selalu generate dengan Flutter SDK. Sebelum build/jalan pertama
+kali, jalankan di root project:
 
 ```bash
-flutter create .
+flutter create -t app .
