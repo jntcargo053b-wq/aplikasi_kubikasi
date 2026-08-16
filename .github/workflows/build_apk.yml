@@ -29,15 +29,19 @@ jobs:
           channel: 'stable'
           cache: true
 
-      # Repo ini belum punya folder android/ (belum pernah dijalankan
-      # "flutter create ." secara lokal). Step ini men-generate folder
-      # platform secara otomatis di CI kalau belum ada, supaya build
-      # tetap jalan walau lupa commit folder android/.
-      - name: Scaffold platform folders if missing
+      # Cek file yang menandakan proyek Gradle Android LENGKAP (bukan
+      # cuma folder android/ ada, karena folder bisa saja ada tapi isinya
+      # stub/tidak lengkap dan gagal dikenali Gradle). Kalau
+      # android/settings.gradle atau android/settings.gradle.kts tidak
+      # ada, hapus dan generate ulang dengan "flutter create" resmi
+      # supaya seluruh berkas Gradle/Kotlin/wrapper konsisten dengan
+      # versi Flutter SDK yang dipakai di step di atas.
+      - name: Scaffold platform folders if missing/incomplete
         run: |
-          if [ ! -d "android" ]; then
-            echo "Folder android/ tidak ditemukan, menjalankan flutter create ."
-            flutter create --platforms=android .
+          if [ ! -f "android/settings.gradle" ] && [ ! -f "android/settings.gradle.kts" ]; then
+            echo "Struktur android/ tidak lengkap, menghapus dan menjalankan flutter create ulang"
+            rm -rf android
+            flutter create -t app --platforms=android .
           fi
 
       - name: Install dependencies
