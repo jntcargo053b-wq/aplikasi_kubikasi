@@ -1,1 +1,60 @@
+/// Faktor pembagi volumetrik standar logistik (P x L x T (cm) / 5000).
+/// Ini adalah rumus "volume weight" yang umum dipakai jasa ekspedisi.
+const double kFaktorVolumetrik = 5000;
 
+class BarangItem {
+  String id;
+  String nama;
+  int jumlah;
+  double panjang; // cm
+  double lebar; // cm
+  double tinggi; // cm
+
+  BarangItem({
+    required this.id,
+    required this.nama,
+    required this.jumlah,
+    required this.panjang,
+    required this.lebar,
+    required this.tinggi,
+  });
+
+  /// Volume per baris = (P x L x T / 5000) x Jumlah
+  double get volume =>
+      (panjang * lebar * tinggi / kFaktorVolumetrik) * jumlah;
+
+  BarangItem copyWith({
+    String? nama,
+    int? jumlah,
+    double? panjang,
+    double? lebar,
+    double? tinggi,
+  }) {
+    return BarangItem(
+      id: id,
+      nama: nama ?? this.nama,
+      jumlah: jumlah ?? this.jumlah,
+      panjang: panjang ?? this.panjang,
+      lebar: lebar ?? this.lebar,
+      tinggi: tinggi ?? this.tinggi,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'nama': nama,
+        'jumlah': jumlah,
+        'panjang': panjang,
+        'lebar': lebar,
+        'tinggi': tinggi,
+      };
+
+  factory BarangItem.fromJson(Map<String, dynamic> json) => BarangItem(
+        id: json['id'] as String,
+        nama: json['nama'] as String,
+        jumlah: (json['jumlah'] as num).toInt(),
+        panjang: (json['panjang'] as num).toDouble(),
+        lebar: (json['lebar'] as num).toDouble(),
+        tinggi: (json['tinggi'] as num).toDouble(),
+      );
+}
