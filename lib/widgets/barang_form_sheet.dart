@@ -39,7 +39,7 @@ class _BarangFormContentState extends State<_BarangFormContent> {
   late final TextEditingController _lebarCtrl;
   late final TextEditingController _tinggiCtrl;
 
-  double _previewVolume = 0;
+  late final Listenable _previewListenable;
 
   @override
   void initState() {
@@ -50,15 +50,17 @@ class _BarangFormContentState extends State<_BarangFormContent> {
     _panjangCtrl = TextEditingController(text: _fmtInput(e?.panjang));
     _lebarCtrl = TextEditingController(text: _fmtInput(e?.lebar));
     _tinggiCtrl = TextEditingController(text: _fmtInput(e?.tinggi));
-    for (final c in [
-      _jumlahCtrl,
-      _panjangCtrl,
-      _lebarCtrl,
-      _tinggiCtrl,
-    ]) {
-      c.addListener(_updatePreview);
-    }
-    _updatePreview();
+    // Gabungkan listenable dari 4 controller supaya preview VOL 5000 /
+    // KUBIKASI ikut update tiap ketik, TANPA setState di level form.
+    // Kalau pakai setState di sini, seluruh form (termasuk semua
+    // TextFormField) ikut rebuild tiap keystroke, dan di sebagian
+    // keyboard Android ini bisa membuat field kehilangan fokus saat
+    // sedang diketik. Dengan Listenable.merge + AnimatedBuilder yang
+    // membungkus HANYA kotak preview, TextFormField tidak pernah
+    // di-rebuild ulang sehingga fokus/ketikan tidak terganggu.
+    _previewListenable = Listenable.merge(
+      [_jumlahCtrl, _panjangCtrl, _lebarCtrl, _tinggiCtrl],
+    );
   }
 
   String _fmtInput(double? v) {
@@ -67,14 +69,20 @@ class _BarangFormContentState extends State<_BarangFormContent> {
     return v.toString();
   }
 
-  void _updatePreview() {
+  double get _previewVolume {
     final jumlah = int.tryParse(_jumlahCtrl.text) ?? 0;
     final p = double.tryParse(_panjangCtrl.text.replaceAll(',', '.')) ?? 0;
     final l = double.tryParse(_lebarCtrl.text.replaceAll(',', '.')) ?? 0;
     final t = double.tryParse(_tinggiCtrl.text.replaceAll(',', '.')) ?? 0;
-    setState(() {
-      _previewVolume = (p * l * t / kFaktorVolumetrik) * jumlah;
-    });
+    return (p * l * t / kFaktorVolumetrik) * jumlah;
+  }
+
+  double get _previewKubikasi {
+    final jumlah = int.tryParse(_jumlahCtrl.text) ?? 0;
+    final p = double.tryParse(_panjangCtrl.text.replaceAll(',', '.')) ?? 0;
+    final l = double.tryParse(_lebarCtrl.text.replaceAll(',', '.')) ?? 0;
+    final t = double.tryParse(_tinggiCtrl.text.replaceAll(',', '.')) ?? 0;
+    return (p * l * t / kFaktorKubikasi) * jumlah;
   }
 
   @override
@@ -186,29 +194,81 @@ class _BarangFormContentState extends State<_BarangFormContent> {
                 ],
               ),
               const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 12,
-                  horizontal: 16,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.shade200),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              AnimatedBuilder(
+                animation: _previewListenable,
+                builder: (context, _) => Row(
                   children: [
-                    const Text(
-                      'Volume',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.red.shade200),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'VOL 5000',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _previewVolume
+                                  .toStringAsFixed(2)
+                                  .replaceAll('.', ','),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: Colors.red.shade700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    Text(
-                      _previewVolume.toStringAsFixed(2).replaceAll('.', ','),
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: Colors.red.shade700,
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.red.shade200),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'KUBIKASI (M³)',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _previewKubikasi
+                                  .toStringAsFixed(3)
+                                  .replaceAll('.', ','),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: Colors.red.shade700,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
