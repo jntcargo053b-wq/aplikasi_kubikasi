@@ -254,22 +254,16 @@ class _HomeScreenState extends State<HomeScreen> {
             child: _items.isEmpty
                 ? _buildEmptyState()
                 : ListView.separated(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    itemCount: _items.length,
-                    separatorBuilder: (_, __) => const Divider(
-                      height: 1,
-                      color: AppColors.border,
-                    ),
-                    itemBuilder: (ctx, i) =>
-                        _buildItemRow(_items[i], i + 1),
+                    padding: const EdgeInsets.only(bottom: 96),
+                    itemCount: _items.length + 1,
+                    separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.border),
+                    itemBuilder: (ctx, i) {
+                      if (i == _items.length) {
+                        return _buildTotalRow();
+                      }
+                      return _buildItemRow(_items[i], i + 1);
+                    },
                   ),
-          ),
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-              child: _buildTotalSummary(),
-            ),
           ),
         ],
       ),
@@ -386,9 +380,68 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildTotalRow() {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 58),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          top: BorderSide(
+            color: AppColors.border,
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                'TOTAL (${_items.length})',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.text,
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(
+              _formatVolume(_totalVolume),
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Text(
+                _formatKubikasi(_totalKubikasi),
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.primaryDark,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTotalSummary() {
     return Container(
-      width: double.infinity,
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
         color: const Color(0xFFF9FAFB),
