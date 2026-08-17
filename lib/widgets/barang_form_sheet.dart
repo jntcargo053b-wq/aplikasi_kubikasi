@@ -205,18 +205,19 @@ class _BarangFormContentState extends State<_BarangFormContent> {
                           horizontal: 12,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.red.shade50,
+                          color: Colors.orange.shade50,
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.red.shade200),
+                          border: Border.all(color: Colors.orange.shade200),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'VOL 5000',
+                            Text(
+                              'VOL TIMBANG',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 12,
+                                fontSize: 11,
+                                color: Colors.orange.shade900,
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -227,7 +228,7 @@ class _BarangFormContentState extends State<_BarangFormContent> {
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
-                                color: Colors.red.shade700,
+                                color: Colors.orange.shade800,
                               ),
                             ),
                           ],
@@ -249,11 +250,12 @@ class _BarangFormContentState extends State<_BarangFormContent> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               'KUBIKASI (M³)',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 12,
+                                fontSize: 11,
+                                color: Colors.red.shade900,
                               ),
                             ),
                             const SizedBox(height: 4),
