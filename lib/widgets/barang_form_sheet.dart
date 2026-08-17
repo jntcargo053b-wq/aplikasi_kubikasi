@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../app_theme.dart';
 import 'package:uuid/uuid.dart';
 import '../models/barang_item.dart';
 
@@ -12,8 +13,9 @@ Future<BarangItem?> showBarangFormSheet(
     context: context,
     isScrollControlled: true,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
+    backgroundColor: Colors.white,
     builder: (ctx) => Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(ctx).viewInsets.bottom,
@@ -100,10 +102,11 @@ class _BarangFormContentState extends State<_BarangFormContent> {
     final isEdit = widget.existing != null;
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-        child: Form(
-          key: _formKey,
-          child: Column(
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -111,9 +114,9 @@ class _BarangFormContentState extends State<_BarangFormContent> {
                 child: Container(
                   width: 40,
                   height: 4,
-                  margin: const EdgeInsets.only(bottom: 16),
+                  margin: const EdgeInsets.only(bottom: 14),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: AppColors.border,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -121,17 +124,18 @@ class _BarangFormContentState extends State<_BarangFormContent> {
               Text(
                 isEdit ? 'Edit Barang' : 'Tambah Barang',
                 style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.text,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
               TextFormField(
                 controller: _namaCtrl,
                 textCapitalization: TextCapitalization.words,
                 decoration: const InputDecoration(
                   labelText: 'Nama Barang',
-                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.inventory_2_outlined, size: 20),
                 ),
                 validator: (v) =>
                     (v == null || v.trim().isEmpty) ? 'Wajib diisi' : null,
@@ -142,7 +146,7 @@ class _BarangFormContentState extends State<_BarangFormContent> {
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
                   labelText: 'Jumlah',
-                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.numbers_rounded, size: 20),
                 ),
                 validator: (v) {
                   final n = int.tryParse(v ?? '');
@@ -159,8 +163,8 @@ class _BarangFormContentState extends State<_BarangFormContent> {
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
                       decoration: const InputDecoration(
-                        labelText: 'Panjang (cm)',
-                        border: OutlineInputBorder(),
+                        labelText: 'Panjang',
+                        suffixText: 'cm',
                       ),
                       validator: _validateUkuran,
                     ),
@@ -172,8 +176,8 @@ class _BarangFormContentState extends State<_BarangFormContent> {
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
                       decoration: const InputDecoration(
-                        labelText: 'Lebar (cm)',
-                        border: OutlineInputBorder(),
+                        labelText: 'Lebar',
+                        suffixText: 'cm',
                       ),
                       validator: _validateUkuran,
                     ),
@@ -185,8 +189,8 @@ class _BarangFormContentState extends State<_BarangFormContent> {
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
                       decoration: const InputDecoration(
-                        labelText: 'Tinggi (cm)',
-                        border: OutlineInputBorder(),
+                        labelText: 'Tinggi',
+                        suffixText: 'cm',
                       ),
                       validator: _validateUkuran,
                     ),
@@ -201,23 +205,23 @@ class _BarangFormContentState extends State<_BarangFormContent> {
                     Expanded(
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                          vertical: 12,
+                          vertical: 13,
                           horizontal: 12,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.orange.shade50,
+                          color: const Color(0xFFFFF5F4),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.orange.shade200),
+                          border: Border.all(color: const Color(0xFFFECACA)),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'VOL TIMBANG',
+                            const Text(
+                              'VOLUME TIMBANG',
                               style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 11,
-                                color: Colors.orange.shade900,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 10.5,
+                                color: AppColors.muted,
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -227,8 +231,8 @@ class _BarangFormContentState extends State<_BarangFormContent> {
                                   .replaceAll('.', ','),
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: Colors.orange.shade800,
+                                fontSize: 18,
+                                color: AppColors.primary,
                               ),
                             ),
                           ],
@@ -239,23 +243,23 @@ class _BarangFormContentState extends State<_BarangFormContent> {
                     Expanded(
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                          vertical: 12,
+                          vertical: 13,
                           horizontal: 12,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.red.shade50,
+                          color: const Color(0xFFFFF5F4),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.red.shade200),
+                          border: Border.all(color: const Color(0xFFFECACA)),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'KUBIKASI (M³)',
+                            const Text(
+                              'KUBIKASI',
                               style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 11,
-                                color: Colors.red.shade900,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 10.5,
+                                color: AppColors.muted,
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -265,8 +269,8 @@ class _BarangFormContentState extends State<_BarangFormContent> {
                                   .replaceAll('.', ','),
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: Colors.red.shade700,
+                                fontSize: 18,
+                                color: AppColors.primaryDark,
                               ),
                             ),
                           ],
@@ -279,12 +283,13 @@ class _BarangFormContentState extends State<_BarangFormContent> {
               const SizedBox(height: 20),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  padding: const EdgeInsets.symmetric(vertical: 15),
                 ),
                 onPressed: _onSave,
                 child: Text(isEdit ? 'Simpan Perubahan' : 'Tambah Barang'),
               ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
