@@ -16,54 +16,38 @@ class _HomeScreenState extends State<HomeScreen> {
   List<BarangItem> _items = [];
   bool _loading = true;
 
-  // Lebar kolom tetap supaya tabel bisa di-scroll horizontal dan semua
-  // kolom (termasuk KUBIKASI) tetap terbaca jelas di layar HP.
-  static const double _wNo = 32;
-  static const double _wNama = 150;
-  static const double _wJml = 48;
-  static const double _wUkuran = 52;
-  static const double _wVolume = 84;
-  static const double _wKubikasi = 92;
-  double get _tableWidth =>
-      _wNo + _wNama + _wJml + (_wUkuran * 3) + _wVolume + _wKubikasi;
-
-  final ScrollController _headerScrollCtrl = ScrollController();
-  final ScrollController _bodyScrollCtrl = ScrollController();
-
   @override
   void initState() {
     super.initState();
     _loadData();
-    // Header tidak bisa digeser langsung oleh user, jadi posisinya
-    // disinkronkan mengikuti scroll body secara manual di sini.
-    _bodyScrollCtrl.addListener(() {
-      if (_headerScrollCtrl.hasClients &&
-          _headerScrollCtrl.offset != _bodyScrollCtrl.offset) {
-        _headerScrollCtrl.jumpTo(_bodyScrollCtrl.offset);
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _headerScrollCtrl.dispose();
-    _bodyScrollCtrl.dispose();
-    super.dispose();
   }
 
   Future<void> _loadData() async {
-    var items = await _storage.load();
-    if (items.isEmpty) {
-      items = _contohData();
-      await _storage.save(items);
+    try {
+      var items = await _storage.load();
+      if (items.isEmpty) {
+        items = _contohData();
+        await _storage.save(items);
+      }
+      if (!mounted) return;
+      setState(() {
+        _items = items;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      _showError('Gagal memuat data: $e');
     }
-    setState(() {
-      _items = items;
-      _loading = false;
-    });
   }
 
   Future<void> _persist() => _storage.save(_items);
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
+  }
 
   int get _totalJumlah => _items.fold(0, (sum, e) => sum + e.jumlah);
   double get _totalVolume => _items.fold(0.0, (sum, e) => sum + e.volume);
@@ -77,43 +61,59 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _tambahBarang() async {
-    final baru = await showBarangFormSheet(context);
-    if (baru == null) return;
-    setState(() => _items.add(baru));
-    await _persist();
+    try {
+      final baru = await showBarangFormSheet(context);
+      if (baru == null) return;
+      setState(() => _items.add(baru));
+      await _persist();
+    } catch (e) {
+      if (!mounted) return;
+      _showError('Gagal menambah barang: $e');
+    }
   }
 
   Future<void> _editBarang(BarangItem item) async {
-    final hasil = await showBarangFormSheet(context, existing: item);
-    if (hasil == null) return;
-    setState(() {
-      final idx = _items.indexWhere((e) => e.id == item.id);
-      if (idx != -1) _items[idx] = hasil;
-    });
-    await _persist();
+    try {
+      final hasil = await showBarangFormSheet(context, existing: item);
+      if (hasil == null) return;
+      setState(() {
+        final idx = _items.indexWhere((e) => e.id == item.id);
+        if (idx != -1) _items[idx] = hasil;
+      });
+      await _persist();
+    } catch (e) {
+      if (!mounted) return;
+      _showError('Gagal mengubah barang: $e');
+    }
   }
 
   Future<void> _hapusBarang(BarangItem item) async {
-    final konfirmasi = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Hapus Barang'),
-        content: Text('Hapus "${item.nama}" dari daftar?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Batal'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-    if (konfirmasi != true) return;
-    setState(() => _items.removeWhere((e) => e.id == item.id));
-    await _persist();
+    try {
+      final konfirmasi = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Hapus Barang'),
+          content: Text('Hapus "${item.nama}" dari daftar?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Batal'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child:
+                  const Text('Hapus', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        ),
+      );
+      if (konfirmasi != true) return;
+      setState(() => _items.removeWhere((e) => e.id == item.id));
+      await _persist();
+    } catch (e) {
+      if (!mounted) return;
+      _showError('Gagal menghapus barang: $e');
+    }
   }
 
   List<BarangItem> _contohData() => [
@@ -231,8 +231,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
-                      'Ketuk baris untuk edit, tekan lama untuk hapus. '
-                      'Geser tabel ke samping untuk lihat semua kolom.',
+                      'Ketuk baris untuk edit, tekan lama untuk hapus.',
                       style:
                           TextStyle(fontSize: 11, color: Colors.grey.shade600),
                     ),
@@ -240,58 +239,44 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
-          SingleChildScrollView(
-            controller: _headerScrollCtrl,
-            scrollDirection: Axis.horizontal,
-            physics: const NeverScrollableScrollPhysics(),
-            child: SizedBox(width: _tableWidth, child: _buildHeaderRow()),
-          ),
+          _buildHeaderRow(),
           Expanded(
             child: _items.isEmpty
                 ? const Center(child: Text('Belum ada barang'))
-                : SingleChildScrollView(
-                    controller: _bodyScrollCtrl,
-                    scrollDirection: Axis.horizontal,
-                    child: SizedBox(
-                      width: _tableWidth,
-                      child: ListView.separated(
-                        itemCount: _items.length,
-                        separatorBuilder: (_, __) =>
-                            Divider(height: 1, color: Colors.grey.shade200),
-                        itemBuilder: (ctx, i) =>
-                            _buildItemRow(_items[i], i + 1),
-                      ),
-                    ),
+                : ListView.separated(
+                    itemCount: _items.length,
+                    separatorBuilder: (_, __) =>
+                        Divider(height: 1, color: Colors.grey.shade200),
+                    itemBuilder: (ctx, i) => _buildItemRow(_items[i], i + 1),
                   ),
           ),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            physics: const NeverScrollableScrollPhysics(),
-            child: SizedBox(width: _tableWidth, child: _buildTotalRow()),
-          ),
+          _buildTotalRow(),
         ],
       ),
     );
   }
 
-  Widget _cell(
-    Widget child, {
-    required double width,
-    Color? bg,
-  }) {
-    return Container(
-      width: width,
-      color: bg,
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-      alignment: Alignment.center,
-      child: child,
+  // Kolom pakai proporsi (flex) supaya muat di lebar layar HP tanpa perlu
+  // scroll horizontal. Struktur ini sengaja dibuat SEDERHANA (satu
+  // ListView vertikal biasa, tanpa nested SingleChildScrollView
+  // horizontal) supaya gesture tap/long-press pada baris pasti terdeteksi
+  // dengan baik di semua perangkat.
+  Widget _cell(Widget child, {required int flex, Color? bg}) {
+    return Expanded(
+      flex: flex,
+      child: Container(
+        color: bg,
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 3),
+        alignment: Alignment.center,
+        child: child,
+      ),
     );
   }
 
   Widget _buildHeaderRow() {
     TextStyle style(Color fg) =>
-        TextStyle(fontWeight: FontWeight.bold, color: fg, fontSize: 12);
-    Widget headText(String text, {Color? bg, Color fg = Colors.black87}) =>
+        TextStyle(fontWeight: FontWeight.bold, color: fg, fontSize: 10);
+    Widget headText(String text, {Color fg = Colors.black87}) =>
         Text(text, textAlign: TextAlign.center, style: style(fg));
 
     return Container(
@@ -300,60 +285,76 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       child: Row(
         children: [
-          _cell(headText('NO'), width: _wNo),
-          _cell(headText('BARANG'), width: _wNama),
-          _cell(headText('JML'), width: _wJml),
-          _cell(headText('P'), width: _wUkuran, bg: Colors.green.shade200),
-          _cell(headText('L'), width: _wUkuran, bg: Colors.green.shade200),
-          _cell(headText('T'), width: _wUkuran, bg: Colors.green.shade200),
-          _cell(headText('VOL 5000', fg: Colors.white),
-              width: _wVolume, bg: Colors.red),
-          _cell(headText('KUBIKASI (M³)', fg: Colors.white),
-              width: _wKubikasi, bg: Colors.red.shade700),
+          _cell(headText('NO'), flex: 1),
+          _cell(headText('BARANG'), flex: 5),
+          _cell(headText('JML'), flex: 2),
+          _cell(headText('P'), flex: 2, bg: Colors.green.shade200),
+          _cell(headText('L'), flex: 2, bg: Colors.green.shade200),
+          _cell(headText('T'), flex: 2, bg: Colors.green.shade200),
+          _cell(headText('VOL\n5000', fg: Colors.white),
+              flex: 3, bg: Colors.red),
+          _cell(headText('KUBI-\nKASI', fg: Colors.white),
+              flex: 3, bg: Colors.red.shade700),
         ],
       ),
     );
   }
 
   Widget _buildItemRow(BarangItem item, int no) {
-    return InkWell(
-      onTap: () => _editBarang(item),
-      onLongPress: () => _hapusBarang(item),
-      child: Row(
-        children: [
-          _cell(Text('$no'), width: _wNo),
-          _cell(
-            Text(item.nama,
-                textAlign: TextAlign.left,
-                overflow: TextOverflow.ellipsis,
-                maxLines: 2),
-            width: _wNama,
-          ),
-          _cell(Text('${item.jumlah}'), width: _wJml),
-          _cell(Text(_fmtUkuran(item.panjang)), width: _wUkuran),
-          _cell(Text(_fmtUkuran(item.lebar)), width: _wUkuran),
-          _cell(Text(_fmtUkuran(item.tinggi)), width: _wUkuran),
-          _cell(
-            Text(
-              _fmt(item.volume),
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.red,
-              ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _editBarang(item),
+        onLongPress: () => _hapusBarang(item),
+        child: Row(
+          children: [
+            _cell(Text('$no', style: const TextStyle(fontSize: 11)), flex: 1),
+            _cell(
+              Text(item.nama,
+                  textAlign: TextAlign.left,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
+                  style: const TextStyle(fontSize: 11)),
+              flex: 5,
             ),
-            width: _wVolume,
-          ),
-          _cell(
-            Text(
-              _fmtKubikasi(item.kubikasi),
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.red.shade700,
+            _cell(Text('${item.jumlah}', style: const TextStyle(fontSize: 11)),
+                flex: 2),
+            _cell(
+                Text(_fmtUkuran(item.panjang),
+                    style: const TextStyle(fontSize: 11)),
+                flex: 2),
+            _cell(
+                Text(_fmtUkuran(item.lebar),
+                    style: const TextStyle(fontSize: 11)),
+                flex: 2),
+            _cell(
+                Text(_fmtUkuran(item.tinggi),
+                    style: const TextStyle(fontSize: 11)),
+                flex: 2),
+            _cell(
+              Text(
+                _fmt(item.volume),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red,
+                  fontSize: 11,
+                ),
               ),
+              flex: 3,
             ),
-            width: _wKubikasi,
-          ),
-        ],
+            _cell(
+              Text(
+                _fmtKubikasi(item.kubikasi),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red.shade700,
+                  fontSize: 10,
+                ),
+              ),
+              flex: 3,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -369,32 +370,32 @@ class _HomeScreenState extends State<HomeScreen> {
           _cell(
             Text(
               'TOTAL ($_totalJumlah)',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
               textAlign: TextAlign.left,
             ),
-            width: _wNo + _wNama + _wJml + (_wUkuran * 3),
+            flex: 10,
           ),
           _cell(
             Text(
               _fmt(_totalVolume),
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
-                fontSize: 14,
+                fontSize: 12,
                 color: Colors.red,
               ),
             ),
-            width: _wVolume,
+            flex: 3,
           ),
           _cell(
             Text(
               _fmtKubikasi(_totalKubikasi),
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                fontSize: 14,
+                fontSize: 11,
                 color: Colors.red.shade700,
               ),
             ),
-            width: _wKubikasi,
+            flex: 3,
           ),
         ],
       ),
