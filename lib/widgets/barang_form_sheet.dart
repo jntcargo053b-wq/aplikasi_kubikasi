@@ -34,7 +34,7 @@ class _BarangFormContent extends StatefulWidget {
 }
 
 class _BarangFormContentState extends State<_BarangFormContent> {
-  final TextEditingController _beratCtrl = TextEditingController();
+  late final TextEditingController _beratCtrl;
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _namaCtrl;
   late final TextEditingController _jumlahCtrl;
@@ -48,6 +48,7 @@ class _BarangFormContentState extends State<_BarangFormContent> {
   void initState() {
     super.initState();
     final e = widget.existing;
+    _beratCtrl = TextEditingController(text: _fmtInput(e?.berat));
     _namaCtrl = TextEditingController(text: e?.nama ?? '');
     _jumlahCtrl = TextEditingController(text: (e?.jumlah ?? 1).toString());
     _panjangCtrl = TextEditingController(text: _fmtInput(e?.panjang));
@@ -157,27 +158,37 @@ class _BarangFormContentState extends State<_BarangFormContent> {
                 },
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child:               TextFormField(
+              const SizedBox(height: 12),
+              TextFormField(
                 controller: _beratCtrl,
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
                 decoration: const InputDecoration(
-                  labelText: 'Berat',
+                  labelText: 'Berat per unit',
                   suffixText: 'kg',
                   prefixIcon: Icon(
                     Icons.scale_outlined,
                     size: 20,
                   ),
                 ),
+                validator: (v) {
+                  final n = double.tryParse(
+                    (v ?? '').replaceAll(',', '.'),
+                  );
+                  if (n == null || n < 0) return 'Berat tidak valid';
+                  return null;
+                },
               ),
-TextFormField(
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
                       controller: _panjangCtrl,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: const InputDecoration(
                         labelText: 'Panjang',
                         suffixText: 'cm',
@@ -189,8 +200,9 @@ TextFormField(
                   Expanded(
                     child: TextFormField(
                       controller: _lebarCtrl,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: const InputDecoration(
                         labelText: 'Lebar',
                         suffixText: 'cm',
@@ -202,8 +214,9 @@ TextFormField(
                   Expanded(
                     child: TextFormField(
                       controller: _tinggiCtrl,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: const InputDecoration(
                         labelText: 'Tinggi',
                         suffixText: 'cm',
