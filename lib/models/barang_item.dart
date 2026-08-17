@@ -1,4 +1,4 @@
-/// Faktor volumetrik untuk VOL 5000 (cm³ → kg)
+/// Faktor pembagi volumetrik standar logistik (P x L x T (cm) / 5000).
 /// Ini adalah rumus "volume weight" yang umum dipakai jasa ekspedisi.
 const double kFaktorVolumetrik = 5000;
 
@@ -9,9 +9,9 @@ class BarangItem {
   String id;
   String nama;
   int jumlah;
-  double panjang;
-  double lebar;
-  double tinggi;
+  double panjang; // cm
+  double lebar; // cm
+  double tinggi; // cm
 
   BarangItem({
     required this.id,
@@ -22,7 +22,7 @@ class BarangItem {
     required this.tinggi,
   });
 
-  /// Volume per baris (VOL 5000) = (P x L x T / 5000) x Jumlah
+  /// Volume per baris = (P x L x T / 5000) x Jumlah
   double get volume =>
       (panjang * lebar * tinggi / kFaktorVolumetrik) * jumlah;
 
@@ -57,9 +57,9 @@ class BarangItem {
       };
 
   factory BarangItem.fromJson(Map<String, dynamic> json) => BarangItem(
-        id: json['id'],
-        nama: json['nama'],
-        jumlah: json['jumlah'],
+        id: json['id'] as String,
+        nama: json['nama'] as String,
+        jumlah: (json['jumlah'] as num).toInt(),
         panjang: (json['panjang'] as num).toDouble(),
         lebar: (json['lebar'] as num).toDouble(),
         tinggi: (json['tinggi'] as num).toDouble(),
