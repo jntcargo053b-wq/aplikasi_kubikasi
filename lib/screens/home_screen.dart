@@ -351,6 +351,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _cell(headText('L'), flex: 2, bg: const Color(0xFFE8F5E9)),
           _cell(headText('T'), flex: 2, bg: const Color(0xFFE8F5E9)),
           _cell(headText('VOL\n5000', fg: Colors.white), flex: 3, bg: AppColors.primary),
+          _cell(headText('BERAT\nKG', fg: AppColors.text), flex: 3, bg: const Color(0xFFFFF1D6)),
           _cell(headText('KUBIKASI\nM³', fg: Colors.white), flex: 3, bg: AppColors.primaryDark),
         ],
       ),
@@ -372,8 +373,39 @@ class _HomeScreenState extends State<HomeScreen> {
             _cell(Text(_fmtUkuran(item.panjang), style: const TextStyle(fontSize: 11.5)), flex: 2),
             _cell(Text(_fmtUkuran(item.lebar), style: const TextStyle(fontSize: 11.5)), flex: 2),
             _cell(Text(_fmtUkuran(item.tinggi), style: const TextStyle(fontSize: 11.5)), flex: 2),
-            _cell(Text(_fmt(item.volume), style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.primary, fontSize: 11.5)), flex: 3),
-            _cell(Text(_fmtKubikasi(item.kubikasi), style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.primaryDark, fontSize: 11)), flex: 3),
+            _cell(
+              Text(
+                _fmt(item.volume),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.primary,
+                  fontSize: 11.5,
+                ),
+              ),
+              flex: 3,
+            ),
+            _cell(
+              Text(
+                _fmt(item.berat),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.text,
+                  fontSize: 11.5,
+                ),
+              ),
+              flex: 3,
+            ),
+            _cell(
+              Text(
+                _fmtKubikasi(item.kubikasi),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.primaryDark,
+                  fontSize: 11,
+                ),
+              ),
+              flex: 3,
+            ),
           ],
         ),
       ),
@@ -402,7 +434,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Row(
         children: [
           Expanded(
-            flex: 14,
+            flex: 16,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Text(
@@ -421,9 +453,21 @@ class _HomeScreenState extends State<HomeScreen> {
               _fmt(_totalVolume),
               textAlign: TextAlign.right,
               style: const TextStyle(
-                fontSize: 15,
+                fontSize: 14,
                 fontWeight: FontWeight.w800,
                 color: AppColors.primary,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(
+              _fmt(_totalBerat),
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: AppColors.text,
               ),
             ),
           ),
@@ -435,7 +479,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 _fmtKubikasi(_totalKubikasi),
                 textAlign: TextAlign.right,
                 style: const TextStyle(
-                  fontSize: 15,
+                  fontSize: 14,
                   fontWeight: FontWeight.w800,
                   color: AppColors.primaryDark,
                 ),
