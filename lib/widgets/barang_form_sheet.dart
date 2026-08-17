@@ -296,15 +296,29 @@ class _BarangFormContentState extends State<_BarangFormContent> {
   }
 
   void _onSave() {
-    if (!_formKey.currentState!.validate()) return;
-    final item = BarangItem(
-      id: widget.existing?.id ?? const Uuid().v4(),
-      nama: _namaCtrl.text.trim(),
-      jumlah: int.parse(_jumlahCtrl.text),
-      panjang: double.parse(_panjangCtrl.text.replaceAll(',', '.')),
-      lebar: double.parse(_lebarCtrl.text.replaceAll(',', '.')),
-      tinggi: double.parse(_tinggiCtrl.text.replaceAll(',', '.')),
-    );
-    Navigator.of(context).pop(item);
+    try {
+      if (!_formKey.currentState!.validate()) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Masih ada isian yang belum valid, cek lagi ya.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+      final item = BarangItem(
+        id: widget.existing?.id ?? const Uuid().v4(),
+        nama: _namaCtrl.text.trim(),
+        jumlah: int.parse(_jumlahCtrl.text),
+        panjang: double.parse(_panjangCtrl.text.replaceAll(',', '.')),
+        lebar: double.parse(_lebarCtrl.text.replaceAll(',', '.')),
+        tinggi: double.parse(_tinggiCtrl.text.replaceAll(',', '.')),
+      );
+      Navigator.of(context).pop(item);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal menyimpan: $e'), backgroundColor: Colors.red),
+      );
+    }
   }
 }
