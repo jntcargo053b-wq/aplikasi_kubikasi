@@ -380,6 +380,13 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  double get _totalBerat {
+    return _items.fold<double>(
+      0,
+      (sum, item) => sum + item.jumlah * item.berat,
+    );
+  }
+
   Widget _buildTotalRow() {
     return Container(
       constraints: const BoxConstraints(minHeight: 58),
