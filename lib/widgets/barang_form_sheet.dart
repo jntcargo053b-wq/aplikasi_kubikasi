@@ -34,6 +34,7 @@ class _BarangFormContent extends StatefulWidget {
 }
 
 class _BarangFormContentState extends State<_BarangFormContent> {
+  final TextEditingController _beratCtrl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _namaCtrl;
   late final TextEditingController _jumlahCtrl;
@@ -89,6 +90,7 @@ class _BarangFormContentState extends State<_BarangFormContent> {
 
   @override
   void dispose() {
+    _beratCtrl.dispose();
     _namaCtrl.dispose();
     _jumlahCtrl.dispose();
     _panjangCtrl.dispose();
@@ -158,7 +160,21 @@ class _BarangFormContentState extends State<_BarangFormContent> {
               Row(
                 children: [
                   Expanded(
-                    child: TextFormField(
+                    child:               TextFormField(
+                controller: _beratCtrl,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(
+                  labelText: 'Berat',
+                  suffixText: 'kg',
+                  prefixIcon: Icon(
+                    Icons.scale_outlined,
+                    size: 20,
+                  ),
+                ),
+              ),
+TextFormField(
                       controller: _panjangCtrl,
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
@@ -317,6 +333,7 @@ class _BarangFormContentState extends State<_BarangFormContent> {
         id: widget.existing?.id ?? const Uuid().v4(),
         nama: _namaCtrl.text.trim(),
         jumlah: int.parse(_jumlahCtrl.text),
+        berat: double.tryParse(_beratCtrl.text.replaceAll(',', '.')) ?? 0,
         panjang: double.parse(_panjangCtrl.text.replaceAll(',', '.')),
         lebar: double.parse(_lebarCtrl.text.replaceAll(',', '.')),
         tinggi: double.parse(_tinggiCtrl.text.replaceAll(',', '.')),
