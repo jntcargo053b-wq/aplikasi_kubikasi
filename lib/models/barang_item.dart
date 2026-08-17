@@ -12,6 +12,7 @@ class BarangItem {
   double panjang; // cm
   double lebar; // cm
   double tinggi; // cm
+  double berat; // kg per unit
 
   BarangItem({
     required this.id,
@@ -20,6 +21,7 @@ class BarangItem {
     required this.panjang,
     required this.lebar,
     required this.tinggi,
+    this.berat = 0,
   });
 
   /// Volume per baris = (P x L x T / 5000) x Jumlah
@@ -36,6 +38,7 @@ class BarangItem {
     double? panjang,
     double? lebar,
     double? tinggi,
+    double? berat,
   }) {
     return BarangItem(
       id: id,
@@ -44,6 +47,7 @@ class BarangItem {
       panjang: panjang ?? this.panjang,
       lebar: lebar ?? this.lebar,
       tinggi: tinggi ?? this.tinggi,
+      berat: berat ?? this.berat,
     );
   }
 
@@ -54,6 +58,7 @@ class BarangItem {
         'panjang': panjang,
         'lebar': lebar,
         'tinggi': tinggi,
+        'berat': berat,
       };
 
   factory BarangItem.fromJson(Map<String, dynamic> json) => BarangItem(
@@ -63,5 +68,6 @@ class BarangItem {
         panjang: (json['panjang'] as num).toDouble(),
         lebar: (json['lebar'] as num).toDouble(),
         tinggi: (json['tinggi'] as num).toDouble(),
+        berat: (json['berat'] as num?)?.toDouble() ?? 0,
       );
 }
