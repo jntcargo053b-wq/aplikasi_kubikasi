@@ -246,13 +246,6 @@ class _HomeScreenState extends State<HomeScreen> {
         icon: const Icon(Icons.add_rounded),
         label: const Text('Tambah Barang', style: TextStyle(fontWeight: FontWeight.w700)),
       ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-          child: _buildTotalSummary(),
-        ),
-      ),
       body: Column(
         children: [
           if (_items.isNotEmpty) _buildGuide(),
@@ -261,11 +254,22 @@ class _HomeScreenState extends State<HomeScreen> {
             child: _items.isEmpty
                 ? _buildEmptyState()
                 : ListView.separated(
-                    padding: const EdgeInsets.only(bottom: 96),
+                    padding: const EdgeInsets.only(bottom: 8),
                     itemCount: _items.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.border),
-                    itemBuilder: (ctx, i) => _buildItemRow(_items[i], i + 1),
+                    separatorBuilder: (_, __) => const Divider(
+                      height: 1,
+                      color: AppColors.border,
+                    ),
+                    itemBuilder: (ctx, i) =>
+                        _buildItemRow(_items[i], i + 1),
                   ),
+          ),
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+              child: _buildTotalSummary(),
+            ),
           ),
         ],
       ),
@@ -384,6 +388,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildTotalSummary() {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
         color: const Color(0xFFF9FAFB),
