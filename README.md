@@ -38,3 +38,58 @@ dengan error "not a Gradle project". Selalu generate lewat Flutter SDK:
 
 ```bash
 flutter create -t app .
+```
+
+Perintah ini menambahkan folder `android/`, `ios/`, `web/`, dll secara
+lengkap (settings.gradle, app/build.gradle, gradle wrapper, MainActivity,
+res/, dst.) tanpa menimpa `lib/` maupun `pubspec.yaml` yang sudah ada.
+Setelah itu commit foldernya supaya CI tidak perlu generate ulang setiap
+build:
+
+```bash
+git add android
+git commit -m "Add complete Android platform scaffold"
+git push
+```
+
+## Cara menjalankan
+
+```bash
+flutter pub get
+flutter run
+```
+
+## Cara build APK
+
+```bash
+flutter build apk --release
+```
+
+APK hasil build ada di `build/app/outputs/flutter-apk/app-release.apk`.
+
+## CI (GitHub Actions)
+
+Workflow ada di `.github/workflows/build_apk.yml`, menggunakan Flutter SDK
+asli (channel stable terbaru, via `subosito/flutter-action`) — bukan
+`dart pub`/`dart-lang/setup-dart`. Workflow ini juga otomatis menjalankan
+`flutter create -t app --platforms=android .` di CI kalau
+`android/settings.gradle` belum ada/tidak lengkap, supaya build tetap
+jalan walau folder `android/` belum di-commit.
+
+## Struktur project
+
+```
+lib/
+  main.dart                     # entry point
+  models/barang_item.dart       # model data + rumus VOL 5000 & KUBIKASI
+  services/storage_service.dart # simpan/muat data lokal
+  screens/home_screen.dart      # layar utama (tabel + total)
+  widgets/barang_form_sheet.dart# form tambah/edit dengan live preview
+```
+
+## Kemungkinan pengembangan lanjutan
+
+- Export ke PDF/Excel (list barang + total)
+- Multi-daftar (per pengiriman / per pelanggan)
+- Scan barcode/foto barang seperti di TermulScan
+- Kalkulasi biaya (VOL 5000 × tarif per kg)
