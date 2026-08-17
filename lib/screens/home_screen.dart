@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 import '../models/barang_item.dart';
 import '../services/storage_service.dart';
 import '../widgets/barang_form_sheet.dart';
@@ -12,6 +12,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final _storage = StorageService();
   List<BarangItem> _items = [];
   bool _loading = true;
 
@@ -51,18 +52,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final data = await StorageService.loadItems(prefs);
+    var items = await _storage.load();
+    if (items.isEmpty) {
+      items = _contohData();
+      await _storage.save(items);
+    }
     setState(() {
-      _items = data;
+      _items = items;
       _loading = false;
     });
   }
 
-  Future<void> _saveData() async {
-    final prefs = await SharedPreferences.getInstance();
-    await StorageService.saveItems(prefs, _items);
-  }
+  Future<void> _persist() => _storage.save(_items);
 
   int get _totalJumlah => _items.fold(0, (sum, e) => sum + e.jumlah);
   double get _totalVolume => _items.fold(0.0, (sum, e) => sum + e.volume);
@@ -76,61 +77,136 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _tambahBarang() async {
-    final item = await showBarangFormSheet(context);
-    if (item != null) {
-      setState(() {
-        _items.add(item);
-      });
-      await _saveData();
-    }
+    final baru = await showBarangFormSheet(context);
+    if (baru == null) return;
+    setState(() => _items.add(baru));
+    await _persist();
   }
 
   Future<void> _editBarang(BarangItem item) async {
-    final updated = await showBarangFormSheet(context, existing: item);
-    if (updated != null) {
-      final index = _items.indexWhere((e) => e.id == updated.id);
-      if (index != -1) {
-        setState(() {
-          _items[index] = updated;
-        });
-        await _saveData();
-      }
-    }
+    final hasil = await showBarangFormSheet(context, existing: item);
+    if (hasil == null) return;
+    setState(() {
+      final idx = _items.indexWhere((e) => e.id == item.id);
+      if (idx != -1) _items[idx] = hasil;
+    });
+    await _persist();
   }
 
   Future<void> _hapusBarang(BarangItem item) async {
-    final confirm = await showDialog<bool>(
+    final konfirmasi = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Hapus Barang'),
-        content: Text('Yakin hapus "${item.nama}"?'),
+        content: Text('Hapus "${item.nama}" dari daftar?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
+            onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Batal'),
           ),
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Hapus'),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
-    if (confirm == true) {
-      setState(() {
-        _items.removeWhere((e) => e.id == item.id);
-      });
-      await _saveData();
-    }
+    if (konfirmasi != true) return;
+    setState(() => _items.removeWhere((e) => e.id == item.id));
+    await _persist();
   }
+
+  List<BarangItem> _contohData() => [
+        BarangItem(
+            id: const Uuid().v4(),
+            nama: 'LEMARI',
+            jumlah: 1,
+            panjang: 182,
+            lebar: 54,
+            tinggi: 168),
+        BarangItem(
+            id: const Uuid().v4(),
+            nama: 'SISI BED',
+            jumlah: 1,
+            panjang: 192,
+            lebar: 18,
+            tinggi: 5),
+        BarangItem(
+            id: const Uuid().v4(),
+            nama: 'KAKI BED',
+            jumlah: 1,
+            panjang: 127,
+            lebar: 50,
+            tinggi: 5),
+        BarangItem(
+            id: const Uuid().v4(),
+            nama: 'KEPALA BED',
+            jumlah: 1,
+            panjang: 127,
+            lebar: 24,
+            tinggi: 80),
+        BarangItem(
+            id: const Uuid().v4(),
+            nama: 'BUFET',
+            jumlah: 1,
+            panjang: 63,
+            lebar: 33,
+            tinggi: 175),
+        BarangItem(
+            id: const Uuid().v4(),
+            nama: 'TOALET / MEJA RIAS',
+            jumlah: 1,
+            panjang: 120,
+            lebar: 38,
+            tinggi: 170),
+        BarangItem(
+            id: const Uuid().v4(),
+            nama: 'LEMARI PUTIH',
+            jumlah: 1,
+            panjang: 150,
+            lebar: 39,
+            tinggi: 138),
+        BarangItem(
+            id: const Uuid().v4(),
+            nama: 'MEJA KECIL',
+            jumlah: 1,
+            panjang: 46,
+            lebar: 82,
+            tinggi: 62),
+        BarangItem(
+            id: const Uuid().v4(),
+            nama: 'ALAS TEMPAT TIDUR',
+            jumlah: 1,
+            panjang: 120,
+            lebar: 10,
+            tinggi: 20),
+        BarangItem(
+            id: const Uuid().v4(),
+            nama: 'LACI',
+            jumlah: 1,
+            panjang: 37,
+            lebar: 19,
+            tinggi: 38),
+        BarangItem(
+            id: const Uuid().v4(),
+            nama: 'KURSI LIPAT',
+            jumlah: 2,
+            panjang: 8,
+            lebar: 100,
+            tinggi: 45),
+        BarangItem(
+            id: const Uuid().v4(),
+            nama: 'KURSI TOALET (MEJA RIAS)',
+            jumlah: 1,
+            panjang: 43,
+            lebar: 53,
+            tinggi: 38),
+      ];
 
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     return Scaffold(
       appBar: AppBar(
@@ -138,9 +214,10 @@ class _HomeScreenState extends State<HomeScreen> {
         centerTitle: false,
         elevation: 0,
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: _tambahBarang,
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.add),
+        label: const Text('Tambah'),
       ),
       body: Column(
         children: [
