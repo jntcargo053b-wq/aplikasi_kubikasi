@@ -395,11 +395,11 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Row(
         children: [
           Expanded(
-            flex: 3,
+            flex: 14,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Text(
-                'TOTAL (${_items.length})',
+                'TOTAL ($_totalJumlah)',
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
@@ -409,9 +409,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           Expanded(
-            flex: 2,
+            flex: 3,
             child: Text(
-              _formatVolume(_totalVolume),
+              _fmt(_totalVolume),
               textAlign: TextAlign.right,
               style: const TextStyle(
                 fontSize: 15,
@@ -421,11 +421,11 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           Expanded(
-            flex: 2,
+            flex: 3,
             child: Padding(
               padding: const EdgeInsets.only(right: 12),
               child: Text(
-                _formatKubikasi(_totalKubikasi),
+                _fmtKubikasi(_totalKubikasi),
                 textAlign: TextAlign.right,
                 style: const TextStyle(
                   fontSize: 15,
