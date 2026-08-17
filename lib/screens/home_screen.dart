@@ -219,6 +219,11 @@ class _HomeScreenState extends State<HomeScreen> {
         icon: const Icon(Icons.add),
         label: const Text('Tambah'),
       ),
+      // TOTAL row dipindah ke bottomNavigationBar (bukan child terakhir
+      // body Column) supaya Scaffold otomatis mengangkat FAB di atasnya
+      // dengan jarak yang benar, sehingga FAB tidak pernah menutupi
+      // angka TOTAL VOL/KUBIKASI di pojok kanan bawah.
+      bottomNavigationBar: SafeArea(child: _buildTotalRow()),
       body: Column(
         children: [
           if (_items.isNotEmpty)
@@ -242,16 +247,46 @@ class _HomeScreenState extends State<HomeScreen> {
           _buildHeaderRow(),
           Expanded(
             child: _items.isEmpty
-                ? const Center(child: Text('Belum ada barang'))
+                ? _buildEmptyState()
                 : ListView.separated(
+                    padding: const EdgeInsets.only(bottom: 80),
                     itemCount: _items.length,
                     separatorBuilder: (_, __) =>
                         Divider(height: 1, color: Colors.grey.shade200),
                     itemBuilder: (ctx, i) => _buildItemRow(_items[i], i + 1),
                   ),
           ),
-          _buildTotalRow(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.inventory_2_outlined,
+                size: 64, color: Colors.grey.shade300),
+            const SizedBox(height: 16),
+            Text(
+              'Belum ada barang',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Tekan tombol "Tambah" di bawah untuk mulai\nmenghitung volume & kubikasi barang.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -275,7 +310,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildHeaderRow() {
     TextStyle style(Color fg) =>
-        TextStyle(fontWeight: FontWeight.bold, color: fg, fontSize: 10);
+        TextStyle(fontWeight: FontWeight.bold, color: fg, fontSize: 11);
     Widget headText(String text, {Color fg = Colors.black87}) =>
         Text(text, textAlign: TextAlign.center, style: style(fg));
 
@@ -291,53 +326,61 @@ class _HomeScreenState extends State<HomeScreen> {
           _cell(headText('P'), flex: 2, bg: Colors.green.shade200),
           _cell(headText('L'), flex: 2, bg: Colors.green.shade200),
           _cell(headText('T'), flex: 2, bg: Colors.green.shade200),
-          _cell(headText('VOL\n5000', fg: Colors.white),
-              flex: 3, bg: Colors.red),
-          _cell(headText('KUBI-\nKASI', fg: Colors.white),
-              flex: 3, bg: Colors.red.shade700),
+          _cell(
+            Tooltip(
+              message: 'Volume timbang (P x L x T / 5000)',
+              child: headText('VOL\nTIMBANG', fg: Colors.white),
+            ),
+            flex: 3,
+            bg: Colors.red.shade600,
+          ),
+          _cell(headText('KUBI-\nKASI (M³)', fg: Colors.white),
+              flex: 3, bg: Colors.red.shade800),
         ],
       ),
     );
   }
 
   Widget _buildItemRow(BarangItem item, int no) {
+    final zebraBg = no.isEven ? Colors.grey.shade50 : Colors.white;
     return Material(
-      color: Colors.transparent,
+      color: zebraBg,
       child: InkWell(
         onTap: () => _editBarang(item),
         onLongPress: () => _hapusBarang(item),
         child: Row(
           children: [
-            _cell(Text('$no', style: const TextStyle(fontSize: 11)), flex: 1),
+            _cell(Text('$no', style: const TextStyle(fontSize: 12)), flex: 1),
             _cell(
               Text(item.nama,
                   textAlign: TextAlign.left,
                   overflow: TextOverflow.ellipsis,
                   maxLines: 2,
-                  style: const TextStyle(fontSize: 11)),
+                  style: const TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.w500)),
               flex: 5,
             ),
-            _cell(Text('${item.jumlah}', style: const TextStyle(fontSize: 11)),
+            _cell(Text('${item.jumlah}', style: const TextStyle(fontSize: 12)),
                 flex: 2),
             _cell(
                 Text(_fmtUkuran(item.panjang),
-                    style: const TextStyle(fontSize: 11)),
+                    style: const TextStyle(fontSize: 12)),
                 flex: 2),
             _cell(
                 Text(_fmtUkuran(item.lebar),
-                    style: const TextStyle(fontSize: 11)),
+                    style: const TextStyle(fontSize: 12)),
                 flex: 2),
             _cell(
                 Text(_fmtUkuran(item.tinggi),
-                    style: const TextStyle(fontSize: 11)),
+                    style: const TextStyle(fontSize: 12)),
                 flex: 2),
             _cell(
               Text(
                 _fmt(item.volume),
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: Colors.red,
-                  fontSize: 11,
+                  color: Colors.red.shade600,
+                  fontSize: 12,
                 ),
               ),
               flex: 3,
@@ -347,8 +390,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 _fmtKubikasi(item.kubikasi),
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: Colors.red.shade700,
-                  fontSize: 10,
+                  color: Colors.red.shade800,
+                  fontSize: 11,
                 ),
               ),
               flex: 3,
