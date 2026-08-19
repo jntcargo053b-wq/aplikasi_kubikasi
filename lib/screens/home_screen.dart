@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../app_theme.dart';
 import 'package:uuid/uuid.dart';
@@ -16,6 +17,13 @@ class _HomeScreenState extends State<HomeScreen> {
   final _storage = StorageService();
   List<BarangItem> _items = [];
   bool _loading = true;
+
+  // Cache hasil File.existsSync() per path supaya tidak I/O sync tiap
+  // kali list di-rebuild (mis. tiap kali item lain ditambah/diedit/dihapus).
+  final Map<String, bool> _photoExistsCache = {};
+
+  bool _photoFileExists(String path) =>
+      _photoExistsCache.putIfAbsent(path, () => File(path).existsSync());
 
   @override
   void initState() {
@@ -77,6 +85,11 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final hasil = await showBarangFormSheet(context, existing: item);
       if (hasil == null) return;
+      // Foto lama sudah dihapus dari disk oleh form kalau diganti/dihapus;
+      // di sini cukup bersihkan entry cache-nya biar tidak menumpuk terus.
+      if (item.photoPath != null && item.photoPath != hasil.photoPath) {
+        _photoExistsCache.remove(item.photoPath);
+      }
       setState(() {
         final idx = _items.indexWhere((e) => e.id == item.id);
         if (idx != -1) _items[idx] = hasil;
@@ -111,6 +124,19 @@ class _HomeScreenState extends State<HomeScreen> {
       if (konfirmasi != true) return;
       setState(() => _items.removeWhere((e) => e.id == item.id));
       await _persist();
+      // Hapus juga file foto terkait supaya tidak jadi sampah di storage.
+      final path = item.photoPath;
+      if (path != null && path.isNotEmpty) {
+        _photoExistsCache.remove(path);
+        final file = File(path);
+        if (await file.exists()) {
+          try {
+            await file.delete();
+          } catch (_) {
+            // Gagal hapus file bukan fatal untuk alur hapus item.
+          }
+        }
+      }
     } catch (e) {
       if (!mounted) return;
       _showError('Gagal menghapus barang: $e');
@@ -321,12 +347,18 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _cell(Widget child, {required int flex, Color? bg, Alignment alignment = Alignment.center}) {
+  Widget _cell(
+    Widget child, {
+    required int flex,
+    Color? bg,
+    Alignment alignment = Alignment.center,
+  }) {
     return Expanded(
       flex: flex,
       child: Container(
         color: bg,
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 3),
+        constraints: const BoxConstraints(minHeight: 50),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
         alignment: alignment,
         child: child,
       ),
@@ -334,7 +366,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHeaderRow() {
-    TextStyle style(Color fg) => TextStyle(fontWeight: FontWeight.w800, color: fg, fontSize: 10);
+    TextStyle style(Color fg) => TextStyle(
+          fontWeight: FontWeight.w800,
+          color: fg,
+          fontSize: 10,
+          height: 1.15,
+        );
     Widget headText(String text, {Color fg = AppColors.muted}) => Text(text, textAlign: TextAlign.center, style: style(fg));
 
     return Container(
@@ -360,6 +397,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildItemRow(BarangItem item, int no) {
     final zebraBg = no.isEven ? const Color(0xFFFCFCFD) : Colors.white;
+
+    TextStyle normal = const TextStyle(
+      fontSize: 11,
+      color: AppColors.text,
+      height: 1.15,
+    );
+    TextStyle number = const TextStyle(
+      fontSize: 11,
+      color: AppColors.text,
+      height: 1.15,
+    );
+
     return Material(
       color: zebraBg,
       child: InkWell(
@@ -367,19 +416,61 @@ class _HomeScreenState extends State<HomeScreen> {
         onLongPress: () => _hapusBarang(item),
         child: Row(
           children: [
-            _cell(Text('$no', style: const TextStyle(fontSize: 11.5, color: AppColors.muted)), flex: 1),
-            _cell(Text(item.nama, textAlign: TextAlign.left, overflow: TextOverflow.ellipsis, maxLines: 2, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppColors.text)), flex: 5, alignment: Alignment.centerLeft),
-            _cell(Text('${item.jumlah}', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)), flex: 2),
-            _cell(Text(_fmtUkuran(item.panjang), style: const TextStyle(fontSize: 11.5)), flex: 2),
-            _cell(Text(_fmtUkuran(item.lebar), style: const TextStyle(fontSize: 11.5)), flex: 2),
-            _cell(Text(_fmtUkuran(item.tinggi), style: const TextStyle(fontSize: 11.5)), flex: 2),
+            _cell(
+              Text(
+                '$no',
+                style: const TextStyle(
+                  fontSize: 10.5,
+                  color: AppColors.muted,
+                ),
+              ),
+              flex: 1,
+            ),
+            _cell(
+              Row(
+                children: [
+                  _buildItemThumbnail(item),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      item.nama,
+                      textAlign: TextAlign.left,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.text,
+                        height: 1.15,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              flex: 5,
+              alignment: Alignment.centerLeft,
+            ),
+            _cell(
+              Text(
+                '${item.jumlah}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.text,
+                ),
+              ),
+              flex: 2,
+            ),
+            _cell(Text(_fmtUkuran(item.panjang), style: number), flex: 2),
+            _cell(Text(_fmtUkuran(item.lebar), style: number), flex: 2),
+            _cell(Text(_fmtUkuran(item.tinggi), style: number), flex: 2),
             _cell(
               Text(
                 _fmt(item.volume),
                 style: const TextStyle(
+                  fontSize: 10.5,
                   fontWeight: FontWeight.w800,
                   color: AppColors.primary,
-                  fontSize: 11.5,
                 ),
               ),
               flex: 3,
@@ -388,9 +479,9 @@ class _HomeScreenState extends State<HomeScreen> {
               Text(
                 _fmt(item.berat),
                 style: const TextStyle(
-                  fontWeight: FontWeight.w800,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
                   color: AppColors.text,
-                  fontSize: 11.5,
                 ),
               ),
               flex: 3,
@@ -399,12 +490,69 @@ class _HomeScreenState extends State<HomeScreen> {
               Text(
                 _fmtKubikasi(item.kubikasi),
                 style: const TextStyle(
+                  fontSize: 10.5,
                   fontWeight: FontWeight.w800,
                   color: AppColors.primaryDark,
-                  fontSize: 11,
                 ),
               ),
               flex: 3,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+  Widget _buildItemThumbnail(BarangItem item) {
+    final path = item.photoPath;
+    final hasPhoto =
+        path != null && path.isNotEmpty && _photoFileExists(path);
+    return GestureDetector(
+      onTap: hasPhoto ? () => _showPhotoPreview(path!) : null,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(5),
+        child: SizedBox(
+          width: 34, height: 34,
+          child: hasPhoto
+              ? Image.file(
+                  File(path!),
+                  fit: BoxFit.cover,
+                  // Decode sesuai ukuran tampil (34dp), bukan resolusi asli
+                  // foto (bisa sampai 1400x1400) — ini yang paling boros
+                  // memory kalau daftar barang panjang & banyak berfoto.
+                  cacheWidth:
+                      (34 * MediaQuery.of(context).devicePixelRatio).round(),
+                  cacheHeight:
+                      (34 * MediaQuery.of(context).devicePixelRatio).round(),
+                  errorBuilder: (_, __, ___) => _photoPlaceholder(),
+                )
+              : _photoPlaceholder(),
+        ),
+      ),
+    );
+  }
+
+  Widget _photoPlaceholder() {
+    return const ColoredBox(
+      color: Color(0xFFF0F2F5),
+      child: Icon(Icons.image_outlined, size: 17, color: AppColors.muted),
+    );
+  }
+
+  void _showPhotoPreview(String path) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => Dialog(
+        child: Stack(
+          children: [
+            InteractiveViewer(child: Image.file(File(path), fit: BoxFit.contain)),
+            Positioned(
+              top: 4, right: 4,
+              child: IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close),
+              ),
             ),
           ],
         ),
@@ -420,71 +568,79 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildTotalRow() {
+    const totalLabel = TextStyle(
+      fontSize: 11,
+      fontWeight: FontWeight.w800,
+      color: AppColors.text,
+    );
+    const totalNumber = TextStyle(
+      fontSize: 11,
+      fontWeight: FontWeight.w800,
+      color: AppColors.text,
+    );
+
     return Container(
-      constraints: const BoxConstraints(minHeight: 58),
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: Color(0xFFF7F8FA),
         border: Border(
           top: BorderSide(
             color: AppColors.border,
-            width: 1,
+            width: 1.2,
           ),
         ),
       ),
       child: Row(
         children: [
-          Expanded(
-            flex: 16,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Text(
-                'TOTAL ($_totalJumlah)',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.text,
-                ),
-              ),
-            ),
+          _cell(const SizedBox.shrink(), flex: 1, bg: const Color(0xFFF7F8FA)),
+          _cell(
+            const Text('TOTAL', style: totalLabel),
+            flex: 5,
+            bg: const Color(0xFFF7F8FA),
+            alignment: Alignment.centerLeft,
           ),
-          Expanded(
-            flex: 3,
-            child: Text(
+          _cell(
+            Text('$_totalJumlah', style: totalNumber),
+            flex: 2,
+            bg: const Color(0xFFF7F8FA),
+          ),
+          _cell(const SizedBox.shrink(), flex: 2, bg: const Color(0xFFF7F8FA)),
+          _cell(const SizedBox.shrink(), flex: 2, bg: const Color(0xFFF7F8FA)),
+          _cell(const SizedBox.shrink(), flex: 2, bg: const Color(0xFFF7F8FA)),
+          _cell(
+            Text(
               _fmt(_totalVolume),
-              textAlign: TextAlign.right,
               style: const TextStyle(
-                fontSize: 14,
+                fontSize: 11,
                 fontWeight: FontWeight.w800,
                 color: AppColors.primary,
               ),
             ),
-          ),
-          Expanded(
             flex: 3,
-            child: Text(
+            bg: const Color(0xFFF7F8FA),
+          ),
+          _cell(
+            Text(
               _fmt(_totalBerat),
-              textAlign: TextAlign.right,
               style: const TextStyle(
-                fontSize: 14,
+                fontSize: 11,
                 fontWeight: FontWeight.w800,
                 color: AppColors.text,
               ),
             ),
-          ),
-          Expanded(
             flex: 3,
-            child: Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: Text(
-                _fmtKubikasi(_totalKubikasi),
-                textAlign: TextAlign.right,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.primaryDark,
-                ),
+            bg: const Color(0xFFF7F8FA),
+          ),
+          _cell(
+            Text(
+              _fmtKubikasi(_totalKubikasi),
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: AppColors.primaryDark,
               ),
             ),
+            flex: 3,
+            bg: const Color(0xFFF7F8FA),
           ),
         ],
       ),
