@@ -14,6 +14,8 @@ class BarangItem {
   double tinggi; // cm
   double berat; // kg per unit
   String? photoPath;
+  String pengirim;
+  DateTime tanggal;
 
   BarangItem({
     required this.id,
@@ -24,7 +26,9 @@ class BarangItem {
     required this.tinggi,
     this.berat = 0,
     this.photoPath,
-  });
+    this.pengirim = '',
+    DateTime? tanggal,
+  }) : tanggal = tanggal ?? DateTime.now();
 
   /// Volume per baris = (P x L x T / 5000) x Jumlah
   double get volume =>
@@ -45,6 +49,8 @@ class BarangItem {
     double? berat,
     String? photoPath,
     bool clearPhoto = false,
+    String? pengirim,
+    DateTime? tanggal,
   }) {
     return BarangItem(
       id: id,
@@ -55,6 +61,8 @@ class BarangItem {
       tinggi: tinggi ?? this.tinggi,
       berat: berat ?? this.berat,
       photoPath: clearPhoto ? null : (photoPath ?? this.photoPath),
+      pengirim: pengirim ?? this.pengirim,
+      tanggal: tanggal ?? this.tanggal,
     );
   }
 
@@ -67,6 +75,8 @@ class BarangItem {
         'tinggi': tinggi,
         'berat': berat,
         if (photoPath != null) 'photoPath': photoPath,
+        'pengirim': pengirim,
+        'tanggal': tanggal.toIso8601String(),
       };
 
   factory BarangItem.fromJson(Map<String, dynamic> json) => BarangItem(
@@ -78,5 +88,9 @@ class BarangItem {
         tinggi: (json['tinggi'] as num).toDouble(),
         berat: (json['berat'] as num?)?.toDouble() ?? 0,
         photoPath: json['photoPath'] as String?,
+        pengirim: json['pengirim'] as String? ?? '',
+        tanggal: json['tanggal'] != null
+            ? DateTime.tryParse(json['tanggal'] as String) ?? DateTime.now()
+            : DateTime.now(),
       );
 }
