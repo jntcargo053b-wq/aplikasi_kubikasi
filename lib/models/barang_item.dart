@@ -1,3 +1,5 @@
+import 'package:uuid/uuid.dart';
+
 /// Faktor pembagi volumetrik standar logistik (P x L x T (cm) / 5000).
 /// Ini adalah rumus "volume weight" yang umum dipakai jasa ekspedisi.
 const double kFaktorVolumetrik = 5000;
@@ -79,13 +81,18 @@ class BarangItem {
         'tanggal': tanggal.toIso8601String(),
       };
 
+  // Pakai fallback null-safe di semua field (bukan cast paksa `as String`
+  // / `as num`) supaya data lama/rusak (mis. dari versi app sebelumnya yang
+  // skema-nya beda) tidak melempar exception saat parsing. Satu entri yang
+  // gagal parse dulu bisa membuat _storage.load() gagal total -> seluruh
+  // daftar barang tidak termuat.
   factory BarangItem.fromJson(Map<String, dynamic> json) => BarangItem(
-        id: json['id'] as String,
-        nama: json['nama'] as String,
-        jumlah: (json['jumlah'] as num).toInt(),
-        panjang: (json['panjang'] as num).toDouble(),
-        lebar: (json['lebar'] as num).toDouble(),
-        tinggi: (json['tinggi'] as num).toDouble(),
+        id: json['id'] as String? ?? const Uuid().v4(),
+        nama: json['nama'] as String? ?? '',
+        jumlah: (json['jumlah'] as num?)?.toInt() ?? 1,
+        panjang: (json['panjang'] as num?)?.toDouble() ?? 0,
+        lebar: (json['lebar'] as num?)?.toDouble() ?? 0,
+        tinggi: (json['tinggi'] as num?)?.toDouble() ?? 0,
         berat: (json['berat'] as num?)?.toDouble() ?? 0,
         photoPath: json['photoPath'] as String?,
         pengirim: json['pengirim'] as String? ?? '',
