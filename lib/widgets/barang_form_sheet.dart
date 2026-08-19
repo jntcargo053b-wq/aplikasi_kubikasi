@@ -1,4 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import '../app_theme.dart';
 import 'package:uuid/uuid.dart';
 import '../models/barang_item.dart';
@@ -34,6 +37,11 @@ class _BarangFormContent extends StatefulWidget {
 }
 
 class _BarangFormContentState extends State<_BarangFormContent> {
+  String? _photoPath;
+  // Di-cache supaya tidak panggil File.existsSync() (I/O sync) di setiap
+  // build(); hanya dihitung ulang saat _photoPath benar-benar berubah.
+  bool _hasPhotoFile = false;
+  bool _photoBusy = false;
   late final TextEditingController _beratCtrl;
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _namaCtrl;
@@ -46,6 +54,11 @@ class _BarangFormContentState extends State<_BarangFormContent> {
 
   @override
   void initState() {
+    _photoPath = widget.existing?.photoPath;
+    _hasPhotoFile = _photoPath != null &&
+        _photoPath!.isNotEmpty &&
+        File(_photoPath!).existsSync();
+
     super.initState();
     final e = widget.existing;
     _beratCtrl = TextEditingController(text: _fmtInput(e?.berat));
@@ -143,6 +156,8 @@ class _BarangFormContentState extends State<_BarangFormContent> {
                 validator: (v) =>
                     (v == null || v.trim().isEmpty) ? 'Wajib diisi' : null,
               ),
+              const SizedBox(height: 12),
+              _buildPhotoPicker(),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _jumlahCtrl,
@@ -325,6 +340,140 @@ class _BarangFormContentState extends State<_BarangFormContent> {
     );
   }
 
+
+  Widget _buildPhotoPicker() {
+    final hasPhoto = _hasPhotoFile;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: SizedBox(
+              width: 68, height: 68,
+              child: hasPhoto
+                  ? Image.file(
+                      File(_photoPath!),
+                      fit: BoxFit.cover,
+                      // Decode sesuai ukuran tampil (bukan resolusi asli
+                      // 1400x1400) supaya tidak boros memory per thumbnail.
+                      cacheWidth:
+                          (68 * MediaQuery.of(context).devicePixelRatio)
+                              .round(),
+                      cacheHeight:
+                          (68 * MediaQuery.of(context).devicePixelRatio)
+                              .round(),
+                      errorBuilder: (_, __, ___) => const ColoredBox(
+                        color: Color(0xFFEFF2F5),
+                        child: Icon(Icons.broken_image_outlined,
+                            color: AppColors.muted, size: 28),
+                      ),
+                    )
+                  : const ColoredBox(
+                      color: Color(0xFFEFF2F5),
+                      child: Icon(Icons.photo_camera_outlined, color: AppColors.muted, size: 28),
+                    ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Foto Barang', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: _photoBusy ? null : () => _pickPhoto(ImageSource.camera),
+                      icon: const Icon(Icons.camera_alt_outlined, size: 16),
+                      label: const Text('Kamera'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: _photoBusy ? null : () => _pickPhoto(ImageSource.gallery),
+                      icon: const Icon(Icons.photo_library_outlined, size: 16),
+                      label: const Text('Galeri'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (hasPhoto)
+            IconButton(
+              tooltip: 'Hapus foto',
+              onPressed: _photoBusy ? null : _removePhoto,
+              icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickPhoto(ImageSource source) async {
+    try {
+      setState(() => _photoBusy = true);
+      final picked = await ImagePicker().pickImage(
+        source: source, imageQuality: 82, maxWidth: 1400, maxHeight: 1400,
+      );
+      if (picked == null) return;
+      final dir = await getApplicationDocumentsDirectory();
+      final photoDir = Directory('${dir.path}/barang_photos');
+      await photoDir.create(recursive: true);
+      final dot = picked.path.lastIndexOf('.');
+      final ext = dot >= 0 ? picked.path.substring(dot) : '.jpg';
+      final file = File('${photoDir.path}/barang_${DateTime.now().millisecondsSinceEpoch}$ext');
+      await File(picked.path).copy(file.path);
+
+      // Hapus file foto lama (kalau ada) supaya tidak jadi sampah menumpuk
+      // di storage tiap kali user ganti foto.
+      final oldPath = _photoPath;
+      if (oldPath != null && oldPath.isNotEmpty && oldPath != file.path) {
+        final oldFile = File(oldPath);
+        if (await oldFile.exists()) {
+          try {
+            await oldFile.delete();
+          } catch (_) {
+            // Gagal hapus file lama bukan fatal, foto baru tetap dipakai.
+          }
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _photoPath = file.path;
+          _hasPhotoFile = true;
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _photoBusy = false);
+    }
+  }
+
+  Future<void> _removePhoto() async {
+    final oldPath = _photoPath;
+    setState(() {
+      _photoPath = null;
+      _hasPhotoFile = false;
+    });
+    if (oldPath != null && oldPath.isNotEmpty) {
+      final oldFile = File(oldPath);
+      if (await oldFile.exists()) {
+        try {
+          await oldFile.delete();
+        } catch (_) {
+          // Abaikan; foto sudah dilepas dari form walau file gagal dihapus.
+        }
+      }
+    }
+  }
+
   String? _validateUkuran(String? v) {
     final n = double.tryParse((v ?? '').replaceAll(',', '.'));
     if (n == null || n <= 0) return 'Tidak valid';
@@ -347,6 +496,7 @@ class _BarangFormContentState extends State<_BarangFormContent> {
         nama: _namaCtrl.text.trim(),
         jumlah: int.parse(_jumlahCtrl.text),
         berat: double.tryParse(_beratCtrl.text.replaceAll(',', '.')) ?? 0,
+        photoPath: _photoPath,
         panjang: double.parse(_panjangCtrl.text.replaceAll(',', '.')),
         lebar: double.parse(_lebarCtrl.text.replaceAll(',', '.')),
         tinggi: double.parse(_tinggiCtrl.text.replaceAll(',', '.')),
