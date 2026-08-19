@@ -320,6 +320,19 @@ class _BarangFormContentState extends State<_BarangFormContent> {
     );
   }
 
+  // Sama seperti _fmtTanggal di home_screen.dart: kalau data locale 'id_ID'
+  // belum siap/gagal dimuat, DateFormat('id_ID') melempar exception dan
+  // (di release build) bikin seluruh form ini gagal build -> layar abu-abu
+  // kosong tanpa pesan error apa pun. Fallback ke format netral supaya form
+  // tetap bisa dipakai walau locale Indonesia gagal ter-load.
+  String _fmtTanggalPicker(DateTime d) {
+    try {
+      return DateFormat('dd MMM yyyy', 'id_ID').format(d);
+    } catch (_) {
+      return DateFormat('dd/MM/yyyy').format(d);
+    }
+  }
+
   Widget _buildTanggalPicker() {
     return InkWell(
       onTap: _pickTanggal,
@@ -330,7 +343,7 @@ class _BarangFormContentState extends State<_BarangFormContent> {
           prefixIcon: Icon(Icons.calendar_today_outlined, size: 20),
         ),
         child: Text(
-          DateFormat('dd MMM yyyy', 'id_ID').format(_tanggal),
+          _fmtTanggalPicker(_tanggal),
           style: const TextStyle(fontSize: 14, color: AppColors.text),
         ),
       ),
