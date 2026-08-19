@@ -16,16 +16,31 @@ Future<BarangItem?> showBarangFormSheet(
   return showModalBottomSheet<BarangItem>(
     context: context,
     isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-    ),
-    backgroundColor: Colors.white,
-    builder: (ctx) => Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(ctx).viewInsets.bottom,
-      ),
-      child: _BarangFormContent(existing: existing),
-    ),
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    barrierColor: Colors.black54,
+    builder: (ctx) {
+      final media = MediaQuery.of(ctx);
+      final availableHeight = media.size.height - media.viewInsets.bottom;
+      final sheetHeight = availableHeight < media.size.height * 0.92
+          ? availableHeight
+          : media.size.height * 0.92;
+
+      return Align(
+        alignment: Alignment.bottomCenter,
+        child: Material(
+            color: Colors.white,
+            elevation: 8,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            clipBehavior: Clip.antiAlias,
+            child: SizedBox(
+              width: double.infinity,
+              height: sheetHeight.toDouble(),
+              child: _BarangFormContent(existing: existing),
+            ),
+          ),
+        );
+    },
   );
 }
 
@@ -57,12 +72,12 @@ class _BarangFormContentState extends State<_BarangFormContent> {
 
   @override
   void initState() {
+    super.initState();
     _photoPath = widget.existing?.photoPath;
     _hasPhotoFile = _photoPath != null &&
         _photoPath!.isNotEmpty &&
         File(_photoPath!).existsSync();
 
-    super.initState();
     final e = widget.existing;
     _beratCtrl = TextEditingController(text: _fmtInput(e?.berat));
     _namaCtrl = TextEditingController(text: e?.nama ?? '');
@@ -122,244 +137,188 @@ class _BarangFormContentState extends State<_BarangFormContent> {
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.existing != null;
-    return SafeArea(
-      child: Padding(
+    return Form(
+      key: _formKey,
+      child: ListView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
-        child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 14),
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          Text(
+            isEdit ? 'Edit Barang' : 'Tambah Barang',
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: AppColors.text,
+            ),
+          ),
+          const SizedBox(height: 14),
+          TextFormField(
+            controller: _namaCtrl,
+            textCapitalization: TextCapitalization.words,
+            decoration: const InputDecoration(
+              labelText: 'Nama Barang',
+              prefixIcon: Icon(Icons.inventory_2_outlined, size: 20),
+            ),
+            validator: (v) =>
+                (v == null || v.trim().isEmpty) ? 'Wajib diisi' : null,
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _pengirimCtrl,
+            textCapitalization: TextCapitalization.words,
+            decoration: const InputDecoration(
+              labelText: 'Nama Pengirim',
+              hintText: 'Contoh: PT Maju Jaya',
+              prefixIcon: Icon(Icons.person_outline_rounded, size: 20),
+            ),
+            validator: (v) => (v == null || v.trim().isEmpty)
+                ? 'Nama pengirim wajib diisi'
+                : null,
+          ),
+          const SizedBox(height: 12),
+          _buildTanggalPicker(),
+          const SizedBox(height: 12),
+          _buildPhotoPicker(),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _jumlahCtrl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Jumlah',
+              prefixIcon: Icon(Icons.numbers_rounded, size: 20),
+            ),
+            validator: (v) {
+              final n = int.tryParse(v ?? '');
+              if (n == null || n <= 0) return 'Jumlah tidak valid';
+              return null;
+            },
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _beratCtrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: 'Berat per unit',
+              suffixText: 'kg',
+              prefixIcon: Icon(Icons.scale_outlined, size: 20),
+            ),
+            validator: (v) {
+              final n = double.tryParse((v ?? '').replaceAll(',', '.'));
+              if (n == null || n < 0) return 'Berat tidak valid';
+              return null;
+            },
+          ),
+          const SizedBox(height: 12),
+          Row(
             children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 14),
-                  decoration: BoxDecoration(
-                    color: AppColors.border,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+              Expanded(
+                child: TextFormField(
+                  controller: _panjangCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'Panjang', suffixText: 'cm'),
+                  validator: _validateUkuran,
                 ),
               ),
-              Text(
-                isEdit ? 'Edit Barang' : 'Tambah Barang',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.text,
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextFormField(
+                  controller: _lebarCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'Lebar', suffixText: 'cm'),
+                  validator: _validateUkuran,
                 ),
               ),
-              const SizedBox(height: 14),
-              TextFormField(
-                controller: _namaCtrl,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(
-                  labelText: 'Nama Barang',
-                  prefixIcon: Icon(Icons.inventory_2_outlined, size: 20),
-                ),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Wajib diisi' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _pengirimCtrl,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(
-                  labelText: 'Nama Pengirim',
-                  hintText: 'Contoh: PT Maju Jaya',
-                  prefixIcon: Icon(Icons.person_outline_rounded, size: 20),
-                ),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Nama pengirim wajib diisi' : null,
-              ),
-              const SizedBox(height: 12),
-              _buildTanggalPicker(),
-              const SizedBox(height: 12),
-              _buildPhotoPicker(),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _jumlahCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Jumlah',
-                  prefixIcon: Icon(Icons.numbers_rounded, size: 20),
-                ),
-                validator: (v) {
-                  final n = int.tryParse(v ?? '');
-                  if (n == null || n <= 0) return 'Jumlah tidak valid';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _beratCtrl,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                decoration: const InputDecoration(
-                  labelText: 'Berat per unit',
-                  suffixText: 'kg',
-                  prefixIcon: Icon(
-                    Icons.scale_outlined,
-                    size: 20,
-                  ),
-                ),
-                validator: (v) {
-                  final n = double.tryParse(
-                    (v ?? '').replaceAll(',', '.'),
-                  );
-                  if (n == null || n < 0) return 'Berat tidak valid';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _panjangCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      decoration: const InputDecoration(
-                        labelText: 'Panjang',
-                        suffixText: 'cm',
-                      ),
-                      validator: _validateUkuran,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _lebarCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      decoration: const InputDecoration(
-                        labelText: 'Lebar',
-                        suffixText: 'cm',
-                      ),
-                      validator: _validateUkuran,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _tinggiCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      decoration: const InputDecoration(
-                        labelText: 'Tinggi',
-                        suffixText: 'cm',
-                      ),
-                      validator: _validateUkuran,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              AnimatedBuilder(
-                animation: _previewListenable,
-                builder: (context, _) => Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 13,
-                          horizontal: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFF5F4),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFFECACA)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'VOLUME TIMBANG',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 10.5,
-                                color: AppColors.muted,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _previewVolume
-                                  .toStringAsFixed(2)
-                                  .replaceAll('.', ','),
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 18,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 13,
-                          horizontal: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFF5F4),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFFECACA)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'KUBIKASI',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 10.5,
-                                color: AppColors.muted,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _previewKubikasi
-                                  .toStringAsFixed(3)
-                                  .replaceAll('.', ','),
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 18,
-                                color: AppColors.primaryDark,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextFormField(
+                  controller: _tinggiCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'Tinggi', suffixText: 'cm'),
+                  validator: _validateUkuran,
                 ),
               ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                ),
-                onPressed: _onSave,
-                child: Text(isEdit ? 'Simpan Perubahan' : 'Tambah Barang'),
-              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          AnimatedBuilder(
+            animation: _previewListenable,
+            builder: (context, _) => Row(
+              children: [
+                Expanded(child: _buildPreviewBox(
+                  title: 'VOLUME TIMBANG',
+                  value: _previewVolume.toStringAsFixed(2).replaceAll('.', ','),
+                  valueColor: AppColors.primary,
+                )),
+                const SizedBox(width: 8),
+                Expanded(child: _buildPreviewBox(
+                  title: 'KUBIKASI',
+                  value: _previewKubikasi.toStringAsFixed(3).replaceAll('.', ','),
+                  valueColor: AppColors.primaryDark,
+                )),
               ],
             ),
           ),
-        ),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 15),
+            ),
+            onPressed: _onSave,
+            child: Text(isEdit ? 'Simpan Perubahan' : 'Tambah Barang'),
+          ),
+          const SizedBox(height: 8),
+        ],
       ),
     );
   }
 
+  Widget _buildPreviewBox({
+    required String title,
+    required String value,
+    required Color valueColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF5F4),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFFECACA)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 10.5,
+              color: AppColors.muted,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+              color: valueColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildTanggalPicker() {
     return InkWell(
