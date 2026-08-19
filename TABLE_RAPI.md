@@ -1,0 +1,1 @@
+Table cleanup: total quantity is now aligned directly under JML, TOTAL label is under BARANG, and volume/weight/kubikasi totals align with their respective columns. Column flex values are consistent between header, item rows, and total row.
