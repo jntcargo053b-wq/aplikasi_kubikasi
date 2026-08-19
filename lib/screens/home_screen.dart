@@ -143,6 +143,60 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _hapusSemuaBarang() async {
+    if (_items.isEmpty) return;
+    try {
+      final konfirmasi = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Hapus Semua Barang'),
+          content: Text(
+              'Hapus semua ${_items.length} barang dari daftar? Tindakan ini tidak bisa dibatalkan.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Batal'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Hapus Semua',
+                  style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        ),
+      );
+      if (konfirmasi != true) return;
+
+      // Kumpulkan path foto sebelum list dikosongkan, supaya file-nya juga
+      // ikut dibersihkan dari storage.
+      final photoPaths = _items
+          .map((e) => e.photoPath)
+          .where((p) => p != null && p.isNotEmpty)
+          .cast<String>()
+          .toList();
+
+      setState(() {
+        _items.clear();
+        _photoExistsCache.clear();
+      });
+      await _persist();
+
+      for (final path in photoPaths) {
+        final file = File(path);
+        if (await file.exists()) {
+          try {
+            await file.delete();
+          } catch (_) {
+            // Gagal hapus file bukan fatal untuk alur hapus semua.
+          }
+        }
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showError('Gagal menghapus semua barang: $e');
+    }
+  }
+
   List<BarangItem> _contohData() => [
         BarangItem(
             id: const Uuid().v4(),
@@ -263,6 +317,27 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
+        actions: [
+          if (_items.isNotEmpty)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert_rounded),
+              onSelected: (value) {
+                if (value == 'hapus_semua') _hapusSemuaBarang();
+              },
+              itemBuilder: (ctx) => const [
+                PopupMenuItem(
+                  value: 'hapus_semua',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_sweep_rounded, color: Colors.red, size: 20),
+                      SizedBox(width: 10),
+                      Text('Hapus Semua', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _tambahBarang,
