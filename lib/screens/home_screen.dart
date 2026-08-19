@@ -1,10 +1,13 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../app_theme.dart';
 import 'package:uuid/uuid.dart';
 import '../models/barang_item.dart';
 import '../services/storage_service.dart';
 import '../widgets/barang_form_sheet.dart';
+
+enum _SortMode { defaultOrder, pengirimAz, tanggalTerbaru, tanggalTerlama }
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,6 +20,92 @@ class _HomeScreenState extends State<HomeScreen> {
   final _storage = StorageService();
   List<BarangItem> _items = [];
   bool _loading = true;
+
+  _SortMode _sortMode = _SortMode.defaultOrder;
+  String _filterPengirim = 'Semua';
+  DateTime? _filterTanggalMulai;
+  DateTime? _filterTanggalSampai;
+
+  List<String> get _daftarPengirim {
+    final set = <String>{};
+    for (final item in _items) {
+      if (item.pengirim.trim().isNotEmpty) set.add(item.pengirim.trim());
+    }
+    final list = set.toList()..sort();
+    return ['Semua', ...list];
+  }
+
+  List<BarangItem> get _displayedItems {
+    var list = _items.toList();
+    if (_filterPengirim != 'Semua') {
+      list = list.where((e) => e.pengirim.trim() == _filterPengirim).toList();
+    }
+    if (_filterTanggalMulai != null) {
+      final mulai = DateTime(
+        _filterTanggalMulai!.year,
+        _filterTanggalMulai!.month,
+        _filterTanggalMulai!.day,
+      );
+      list = list.where((e) => !e.tanggal.isBefore(mulai)).toList();
+    }
+    if (_filterTanggalSampai != null) {
+      final sampai = DateTime(
+        _filterTanggalSampai!.year,
+        _filterTanggalSampai!.month,
+        _filterTanggalSampai!.day,
+        23, 59, 59, 999,
+      );
+      list = list.where((e) => !e.tanggal.isAfter(sampai)).toList();
+    }
+    switch (_sortMode) {
+      case _SortMode.pengirimAz:
+        list.sort((a, b) => a.pengirim
+            .toLowerCase()
+            .compareTo(b.pengirim.toLowerCase()));
+        break;
+      case _SortMode.tanggalTerbaru:
+        list.sort((a, b) => b.tanggal.compareTo(a.tanggal));
+        break;
+      case _SortMode.tanggalTerlama:
+        list.sort((a, b) => a.tanggal.compareTo(b.tanggal));
+        break;
+      case _SortMode.defaultOrder:
+        break;
+    }
+    return list;
+  }
+
+  bool get _hasActiveFilter =>
+      _filterPengirim != 'Semua' ||
+      _filterTanggalMulai != null ||
+      _filterTanggalSampai != null;
+
+  String get _filterTanggalLabel {
+    final mulai = _filterTanggalMulai;
+    final sampai = _filterTanggalSampai;
+    if (mulai != null && sampai != null) {
+      return '${_fmtTanggal(mulai)} – ${_fmtTanggal(sampai)}';
+    }
+    if (mulai != null) return 'Mulai ${_fmtTanggal(mulai)}';
+    if (sampai != null) return 'Sampai ${_fmtTanggal(sampai)}';
+    return 'Semua tanggal';
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _filterPengirim = 'Semua';
+      _filterTanggalMulai = null;
+      _filterTanggalSampai = null;
+    });
+  }
+
+  String _fmtTanggal(DateTime d) {
+    try {
+      return DateFormat('dd MMM yyyy', 'id_ID').format(d);
+    } catch (_) {
+      return DateFormat('dd/MM/yyyy').format(d);
+    }
+  }
 
   // Cache hasil File.existsSync() per path supaya tidak I/O sync tiap
   // kali list di-rebuild (mis. tiap kali item lain ditambah/diedit/dihapus).
@@ -58,9 +147,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  int get _totalJumlah => _items.fold(0, (sum, e) => sum + e.jumlah);
-  double get _totalVolume => _items.fold(0.0, (sum, e) => sum + e.volume);
-  double get _totalKubikasi => _items.fold(0.0, (sum, e) => sum + e.kubikasi);
+  int get _totalJumlah =>
+      _displayedItems.fold(0, (sum, e) => sum + e.jumlah);
+  double get _totalVolume =>
+      _displayedItems.fold(0.0, (sum, e) => sum + e.volume);
+  double get _totalKubikasi =>
+      _displayedItems.fold(0.0, (sum, e) => sum + e.kubikasi);
 
   String _fmt(double v) => v.toStringAsFixed(2).replaceAll('.', ',');
   String _fmtKubikasi(double v) => v.toStringAsFixed(3).replaceAll('.', ',');
@@ -319,6 +411,18 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         actions: [
           if (_items.isNotEmpty)
+            PopupMenuButton<_SortMode>(
+              icon: const Icon(Icons.sort_rounded),
+              tooltip: 'Urutkan',
+              onSelected: (mode) => setState(() => _sortMode = mode),
+              itemBuilder: (ctx) => [
+                _sortMenuItem(_SortMode.defaultOrder, 'Urutan Ditambahkan'),
+                _sortMenuItem(_SortMode.pengirimAz, 'Nama Pengirim (A-Z)'),
+                _sortMenuItem(_SortMode.tanggalTerbaru, 'Tanggal Terbaru'),
+                _sortMenuItem(_SortMode.tanggalTerlama, 'Tanggal Terlama'),
+              ],
+            ),
+          if (_items.isNotEmpty)
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert_rounded),
               onSelected: (value) {
@@ -350,23 +454,285 @@ class _HomeScreenState extends State<HomeScreen> {
       body: Column(
         children: [
           if (_items.isNotEmpty) _buildGuide(),
+          if (_items.isNotEmpty) _buildFilterBar(),
           _buildHeaderRow(),
           Expanded(
             child: _items.isEmpty
                 ? _buildEmptyState()
-                : ListView.separated(
-                    padding: const EdgeInsets.only(bottom: 96),
-                    itemCount: _items.length + 1,
-                    separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.border),
-                    itemBuilder: (ctx, i) {
-                      if (i == _items.length) {
-                        return _buildTotalRow();
-                      }
-                      return _buildItemRow(_items[i], i + 1);
-                    },
-                  ),
+                : _displayedItems.isEmpty
+                    ? _buildFilterEmptyState()
+                    : ListView.separated(
+                        padding: const EdgeInsets.only(bottom: 96),
+                        itemCount: _displayedItems.length + 1,
+                        separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.border),
+                        itemBuilder: (ctx, i) {
+                          if (i == _displayedItems.length) {
+                            return _buildTotalRow();
+                          }
+                          return _buildItemRow(_displayedItems[i], i + 1);
+                        },
+                      ),
           ),
         ],
+      ),
+    );
+  }
+
+  PopupMenuItem<_SortMode> _sortMenuItem(_SortMode mode, String label) {
+    final active = _sortMode == mode;
+    return PopupMenuItem(
+      value: mode,
+      child: Row(
+        children: [
+          Icon(
+            active ? Icons.radio_button_checked : Icons.radio_button_off,
+            size: 18,
+            color: active ? AppColors.primary : AppColors.muted,
+          ),
+          const SizedBox(width: 10),
+          Text(label),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.filter_alt_outlined, size: 17, color: AppColors.muted),
+              const SizedBox(width: 6),
+              const Text(
+                'Filter',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.text,
+                ),
+              ),
+              const Spacer(),
+              if (_hasActiveFilter)
+                TextButton(
+                  onPressed: _clearFilters,
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(0, 30),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  ),
+                  child: const Text('Reset', style: TextStyle(fontSize: 11)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          SizedBox(
+            height: 36,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                _buildSenderFilterChip('Semua'),
+                ..._daftarPengirim
+                    .where((e) => e != 'Semua')
+                    .map(_buildSenderFilterChip),
+                const SizedBox(width: 7),
+                ActionChip(
+                  avatar: const Icon(Icons.calendar_month_outlined, size: 17),
+                  label: Text(
+                    _hasDateFilter ? _filterTanggalLabel : 'Tanggal',
+                    style: const TextStyle(fontSize: 11.5),
+                  ),
+                  onPressed: _showDateFilter,
+                  backgroundColor: _hasDateFilter
+                      ? AppColors.primary.withOpacity(0.12)
+                      : const Color(0xFFF7F8FA),
+                  side: BorderSide(
+                    color: _hasDateFilter
+                        ? AppColors.primary
+                        : AppColors.border,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool get _hasDateFilter =>
+      _filterTanggalMulai != null || _filterTanggalSampai != null;
+
+  Widget _buildSenderFilterChip(String nama) {
+    final selected = nama == _filterPengirim;
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: ChoiceChip(
+        label: Text(nama, style: const TextStyle(fontSize: 11.5)),
+        selected: selected,
+        onSelected: (_) => setState(() => _filterPengirim = nama),
+        selectedColor: AppColors.primary.withOpacity(0.15),
+        labelStyle: TextStyle(
+          color: selected ? AppColors.primary : AppColors.text,
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+        ),
+        backgroundColor: const Color(0xFFF7F8FA),
+        side: BorderSide(
+          color: selected ? AppColors.primary : AppColors.border,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showDateFilter() async {
+    DateTime? mulai = _filterTanggalMulai;
+    DateTime? sampai = _filterTanggalSampai;
+
+    final hasil = await showModalBottomSheet<List<DateTime?>>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            Future<void> pickMulai() async {
+              final picked = await showDatePicker(
+                context: ctx,
+                initialDate: mulai ?? sampai ?? DateTime.now(),
+                firstDate: DateTime(2000),
+                lastDate: DateTime(2100),
+              );
+              if (picked != null) {
+                setSheetState(() {
+                  mulai = picked;
+                  if (sampai != null && sampai!.isBefore(picked)) {
+                    sampai = picked;
+                  }
+                });
+              }
+            }
+
+            Future<void> pickSampai() async {
+              final picked = await showDatePicker(
+                context: ctx,
+                initialDate: sampai ?? mulai ?? DateTime.now(),
+                firstDate: mulai ?? DateTime(2000),
+                lastDate: DateTime(2100),
+              );
+              if (picked != null) setSheetState(() => sampai = picked);
+            }
+
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: AppColors.border,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 15),
+                    const Text(
+                      'Filter Tanggal',
+                      style: TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.text,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    const Text(
+                      'Tampilkan barang berdasarkan rentang tanggal.',
+                      style: TextStyle(fontSize: 12, color: AppColors.muted),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: pickMulai,
+                            icon: const Icon(Icons.event_outlined, size: 18),
+                            label: Text(
+                              mulai == null
+                                  ? 'Tanggal mulai'
+                                  : _fmtTanggal(mulai!),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: pickSampai,
+                            icon: const Icon(Icons.event_outlined, size: 18),
+                            label: Text(
+                              sampai == null
+                                  ? 'Tanggal akhir'
+                                  : _fmtTanggal(sampai!),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    if (mulai != null || sampai != null)
+                      TextButton(
+                        onPressed: () => setSheetState(() {
+                          mulai = null;
+                          sampai = null;
+                        }),
+                        child: const Text('Hapus filter tanggal'),
+                      ),
+                    const SizedBox(height: 4),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, [mulai, sampai]),
+                      child: const Text('Terapkan Filter'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (hasil == null || !mounted) return;
+    setState(() {
+      _filterTanggalMulai = hasil.isNotEmpty ? hasil[0] : null;
+      _filterTanggalSampai = hasil.length > 1 ? hasil[1] : null;
+    });
+  }
+
+  Widget _buildFilterEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.filter_alt_off_outlined, size: 40, color: AppColors.muted),
+            const SizedBox(height: 10),
+            Text('Tidak ada barang dari "$_filterPengirim"',
+                style: const TextStyle(fontSize: 13, color: AppColors.muted)),
+            const SizedBox(height: 10),
+            TextButton(
+              onPressed: _clearFilters,
+              child: const Text('Tampilkan Semua'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -507,17 +873,42 @@ class _HomeScreenState extends State<HomeScreen> {
                   _buildItemThumbnail(item),
                   const SizedBox(width: 6),
                   Expanded(
-                    child: Text(
-                      item.nama,
-                      textAlign: TextAlign.left,
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 2,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.text,
-                        height: 1.15,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          item.nama,
+                          textAlign: TextAlign.left,
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 2,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.text,
+                            height: 1.15,
+                          ),
+                        ),
+                        if (item.pengirim.trim().isNotEmpty)
+                          Text(
+                            '${item.pengirim} • ${_fmtTanggal(item.tanggal)}',
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 9,
+                              color: AppColors.muted,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          )
+                        else
+                          Text(
+                            _fmtTanggal(item.tanggal),
+                            style: const TextStyle(
+                              fontSize: 9,
+                              color: AppColors.muted,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ],
@@ -636,7 +1027,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   double get _totalBerat {
-    return _items.fold<double>(
+    return _displayedItems.fold<double>(
       0,
       (sum, item) => sum + item.jumlah * item.berat,
     );
