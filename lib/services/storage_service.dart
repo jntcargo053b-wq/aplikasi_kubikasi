@@ -10,9 +10,16 @@ class StorageService {
     final raw = prefs.getString(_key);
     if (raw == null || raw.isEmpty) return [];
     final list = jsonDecode(raw) as List<dynamic>;
-    return list
-        .map((e) => BarangItem.fromJson(e as Map<String, dynamic>))
-        .toList();
+    final result = <BarangItem>[];
+    for (final e in list) {
+      try {
+        result.add(BarangItem.fromJson(e as Map<String, dynamic>));
+      } catch (_) {
+        // Lewati satu entri yang korup/tidak kompatibel daripada bikin
+        // seluruh daftar barang gagal dimuat.
+      }
+    }
+    return result;
   }
 
   Future<void> save(List<BarangItem> items) async {
