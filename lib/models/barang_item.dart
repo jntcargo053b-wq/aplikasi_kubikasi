@@ -13,6 +13,7 @@ class BarangItem {
   double lebar; // cm
   double tinggi; // cm
   double berat; // kg per unit
+  String? photoPath;
 
   BarangItem({
     required this.id,
@@ -22,6 +23,7 @@ class BarangItem {
     required this.lebar,
     required this.tinggi,
     this.berat = 0,
+    this.photoPath,
   });
 
   /// Volume per baris = (P x L x T / 5000) x Jumlah
@@ -32,6 +34,8 @@ class BarangItem {
   double get kubikasi =>
       (panjang * lebar * tinggi / kFaktorKubikasi) * jumlah;
 
+  /// [clearPhoto] = true akan mengosongkan [photoPath] walau [photoPath]
+  /// yang di-pass adalah null (parameter null biasa berarti "tidak diubah").
   BarangItem copyWith({
     String? nama,
     int? jumlah,
@@ -39,6 +43,8 @@ class BarangItem {
     double? lebar,
     double? tinggi,
     double? berat,
+    String? photoPath,
+    bool clearPhoto = false,
   }) {
     return BarangItem(
       id: id,
@@ -48,6 +54,7 @@ class BarangItem {
       lebar: lebar ?? this.lebar,
       tinggi: tinggi ?? this.tinggi,
       berat: berat ?? this.berat,
+      photoPath: clearPhoto ? null : (photoPath ?? this.photoPath),
     );
   }
 
@@ -59,6 +66,7 @@ class BarangItem {
         'lebar': lebar,
         'tinggi': tinggi,
         'berat': berat,
+        if (photoPath != null) 'photoPath': photoPath,
       };
 
   factory BarangItem.fromJson(Map<String, dynamic> json) => BarangItem(
@@ -69,5 +77,6 @@ class BarangItem {
         lebar: (json['lebar'] as num).toDouble(),
         tinggi: (json['tinggi'] as num).toDouble(),
         berat: (json['berat'] as num?)?.toDouble() ?? 0,
+        photoPath: json['photoPath'] as String?,
       );
 }
