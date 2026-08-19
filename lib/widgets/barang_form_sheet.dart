@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:intl/intl.dart';
 import '../app_theme.dart';
 import 'package:uuid/uuid.dart';
 import '../models/barang_item.dart';
@@ -49,6 +50,8 @@ class _BarangFormContentState extends State<_BarangFormContent> {
   late final TextEditingController _panjangCtrl;
   late final TextEditingController _lebarCtrl;
   late final TextEditingController _tinggiCtrl;
+  late final TextEditingController _pengirimCtrl;
+  late DateTime _tanggal;
 
   late final Listenable _previewListenable;
 
@@ -67,6 +70,8 @@ class _BarangFormContentState extends State<_BarangFormContent> {
     _panjangCtrl = TextEditingController(text: _fmtInput(e?.panjang));
     _lebarCtrl = TextEditingController(text: _fmtInput(e?.lebar));
     _tinggiCtrl = TextEditingController(text: _fmtInput(e?.tinggi));
+    _pengirimCtrl = TextEditingController(text: e?.pengirim ?? '');
+    _tanggal = e?.tanggal ?? DateTime.now();
     // Gabungkan listenable dari 4 controller supaya preview VOL 5000 /
     // KUBIKASI ikut update tiap ketik, TANPA setState di level form.
     // Kalau pakai setState di sini, seluruh form (termasuk semua
@@ -110,6 +115,7 @@ class _BarangFormContentState extends State<_BarangFormContent> {
     _panjangCtrl.dispose();
     _lebarCtrl.dispose();
     _tinggiCtrl.dispose();
+    _pengirimCtrl.dispose();
     super.dispose();
   }
 
@@ -156,6 +162,20 @@ class _BarangFormContentState extends State<_BarangFormContent> {
                 validator: (v) =>
                     (v == null || v.trim().isEmpty) ? 'Wajib diisi' : null,
               ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _pengirimCtrl,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                  labelText: 'Nama Pengirim',
+                  hintText: 'Contoh: PT Maju Jaya',
+                  prefixIcon: Icon(Icons.person_outline_rounded, size: 20),
+                ),
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Nama pengirim wajib diisi' : null,
+              ),
+              const SizedBox(height: 12),
+              _buildTanggalPicker(),
               const SizedBox(height: 12),
               _buildPhotoPicker(),
               const SizedBox(height: 12),
@@ -341,6 +361,43 @@ class _BarangFormContentState extends State<_BarangFormContent> {
   }
 
 
+  Widget _buildTanggalPicker() {
+    return InkWell(
+      onTap: _pickTanggal,
+      borderRadius: BorderRadius.circular(8),
+      child: InputDecorator(
+        decoration: const InputDecoration(
+          labelText: 'Tanggal',
+          prefixIcon: Icon(Icons.calendar_today_outlined, size: 20),
+        ),
+        child: Text(
+          DateFormat('dd MMM yyyy', 'id_ID').format(_tanggal),
+          style: const TextStyle(fontSize: 14, color: AppColors.text),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickTanggal() async {
+    final hasil = await showDatePicker(
+      context: context,
+      initialDate: _tanggal,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (hasil == null) return;
+    setState(() {
+      // Pertahankan jam:menit asli, hanya tanggalnya yang diganti.
+      _tanggal = DateTime(
+        hasil.year,
+        hasil.month,
+        hasil.day,
+        _tanggal.hour,
+        _tanggal.minute,
+      );
+    });
+  }
+
   Widget _buildPhotoPicker() {
     final hasPhoto = _hasPhotoFile;
     return Container(
@@ -500,6 +557,8 @@ class _BarangFormContentState extends State<_BarangFormContent> {
         panjang: double.parse(_panjangCtrl.text.replaceAll(',', '.')),
         lebar: double.parse(_lebarCtrl.text.replaceAll(',', '.')),
         tinggi: double.parse(_tinggiCtrl.text.replaceAll(',', '.')),
+        pengirim: _pengirimCtrl.text.trim(),
+        tanggal: _tanggal,
       );
       Navigator.of(context).pop(item);
     } catch (e) {
