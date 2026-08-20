@@ -21,10 +21,17 @@ Future<BarangItem?> showBarangFormSheet(
     barrierColor: Colors.black54,
     builder: (ctx) {
       final media = MediaQuery.of(ctx);
-      final availableHeight = media.size.height - media.viewInsets.bottom;
-      final sheetHeight = availableHeight < media.size.height * 0.92
-          ? availableHeight
-          : media.size.height * 0.92;
+      // PENTING: sheetHeight TIDAK boleh dikurangi viewInsets.bottom di sini.
+      // Kalau tinggi sheet ikut menyusut setiap kali keyboard muncul,
+      // penyusutan itu terjadi BERSAMAAN dengan mekanisme auto-scroll
+      // bawaan Flutter yang mencoba menggeser field yang sedang fokus ke
+      // atas keyboard (Scrollable.ensureVisible di dalam EditableText).
+      // Dua hal yang sama-sama bereaksi ke viewInsets.bottom ini saling
+      // tabrakan, sehingga field yang sedang diketik malah tidak ikut
+      // ter-scroll dan tertutup keyboard. Solusinya: tinggi sheet dibuat
+      // tetap (tidak reaktif ke keyboard), lalu cukup ListView di dalam
+      // _BarangFormContent yang menangani scroll-ke-field-fokus.
+      final sheetHeight = media.size.height * 0.92;
 
       return Align(
         alignment: Alignment.bottomCenter,
@@ -35,7 +42,7 @@ Future<BarangItem?> showBarangFormSheet(
             clipBehavior: Clip.antiAlias,
             child: SizedBox(
               width: double.infinity,
-              height: sheetHeight.toDouble(),
+              height: sheetHeight,
               child: _BarangFormContent(existing: existing),
             ),
           ),
@@ -137,11 +144,16 @@ class _BarangFormContentState extends State<_BarangFormContent> {
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.existing != null;
+    // Ruang scroll ekstra sebesar tinggi keyboard, supaya field paling
+    // bawah (preview & tombol Simpan) tetap bisa di-scroll sampai
+    // sepenuhnya terlihat di atas keyboard, bukan cuma sampai tepi
+    // ListView.
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     return Form(
       key: _formKey,
       child: ListView(
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+        padding: EdgeInsets.fromLTRB(20, 10, 20, 24 + bottomInset),
         children: [
           Center(
             child: Container(
