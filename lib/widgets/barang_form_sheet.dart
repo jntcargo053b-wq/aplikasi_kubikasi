@@ -117,7 +117,7 @@ class _BarangFormState extends State<_BarangForm> {
       borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       clipBehavior: Clip.antiAlias,
       child: SizedBox(
-        height: MediaQuery.of(context).size.height * .92,
+        height: sheetHeight,
         child: Form(
           key: _key,
           child: ListView(

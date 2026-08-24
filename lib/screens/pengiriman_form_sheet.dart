@@ -132,7 +132,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
       borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       clipBehavior: Clip.antiAlias,
       child: SizedBox(
-        height: MediaQuery.of(context).size.height * .94,
+        height: sheetHeight,
         child: ListView(
           padding: EdgeInsets.fromLTRB(20, 12, 20, 24 + bottom),
           children: [
