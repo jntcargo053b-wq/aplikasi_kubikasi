@@ -1,25 +1,26 @@
 name: volume_calculator
-description: "Kalkulator Volume Barang - untuk logistik & pengiriman"
-publish_to: 'none'
-version: 1.0.0+1
+description: "Kalkulator Kubikasi Logistik"
+publish_to: "none"
+version: 1.1.0+2
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: ">=3.3.0 <4.0.0"
 
 dependencies:
-  image_picker: ^1.1.2
-  path_provider: ^2.1.4
   flutter:
     sdk: flutter
-  cupertino_icons: ^1.0.6
-  shared_preferences: ^2.2.2
-  uuid: ^4.3.3
+  cupertino_icons: ^1.0.8
+  image_picker: ^1.1.2
+  path_provider: ^2.1.4
+  shared_preferences: ^2.5.3
+  uuid: ^4.5.1
   intl: ^0.19.0
+  mobile_scanner: ^5.2.3
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^3.0.0
+  flutter_lints: ^5.0.0
 
 flutter:
   uses-material-design: true

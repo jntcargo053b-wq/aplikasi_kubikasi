@@ -1,95 +1,42 @@
-# Aplikasi Kubikasi
+# Aplikasi Kubikasi — Shipment Workflow
 
-Aplikasi Flutter untuk menghitung **VOL 5000** (volumetric weight) dan
-**KUBIKASI** (m³) dari data barang, dengan setiap baris (nama, jumlah,
-panjang, lebar, tinggi) bisa diinput dan diedit langsung dari tabel.
+## Alur baru
+1. Isi **Nama Pengirim** satu kali.
+2. Pilih **Tanggal** satu kali.
+3. Tambahkan **banyak barang** pada pengiriman yang sama.
+4. Isi **Nomor Resi** manual atau gunakan **Scan Barcode Resi**.
+5. Tekan **Selesai & Simpan Pengiriman**.
 
-## Rumus yang dipakai
+Transaksi tidak disimpan sebagai pengiriman selesai sebelum nomor resi tersedia.
 
-- **VOL 5000** = (Panjang × Lebar × Tinggi ÷ 5000) × Jumlah — rumus
-  volumetric weight standar ekspedisi (P/L/T dalam cm, hasil dalam kg)
-- **KUBIKASI (m³)** = (Panjang × Lebar × Tinggi ÷ 1.000.000) × Jumlah
+## Kalkulasi dipertahankan
+- Volume timbang = `P × L × T / 5000 × jumlah`
+- Kubikasi = `P × L × T / 1.000.000 × jumlah`
+- Berat total = `berat per unit × jumlah`
 
-Kedua kolom dihitung otomatis, tidak diinput manual, dan selalu mengikuti
-nilai P/L/T/Jumlah terbaru.
+## Struktur
+- `Pengiriman` = header transaksi: pengirim, tanggal, nomor resi, daftar barang.
+- `BarangItem` = detail barang dan kalkulasi.
+- `StorageService` = penyimpanan pengiriman.
+- `BarcodeScannerScreen` = scan resi.
+- `PengirimanFormSheet` = alur transaksi baru.
 
-## Fitur
+Data lama `daftar_barang_v1` tidak dipaksakan menjadi transaksi selesai karena data lama tidak memiliki nomor resi.
 
-- Tabel sesuai kolom: NO, BARANG, JML, P, L, T, VOL 5000, KUBIKASI (M³)
-- **Tambah barang** lewat tombol "+"
-- **Edit barang**: ketuk baris mana pun → semua field (nama, jumlah,
-  panjang, lebar, tinggi) bisa diubah lewat form, VOL 5000 & KUBIKASI
-  ter-preview otomatis sebelum disimpan
-- **Hapus barang**: tekan lama baris → konfirmasi
-- Tabel bisa digeser horizontal supaya kolom KUBIKASI tetap terbaca jelas
-  di layar HP kecil
-- Baris TOTAL otomatis (jumlah barang, total VOL 5000, total KUBIKASI)
-- Data tersimpan otomatis di device (SharedPreferences), tidak hilang saat
-  app ditutup
-- Data contoh (12 barang) dimuat otomatis saat pertama kali dibuka
+## Build GitHub Actions
+Workflow `.github/workflows/build_apk.yml` menjalankan:
+`flutter create --platforms=android --no-pub .` → `flutter pub get` → `flutter analyze` → `flutter test` → `flutter build apk --release`.
 
-## Setup pertama kali (penting)
+## Dari HP
+1. Extract ZIP.
+2. Upload/replace isi repository GitHub.
+3. Pastikan `.github/workflows/build_apk.yml` ikut ter-upload.
+4. Buka **Actions → Build APK**.
+5. Download artifact `app-release-apk`.
 
-Project ini baru berisi `lib/` + `pubspec.yaml` — folder platform native
-(`android/`, `ios/`, dll) belum ada. **Jangan** membuat file
-`android/build.gradle` atau `AndroidManifest.xml` secara manual — kalau
-tidak lengkap (bukan hasil `flutter create` asli), Gradle akan menolaknya
-dengan error "not a Gradle project". Selalu generate lewat Flutter SDK:
 
-```bash
-flutter create -t app .
-```
-
-Perintah ini menambahkan folder `android/`, `ios/`, `web/`, dll secara
-lengkap (settings.gradle, app/build.gradle, gradle wrapper, MainActivity,
-res/, dst.) tanpa menimpa `lib/` maupun `pubspec.yaml` yang sudah ada.
-Setelah itu commit foldernya supaya CI tidak perlu generate ulang setiap
-build:
-
-```bash
-git add android
-git commit -m "Add complete Android platform scaffold"
-git push
-```
-
-## Cara menjalankan
-
-```bash
-flutter pub get
-flutter run
-```
-
-## Cara build APK
-
-```bash
-flutter build apk --release
-```
-
-APK hasil build ada di `build/app/outputs/flutter-apk/app-release.apk`.
-
-## CI (GitHub Actions)
-
-Workflow ada di `.github/workflows/build_apk.yml`, menggunakan Flutter SDK
-asli (channel stable terbaru, via `subosito/flutter-action`) — bukan
-`dart pub`/`dart-lang/setup-dart`. Workflow ini juga otomatis menjalankan
-`flutter create -t app --platforms=android .` di CI kalau
-`android/settings.gradle` belum ada/tidak lengkap, supaya build tetap
-jalan walau folder `android/` belum di-commit.
-
-## Struktur project
-
-```
-lib/
-  main.dart                     # entry point
-  models/barang_item.dart       # model data + rumus VOL 5000 & KUBIKASI
-  services/storage_service.dart # simpan/muat data lokal
-  screens/home_screen.dart      # layar utama (tabel + total)
-  widgets/barang_form_sheet.dart# form tambah/edit dengan live preview
-```
-
-## Kemungkinan pengembangan lanjutan
-
-- Export ke PDF/Excel (list barang + total)
-- Multi-daftar (per pengiriman / per pelanggan)
-- Scan barcode/foto barang seperti di TermulScan
-- Kalkulasi biaya (VOL 5000 × tarif per kg)
+## CI / Gradle Wrapper
+The repository does not carry Gradle wrapper files. The GitHub Actions workflow
+therefore runs `flutter create --platforms=android --no-pub .` before `flutter pub get`.
+This supplies missing Gradle wrapper/platform scaffold files while preserving
+the existing Dart source and existing Android files.
