@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../app_theme.dart';
 import '../models/barang_item.dart';
 
@@ -70,11 +72,28 @@ class _BarangFormState extends State<_BarangForm> {
     super.dispose();
   }
 
-  Future<void> _takePhoto() async {
+  Future<void> _pickPhoto(ImageSource source) async {
+    // The camera is a dangerous permission on Android and must be
+    // requested explicitly; the gallery uses the system photo
+    // picker on modern Android/iOS and needs no extra permission.
+    if (source == ImageSource.camera) {
+      final status = await Permission.camera.request();
+      if (!status.isGranted) {
+        if (!mounted) return;
+        _showPickerMessage(
+          status.isPermanentlyDenied
+              ? 'Izin kamera ditolak permanen. Aktifkan lewat Setelan.'
+              : 'Izin kamera diperlukan untuk mengambil foto.',
+          showSettingsAction: status.isPermanentlyDenied,
+        );
+        return;
+      }
+    }
+
     setState(() => _busy = true);
     try {
       final picked = await ImagePicker().pickImage(
-        source: ImageSource.camera,
+        source: source,
         imageQuality: 85,
         maxWidth: 1600,
       );
@@ -85,8 +104,58 @@ class _BarangFormState extends State<_BarangForm> {
         if (!mounted) return;
         setState(() => _photo = target.path);
       }
+    } on PlatformException catch (e) {
+      if (!mounted) return;
+      final isPermissionError = e.code == 'camera_access_denied' ||
+          e.code == 'photo_access_denied';
+      _showPickerMessage(
+        isPermissionError
+            ? 'Izin akses ditolak. Aktifkan lewat Setelan.'
+            : 'Gagal mengambil foto (${e.code}).',
+        showSettingsAction: isPermissionError,
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _showPickerMessage(String message, {bool showSettingsAction = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        action: showSettingsAction
+            ? SnackBarAction(label: 'Setelan', onPressed: openAppSettings)
+            : null,
+      ),
+    );
+  }
+
+  Future<void> _showPhotoSourceSheet() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('Ambil Foto'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Pilih dari Galeri'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source != null) {
+      await _pickPhoto(source);
     }
   }
 
@@ -167,7 +236,7 @@ class _BarangFormState extends State<_BarangForm> {
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: _busy ? null : _takePhoto,
+                      onPressed: _busy ? null : _showPhotoSourceSheet,
                       icon: const Icon(Icons.camera_alt_outlined),
                       label: Text(_photo == null ? 'Foto Barang' : 'Ganti Foto'),
                     ),
