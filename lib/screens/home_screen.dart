@@ -5,6 +5,7 @@ import '../app_theme.dart';
 import '../models/pengiriman.dart';
 import '../services/storage_service.dart';
 import 'pengiriman_form_sheet.dart';
+import '../widgets/barang_form_sheet.dart';
 
 enum _SortMode { terbaru, terlama, pengirim }
 
@@ -291,7 +292,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ...p.barang.map((b) => ListTile(
                 dense: true,
                 leading: b.photoPath != null && File(b.photoPath!).existsSync()
-                    ? Image.file(File(b.photoPath!), width: 48, height: 48, fit: BoxFit.cover)
+                    ? GestureDetector(
+                        onTap: () => showPhotoPreview(context, b.photoPath!),
+                        child: Image.file(File(b.photoPath!), width: 48, height: 48, fit: BoxFit.cover),
+                      )
                     : const Icon(Icons.inventory_2_outlined),
                 title: Text(b.nama, maxLines: 1, overflow: TextOverflow.ellipsis),
                 subtitle: Text('${b.jumlah} × ${b.panjang}×${b.lebar}×${b.tinggi} cm', maxLines: 1, overflow: TextOverflow.ellipsis),
