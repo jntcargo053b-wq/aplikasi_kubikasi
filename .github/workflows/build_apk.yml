@@ -32,30 +32,90 @@ jobs:
       - name: Generate missing Flutter/Gradle scaffolding
         run: flutter create --platforms=android --no-pub .
 
-      - name: Upgrade Gradle wrapper to 8.14
+      - name: Normalize Android Gradle configuration
         shell: bash
         run: |
           set -euo pipefail
-          python3 -c "
-          import re
-          file_path = 'android/gradle/wrapper/gradle-wrapper.properties'
-          with open(file_path, 'r') as f:
-              content = f.read()
-          content = re.sub(
-              r'gradle-\d+\.\d+(?:\.\d+)?-(bin|all)\.zip',
-              'gradle-8.14-bin.zip',
-              content
-          )
-          with open(file_path, 'w') as f:
-              f.write(content)
-          "
-          echo "--- Verifying gradle-wrapper.properties ---"
-          cat android/gradle/wrapper/gradle-wrapper.properties
-          grep -q "gradle-8.14-bin.zip" android/gradle/wrapper/gradle-wrapper.properties
 
-      - name: Verify Gradle Version
+          # Flutter create can update an existing Android template. Pin the
+          # versions required by the current Flutter stable runner AFTER that
+          # step, so the generated template cannot restore old versions.
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          settings = Path("android/settings.gradle")
+          text = settings.read_text()
+
+          text, count = re.subn(
+              r'(id\s+["\']com\.android\.application["\']\s+version\s+["\'])[^"\']+(["\'])',
+              r'\g<1>8.11.1\2',
+              text,
+              count=1,
+          )
+          if count == 0:
+              raise SystemExit("Could not find com.android.application version in android/settings.gradle")
+
+          settings.write_text(text)
+
+          # The project uses Groovy Gradle files. Remove duplicate Kotlin DSL
+          # files generated alongside them; Gradle otherwise warns that the
+          # .kts files are ignored.
+          for path in (
+              Path("android/settings.gradle.kts"),
+              Path("android/build.gradle.kts"),
+              Path("android/app/build.gradle.kts"),
+          ):
+              if path.exists():
+                  path.unlink()
+                  print(f"Removed duplicate: {path}")
+          PY
+
+          echo "--- Active Android plugin configuration ---"
+          grep -n 'com.android.application' android/settings.gradle
+          test ! -e android/settings.gradle.kts
+          test ! -e android/build.gradle.kts
+          test ! -e android/app/build.gradle.kts
+          grep -q 'com.android.application.*8.11.1' android/settings.gradle
+
+      - name: Pin Gradle wrapper to 8.14
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -f android/gradle/wrapper/gradle-wrapper.properties
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path("android/gradle/wrapper/gradle-wrapper.properties")
+          text = p.read_text()
+
+          url = r"distributionUrl=https\://services.gradle.org/distributions/gradle-8.14-bin.zip"
+          text = re.sub(r"^distributionUrl=.*$", url, text, flags=re.MULTILINE)
+
+          if "distributionUrl=" not in text:
+              text += "\n" + url + "\n"
+
+          p.write_text(text)
+          PY
+
+          echo "--- Active Gradle wrapper ---"
+          cat android/gradle/wrapper/gradle-wrapper.properties
+          grep -q 'gradle-8.14-bin.zip' android/gradle/wrapper/gradle-wrapper.properties
+          chmod +x android/gradlew
+
+      - name: Verify Gradle version
         working-directory: android
         run: ./gradlew --version
+
+      - name: Verify Android Gradle Plugin version
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -n 'com.android.application' android/settings.gradle
+          grep -q 'com.android.application.*8.11.1' android/settings.gradle
 
       - name: Dependencies
         run: flutter pub get
@@ -65,10 +125,6 @@ jobs:
 
       - name: Test
         run: flutter test
-
-      - name: Verify Gradle version
-        working-directory: android
-        run: ./gradlew --version
 
       - name: Build release APK
         run: flutter build apk --release
