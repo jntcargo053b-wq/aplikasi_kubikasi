@@ -42,7 +42,7 @@ jobs:
           settings = Path("android/settings.gradle")
           text = settings.read_text()
 
-          # Force Android Gradle Plugin 8.11.1
+          # Android Gradle Plugin
           text, count = re.subn(
               r'(id\s+["\']com\.android\.application["\']\s+version\s+["\'])[^"\']+(["\'])',
               r'\g<1>8.11.1\2',
@@ -52,11 +52,10 @@ jobs:
 
           if count == 0:
               raise SystemExit(
-                  "Could not find com.android.application version "
-                  "in android/settings.gradle"
+                  "com.android.application version not found"
               )
 
-          # Force Kotlin Android Plugin 2.2.20
+          # Kotlin Gradle Plugin
           text, count = re.subn(
               r'(id\s+["\']org\.jetbrains\.kotlin\.android["\']\s+version\s+["\'])[^"\']+(["\'])',
               r'\g<1>2.2.20\2',
@@ -66,13 +65,12 @@ jobs:
 
           if count == 0:
               raise SystemExit(
-                  "Could not find org.jetbrains.kotlin.android version "
-                  "in android/settings.gradle"
+                  "org.jetbrains.kotlin.android version not found"
               )
 
           settings.write_text(text)
 
-          # Remove duplicate Kotlin DSL files if they exist.
+          # Remove duplicate Kotlin DSL files.
           for path in (
               Path("android/settings.gradle.kts"),
               Path("android/build.gradle.kts"),
@@ -84,8 +82,12 @@ jobs:
           PY
 
           echo "=== Android plugin configuration ==="
-          grep -n "com.android.application" android/settings.gradle
-          grep -n "org.jetbrains.kotlin.android" android/settings.gradle
+
+          grep -n "com.android.application" \
+            android/settings.gradle
+
+          grep -n "org.jetbrains.kotlin.android" \
+            android/settings.gradle
 
           test ! -e android/settings.gradle.kts
           test ! -e android/build.gradle.kts
@@ -134,12 +136,35 @@ jobs:
           PY
 
           echo "=== Gradle wrapper ==="
+
           cat android/gradle/wrapper/gradle-wrapper.properties
 
           grep -q "gradle-8.14-bin.zip" \
             android/gradle/wrapper/gradle-wrapper.properties
 
           chmod +x android/gradlew
+
+      - name: Disable Gradle file system watching
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if grep -q '^org.gradle.vfs.watch=' \
+              android/gradle.properties 2>/dev/null; then
+
+            sed -i \
+              's/^org.gradle.vfs.watch=.*/org.gradle.vfs.watch=false/' \
+              android/gradle.properties
+
+          else
+
+            printf '\norg.gradle.vfs.watch=false\n' \
+              >> android/gradle.properties
+
+          fi
+
+          grep "org.gradle.vfs.watch=false" \
+            android/gradle.properties
 
       - name: Verify Gradle version
         working-directory: android
@@ -167,6 +192,17 @@ jobs:
           grep -q "org.jetbrains.kotlin.android.*2.2.20" \
             android/settings.gradle
 
+      - name: Verify Android NDK version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          grep -n "ndkVersion" \
+            android/app/build.gradle
+
+          grep -q 'ndkVersion "28.2.13676358"' \
+            android/app/build.gradle
+
       - name: Dependencies
         run: flutter pub get
 
@@ -175,6 +211,10 @@ jobs:
 
       - name: Test
         run: flutter test
+
+      - name: Stop Gradle daemons
+        working-directory: android
+        run: ./gradlew --stop || true
 
       - name: Build release APK
         run: flutter build apk --release
