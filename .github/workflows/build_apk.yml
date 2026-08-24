@@ -10,6 +10,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,9 +27,6 @@ jobs:
           channel: stable
           cache: true
 
-      # The repository intentionally does not store Gradle wrapper files.
-      # Flutter create fills in only missing platform scaffolding/wrapper
-      # files and is required here before the Android build.
       - name: Generate missing Flutter/Gradle scaffolding
         run: flutter create --platforms=android --no-pub .
 
@@ -37,9 +35,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Flutter create can update an existing Android template. Pin the
-          # versions required by the current Flutter stable runner AFTER that
-          # step, so the generated template cannot restore old versions.
           python3 - <<'PY'
           from pathlib import Path
           import re
@@ -47,20 +42,37 @@ jobs:
           settings = Path("android/settings.gradle")
           text = settings.read_text()
 
+          # Force Android Gradle Plugin 8.11.1
           text, count = re.subn(
               r'(id\s+["\']com\.android\.application["\']\s+version\s+["\'])[^"\']+(["\'])',
               r'\g<1>8.11.1\2',
               text,
               count=1,
           )
+
           if count == 0:
-              raise SystemExit("Could not find com.android.application version in android/settings.gradle")
+              raise SystemExit(
+                  "Could not find com.android.application version "
+                  "in android/settings.gradle"
+              )
+
+          # Force Kotlin Android Plugin 2.2.20
+          text, count = re.subn(
+              r'(id\s+["\']org\.jetbrains\.kotlin\.android["\']\s+version\s+["\'])[^"\']+(["\'])',
+              r'\g<1>2.2.20\2',
+              text,
+              count=1,
+          )
+
+          if count == 0:
+              raise SystemExit(
+                  "Could not find org.jetbrains.kotlin.android version "
+                  "in android/settings.gradle"
+              )
 
           settings.write_text(text)
 
-          # The project uses Groovy Gradle files. Remove duplicate Kotlin DSL
-          # files generated alongside them; Gradle otherwise warns that the
-          # .kts files are ignored.
+          # Remove duplicate Kotlin DSL files if they exist.
           for path in (
               Path("android/settings.gradle.kts"),
               Path("android/build.gradle.kts"),
@@ -71,12 +83,19 @@ jobs:
                   print(f"Removed duplicate: {path}")
           PY
 
-          echo "--- Active Android plugin configuration ---"
-          grep -n 'com.android.application' android/settings.gradle
+          echo "=== Android plugin configuration ==="
+          grep -n "com.android.application" android/settings.gradle
+          grep -n "org.jetbrains.kotlin.android" android/settings.gradle
+
           test ! -e android/settings.gradle.kts
           test ! -e android/build.gradle.kts
           test ! -e android/app/build.gradle.kts
-          grep -q 'com.android.application.*8.11.1' android/settings.gradle
+
+          grep -q "com.android.application.*8.11.1" \
+            android/settings.gradle
+
+          grep -q "org.jetbrains.kotlin.android.*2.2.20" \
+            android/settings.gradle
 
       - name: Pin Gradle wrapper to 8.14
         shell: bash
@@ -89,11 +108,24 @@ jobs:
           from pathlib import Path
           import re
 
-          p = Path("android/gradle/wrapper/gradle-wrapper.properties")
+          p = Path(
+              "android/gradle/wrapper/"
+              "gradle-wrapper.properties"
+          )
+
           text = p.read_text()
 
-          url = r"distributionUrl=https\://services.gradle.org/distributions/gradle-8.14-bin.zip"
-          text = re.sub(r"^distributionUrl=.*$", url, text, flags=re.MULTILINE)
+          url = (
+              r"distributionUrl=https\://services.gradle.org/"
+              r"distributions/gradle-8.14-bin.zip"
+          )
+
+          text = re.sub(
+              r"^distributionUrl=.*$",
+              url,
+              text,
+              flags=re.MULTILINE,
+          )
 
           if "distributionUrl=" not in text:
               text += "\n" + url + "\n"
@@ -101,9 +133,12 @@ jobs:
           p.write_text(text)
           PY
 
-          echo "--- Active Gradle wrapper ---"
+          echo "=== Gradle wrapper ==="
           cat android/gradle/wrapper/gradle-wrapper.properties
-          grep -q 'gradle-8.14-bin.zip' android/gradle/wrapper/gradle-wrapper.properties
+
+          grep -q "gradle-8.14-bin.zip" \
+            android/gradle/wrapper/gradle-wrapper.properties
+
           chmod +x android/gradlew
 
       - name: Verify Gradle version
@@ -114,8 +149,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -n 'com.android.application' android/settings.gradle
-          grep -q 'com.android.application.*8.11.1' android/settings.gradle
+
+          grep -n "com.android.application" \
+            android/settings.gradle
+
+          grep -q "com.android.application.*8.11.1" \
+            android/settings.gradle
+
+      - name: Verify Kotlin version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          grep -n "org.jetbrains.kotlin.android" \
+            android/settings.gradle
+
+          grep -q "org.jetbrains.kotlin.android.*2.2.20" \
+            android/settings.gradle
 
       - name: Dependencies
         run: flutter pub get
