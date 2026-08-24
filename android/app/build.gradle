@@ -26,4 +26,14 @@ android {
         versionCode flutter.versionCode
         versionName flutter.versionName
     }
+
+    buildTypes {
+        release {
+            // TODO: Add your own signing config for a real
+            // release build (Play Store, distribution, etc).
+            // Falling back to the debug key keeps CI builds
+            // installable for testing.
+            signingConfig signingConfigs.debug
+        }
+    }
 }
