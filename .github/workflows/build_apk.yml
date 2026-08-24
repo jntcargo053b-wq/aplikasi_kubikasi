@@ -9,55 +9,71 @@ on:
 
 jobs:
   build:
-    name: Build release APK
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Java
+      - name: Java 17
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: temurin
+          java-version: "17"
 
-      - name: Set up Flutter
+      - name: Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
+          channel: stable
           cache: true
 
-      # Cek file yang menandakan proyek Gradle Android LENGKAP (bukan
-      # cuma folder android/ ada, karena folder bisa saja ada tapi isinya
-      # stub/tidak lengkap dan gagal dikenali Gradle). Kalau
-      # android/settings.gradle atau android/settings.gradle.kts tidak
-      # ada, hapus dan generate ulang dengan "flutter create" resmi
-      # supaya seluruh berkas Gradle/Kotlin/wrapper konsisten dengan
-      # versi Flutter SDK yang dipakai di step di atas.
-      - name: Scaffold platform folders if missing/incomplete
-        run: |
-          if [ ! -f "android/settings.gradle" ] && [ ! -f "android/settings.gradle.kts" ]; then
-            echo "Struktur android/ tidak lengkap, menghapus dan menjalankan flutter create ulang"
-            rm -rf android
-            flutter create -t app --platforms=android .
-          fi
+      # The repository intentionally does not store Gradle wrapper files.
+      # Flutter create fills in only missing platform scaffolding/wrapper
+      # files and is required here before the Android build.
+      - name: Generate missing Flutter/Gradle scaffolding
+        run: flutter create --platforms=android --no-pub .
 
-      - name: Install dependencies
+      - name: Upgrade Gradle wrapper to 8.14
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -c "
+          import re
+          file_path = 'android/gradle/wrapper/gradle-wrapper.properties'
+          with open(file_path, 'r') as f:
+              content = f.read()
+          content = re.sub(
+              r'gradle-\d+\.\d+(?:\.\d+)?-(bin|all)\.zip',
+              'gradle-8.14-bin.zip',
+              content
+          )
+          with open(file_path, 'w') as f:
+              f.write(content)
+          "
+          echo "--- Verifying gradle-wrapper.properties ---"
+          cat android/gradle/wrapper/gradle-wrapper.properties
+          grep -q "gradle-8.14-bin.zip" android/gradle/wrapper/gradle-wrapper.properties
+
+      - name: Verify Gradle Version
+        working-directory: android
+        run: ./gradlew --version
+
+      - name: Dependencies
         run: flutter pub get
 
-      - name: Analyze project
+      - name: Analyze
         run: flutter analyze
-        continue-on-error: true
 
-      - name: Run tests
+      - name: Test
         run: flutter test
-        continue-on-error: true
+
+      - name: Verify Gradle version
+        working-directory: android
+        run: ./gradlew --version
 
       - name: Build release APK
         run: flutter build apk --release
 
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: app-release-apk
