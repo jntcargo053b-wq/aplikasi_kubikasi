@@ -40,3 +40,7 @@ The repository does not carry Gradle wrapper files. The GitHub Actions workflow
 therefore runs `flutter create --platforms=android --no-pub .` before `flutter pub get`.
 This supplies missing Gradle wrapper/platform scaffold files while preserving
 the existing Dart source and existing Android files.
+
+
+## Gradle CI fix
+The workflow explicitly rewrites android/gradle/wrapper/gradle-wrapper.properties to Gradle 8.14 and runs `./gradlew --version` before `flutter build apk`, so a generated Gradle 8.7 wrapper cannot silently reach the Flutter plugin check.
