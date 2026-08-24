@@ -243,9 +243,12 @@ class _BarangFormState extends State<_BarangForm> {
                   ),
                   if (_photo != null && File(_photo!).existsSync()) ...[
                     const SizedBox(width: 10),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.file(File(_photo!), width: 54, height: 54, fit: BoxFit.cover),
+                    GestureDetector(
+                      onTap: () => showPhotoPreview(context, _photo!),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.file(File(_photo!), width: 54, height: 54, fit: BoxFit.cover),
+                      ),
                     ),
                   ],
                 ],
@@ -311,4 +314,50 @@ class _BarangFormState extends State<_BarangForm> {
   double get _kubikasi =>
       (_d(_p.text) * _d(_l.text) * _d(_t.text) / kFaktorKubikasi) *
       (int.tryParse(_jumlah.text) ?? 0);
+}
+
+void showPhotoPreview(BuildContext context, String path) {
+  Navigator.of(context).push(
+    PageRouteBuilder(
+      opaque: false,
+      barrierColor: Colors.black87,
+      pageBuilder: (_, __, ___) => _PhotoPreview(path: path),
+    ),
+  );
+}
+
+class _PhotoPreview extends StatelessWidget {
+  final String path;
+  const _PhotoPreview({required this.path});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.of(context).pop(),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: Stack(
+            children: [
+              Center(
+                child: InteractiveViewer(
+                  minScale: 1,
+                  maxScale: 4,
+                  child: Image.file(File(path)),
+                ),
+              ),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
