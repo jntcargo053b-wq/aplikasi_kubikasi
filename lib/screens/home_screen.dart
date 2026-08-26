@@ -321,8 +321,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
           ),
         ],
-      ),
-    );
+      );
   }
 
   Widget _summary(String a, String b) => Column(
