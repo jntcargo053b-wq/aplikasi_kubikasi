@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../app_theme.dart';
 import '../models/pengiriman.dart';
+import '../services/export_service.dart';
 import '../services/storage_service.dart';
 import 'pengiriman_form_sheet.dart';
 import '../widgets/barang_form_sheet.dart';
@@ -17,7 +18,10 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _storage = StorageService();
+  final _exportService = ExportService();
   final _searchController = TextEditingController();
+  bool _exporting = false;
+  String? _exportingLabel;
   List<Pengiriman> _items = [];
   bool _loading = true;
   _SortMode _sort = _SortMode.terbaru;
@@ -129,6 +133,40 @@ class _HomeScreenState extends State<HomeScreen> {
     await _storage.savePengiriman(_items);
   }
 
+  Future<void> _shareReport(Pengiriman item, {required bool pdf}) async {
+    await _runExport(
+      label: 'Menyiapkan ${pdf ? 'PDF' : 'Excel'}...',
+      action: () => pdf ? _exportService.sharePdf(item) : _exportService.shareExcel(item),
+    );
+  }
+
+  Future<void> _shareFilteredReport(List<Pengiriman> items, {required bool pdf}) async {
+    if (items.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tidak ada data untuk dibagikan.')));
+      return;
+    }
+    await _runExport(
+      label: 'Menyiapkan rekap ${pdf ? 'PDF' : 'Excel'}...',
+      action: () => pdf ? _exportService.shareCombinedPdf(items) : _exportService.shareCombinedExcel(items),
+    );
+  }
+
+  Future<void> _runExport({required String label, required Future<void> Function() action}) async {
+    if (_exporting) return;
+    setState(() {
+      _exporting = true;
+      _exportingLabel = label;
+    });
+    try {
+      await action();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal membuat laporan: $e')));
+    } finally {
+      if (mounted) setState(() { _exporting = false; _exportingLabel = null; });
+    }
+  }
+
   Future<void> _pickRange(bool start) async {
     final initial = start ? (_mulai ?? DateTime.now()) : (_sampai ?? _mulai ?? DateTime.now());
     final d = await showDatePicker(context: context, initialDate: initial, firstDate: DateTime(2000), lastDate: DateTime(2100));
@@ -179,7 +217,35 @@ class _HomeScreenState extends State<HomeScreen> {
         icon: const Icon(Icons.add),
         label: const Text('Pengiriman Baru'),
       ),
-      body: Column(
+      body: Stack(
+        children: [
+          _body(list, totalK),
+          if (_exporting)
+            Container(
+              color: Colors.black.withOpacity(0.15),
+              child: const Center(
+                child: Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.5)),
+                        SizedBox(width: 14),
+                        Text(_exportingLabel ?? 'Menyiapkan laporan...'),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _body(List<Pengiriman> list, double totalK) {
+    return Column(
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
@@ -197,6 +263,39 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           _filters(),
+          if (list.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
+              child: Card(
+                margin: EdgeInsets.zero,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.ios_share_outlined, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Bagikan ${list.length} pengiriman hasil filter',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      PopupMenuButton<String>(
+                        tooltip: 'Bagikan hasil filter',
+                        onSelected: (v) {
+                          if (v == 'pdf') _shareFilteredReport(list, pdf: true);
+                          if (v == 'excel') _shareFilteredReport(list, pdf: false);
+                        },
+                        itemBuilder: (_) => const [
+                          PopupMenuItem(value: 'pdf', child: Text('Share Rekap PDF')),
+                          PopupMenuItem(value: 'excel', child: Text('Share Rekap Excel')),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           Container(
             margin: const EdgeInsets.fromLTRB(16, 4, 16, 10),
             padding: const EdgeInsets.all(14),
@@ -280,9 +379,29 @@ class _HomeScreenState extends State<HomeScreen> {
           onSelected: (v) {
             if (v == 'edit') _edit(p);
             if (v == 'delete') _delete(p);
+            if (v == 'share_pdf') _shareReport(p, pdf: true);
+            if (v == 'share_excel') _shareReport(p, pdf: false);
           },
           itemBuilder: (_) => const [
             PopupMenuItem(value: 'edit', child: Text('Edit')),
+            PopupMenuItem(
+              value: 'share_pdf',
+              child: ListTile(
+                leading: Icon(Icons.picture_as_pdf_outlined),
+                title: Text('Share Laporan (PDF)'),
+                contentPadding: EdgeInsets.zero,
+                minLeadingWidth: 0,
+              ),
+            ),
+            PopupMenuItem(
+              value: 'share_excel',
+              child: ListTile(
+                leading: Icon(Icons.grid_on_outlined),
+                title: Text('Share Laporan (Excel)'),
+                contentPadding: EdgeInsets.zero,
+                minLeadingWidth: 0,
+              ),
+            ),
             PopupMenuItem(value: 'delete', child: Text('Hapus')),
           ],
             ),
