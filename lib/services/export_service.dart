@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:excel/excel.dart' as xls;
@@ -39,21 +38,6 @@ class ExportService {
       await reportDir.create(recursive: true);
     }
     return reportDir;
-  }
-
-  /// Menghapus salinan foto terkompresi lama dari temp dir.
-  /// Tidak dipanggil selama proses share aktif agar tidak berisiko menghapus
-  /// attachment yang masih sedang diakses oleh Android Share Sheet.
-  Future<void> _clearOldSharedPhotoCopies(Directory reportDir) async {
-    try {
-      await for (final entity in reportDir.list()) {
-        if (entity is File && entity.path.split(Platform.pathSeparator).last.startsWith('share_photo_')) {
-          try {
-            await entity.delete();
-          } catch (_) {}
-        }
-      }
-    } catch (_) {}
   }
 
   /// Membuat file PDF berisi rincian barang dan total kubikasi
@@ -99,7 +83,7 @@ class ExportService {
           _infoRow('Tanggal', _tanggalFmt.format(p.tanggal)),
           _infoRow('Jumlah Jenis Barang', '${p.barang.length}'),
           pw.SizedBox(height: 14),
-          pw.Table.fromTextArray(
+          pw.TableHelper.fromTextArray(
             headers: headers,
             data: rows,
             headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
@@ -228,7 +212,7 @@ class ExportService {
         ),
         build: (context) => [
           pw.SizedBox(height: 4),
-          pw.Table.fromTextArray(
+          pw.TableHelper.fromTextArray(
             headers: const ['No', 'Tanggal', 'Resi', 'Pengirim', 'Barang', 'Berat (kg)', 'Kubikasi (m³)'],
             data: [
               for (var i = 0; i < sorted.length; i++)

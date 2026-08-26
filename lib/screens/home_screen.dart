@@ -222,8 +222,8 @@ class _HomeScreenState extends State<HomeScreen> {
           _body(list, totalK),
           if (_exporting)
             Container(
-              color: Colors.black.withOpacity(0.15),
-              child: const Center(
+              color: Colors.black.withValues(alpha: 0.15),
+              child: Center(
                 child: Card(
                   child: Padding(
                     padding: EdgeInsets.all(20),
