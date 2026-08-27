@@ -32,6 +32,20 @@ class BarangItem {
 
   double get totalBerat => berat * jumlah;
 
+  /// Validates values before persistence or report generation.
+  String? validate() {
+    if (nama.trim().isEmpty) return 'Nama barang wajib diisi.';
+    if (jumlah <= 0) return 'Jumlah barang harus lebih dari 0.';
+    if (!panjang.isFinite || panjang <= 0) return 'Panjang harus lebih dari 0.';
+    if (!lebar.isFinite || lebar <= 0) return 'Lebar harus lebih dari 0.';
+    if (!tinggi.isFinite || tinggi <= 0) return 'Tinggi harus lebih dari 0.';
+    if (!berat.isFinite || berat < 0) return 'Berat tidak valid.';
+    if (!volume.isFinite || !kubikasi.isFinite || !totalBerat.isFinite) {
+      return 'Hasil perhitungan barang tidak valid.';
+    }
+    return null;
+  }
+
   BarangItem copyWith({
     String? nama,
     int? jumlah,

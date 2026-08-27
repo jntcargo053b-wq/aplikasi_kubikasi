@@ -21,6 +21,21 @@ class Pengiriman {
   double get totalKubikasi => barang.fold(0, (s, e) => s + e.kubikasi);
   double get totalBerat => barang.fold(0, (s, e) => s + e.totalBerat);
 
+  /// Validates shipment data before report generation.
+  String? validateForReport() {
+    if (pengirim.trim().isEmpty) return 'Nama pengirim wajib diisi.';
+    if (nomorResi.trim().isEmpty) return 'Nomor resi wajib diisi.';
+    if (barang.isEmpty) return 'Pengiriman belum memiliki barang.';
+    for (var i = 0; i < barang.length; i++) {
+      final error = barang[i].validate();
+      if (error != null) return 'Barang ${i + 1}: $error';
+    }
+    if (!totalVolume.isFinite || !totalKubikasi.isFinite || !totalBerat.isFinite) {
+      return 'Total perhitungan pengiriman tidak valid.';
+    }
+    return null;
+  }
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'pengirim': pengirim,

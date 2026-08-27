@@ -236,7 +236,8 @@ class _BarangFormState extends State<_BarangForm> {
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(labelText: 'Jumlah'),
                 validator: (v) {
-                  final x = int.tryParse(v ?? '');
+                  final raw = (v ?? '').trim();
+                  final x = int.tryParse(raw);
                   return x == null || x <= 0 ? 'Jumlah tidak valid' : null;
                 },
               ),
@@ -245,7 +246,15 @@ class _BarangFormState extends State<_BarangForm> {
                 controller: _berat,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(labelText: 'Berat per unit', suffixText: 'kg'),
-                validator: (v) => _d(v ?? '') < 0 ? 'Berat tidak valid' : null,
+                validator: (v) {
+                  final raw = (v ?? '').trim();
+                  if (raw.isEmpty) return null;
+                  final value = double.tryParse(raw.replaceAll(',', '.'));
+                  if (value == null || !value.isFinite || value < 0) {
+                    return 'Berat tidak valid';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 12),
               Row(
@@ -320,7 +329,11 @@ class _BarangFormState extends State<_BarangForm> {
           controller: c,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(labelText: label, suffixText: 'cm'),
-          validator: (v) => _d(v ?? '') <= 0 ? 'Wajib' : null,
+          validator: (v) {
+            final raw = (v ?? '').trim();
+            final value = double.tryParse(raw.replaceAll(',', '.'));
+            return value == null || !value.isFinite || value <= 0 ? 'Wajib' : null;
+          },
         ),
       );
 

@@ -52,8 +52,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _load() async {
-    final data = await _storage.loadPengiriman();
-    final reportSettings = await _settingsService.loadReportSettings();
+    final results = await Future.wait<Object?>([
+      _storage.loadPengiriman(),
+      _settingsService.loadReportSettings(),
+    ]);
+    final data = results[0] as List<Pengiriman>;
+    final reportSettings = results[1] as ReportSettings;
     if (!mounted) return;
     setState(() {
       _items = data;

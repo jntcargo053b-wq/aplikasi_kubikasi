@@ -32,6 +32,13 @@ class ExportService {
     return cleaned.isEmpty ? 'pengiriman' : cleaned;
   }
 
+  void _validateShipment(Pengiriman p) {
+    final error = p.validateForReport();
+    if (error != null) {
+      throw StateError('Data laporan tidak valid: $error');
+    }
+  }
+
   Future<Directory> _tempDir() async {
     final dir = await getTemporaryDirectory();
     final reportDir = Directory('${dir.path}/reports');
@@ -127,22 +134,25 @@ class ExportService {
   }
 
   Future<({File file, bool hasPhotos})> _buildPdf(Pengiriman p, ReportSettings settings) async {
+    _validateShipment(p);
     final doc = pw.Document();
     final logo = await _loadReportLogo(settings);
     final loaded = await _loadPhotos(p, limit: _maxEmbeddedPhotos);
     final photos = loaded.photos;
 
-    final headers = ['Nama Barang', 'Jml', 'P×L×T (cm)', 'Berat (kg)', 'Volume', 'Kubikasi (m³)'];
-    final rows = p.barang.map((b) {
-      return [
-        b.nama,
-        b.jumlah.toString(),
-        '${_fmtNum(b.panjang)}×${_fmtNum(b.lebar)}×${_fmtNum(b.tinggi)}',
-        b.totalBerat.toStringAsFixed(2),
-        b.volume.toStringAsFixed(2),
-        b.kubikasi.toStringAsFixed(3),
-      ];
-    }).toList();
+    final headers = ['No', 'Nama Barang', 'Jml', 'P×L×T (cm)', 'Berat (kg)', 'Volume', 'Kubikasi (m³)'];
+    final rows = [
+      for (var i = 0; i < p.barang.length; i++)
+        [
+          '${i + 1}',
+          p.barang[i].nama,
+          p.barang[i].jumlah.toString(),
+          '${_fmtNum(p.barang[i].panjang)}×${_fmtNum(p.barang[i].lebar)}×${_fmtNum(p.barang[i].tinggi)}',
+          p.barang[i].totalBerat.toStringAsFixed(2),
+          p.barang[i].volume.toStringAsFixed(2),
+          p.barang[i].kubikasi.toStringAsFixed(3),
+        ],
+    ];
 
     doc.addPage(
       pw.MultiPage(
@@ -171,12 +181,13 @@ class ExportService {
             headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFE2E8F0)),
             cellAlignment: pw.Alignment.centerLeft,
             columnWidths: const {
-              0: pw.FlexColumnWidth(2.4),
-              1: pw.FlexColumnWidth(0.8),
-              2: pw.FlexColumnWidth(1.6),
-              3: pw.FlexColumnWidth(1.1),
+              0: pw.FixedColumnWidth(24),
+              1: pw.FlexColumnWidth(2.2),
+              2: pw.FlexColumnWidth(0.8),
+              3: pw.FlexColumnWidth(1.6),
               4: pw.FlexColumnWidth(1.1),
-              5: pw.FlexColumnWidth(1.2),
+              5: pw.FlexColumnWidth(1.1),
+              6: pw.FlexColumnWidth(1.2),
             },
             border: pw.TableBorder.all(color: const PdfColor.fromInt(0xFFCBD5E1), width: 0.5),
           ),
@@ -255,6 +266,9 @@ class ExportService {
 
   Future<({File file, bool hasPhotos})> _buildCombinedPdf(List<Pengiriman> items, ReportSettings settings) async {
     if (items.isEmpty) throw ArgumentError('Tidak ada pengiriman untuk dibagikan.');
+    for (final item in items) {
+      _validateShipment(item);
+    }
     final doc = pw.Document();
     final logo = await _loadReportLogo(settings);
     // Pertahankan urutan yang dikirim HomeScreen (sudah mengikuti filter + sort UI).
@@ -394,6 +408,9 @@ class ExportService {
   /// Membuat satu Excel gabungan dari beberapa pengiriman.
   Future<File> generateCombinedExcel(List<Pengiriman> items, {ReportSettings settings = const ReportSettings()}) async {
     if (items.isEmpty) throw ArgumentError('Tidak ada pengiriman untuk dibagikan.');
+    for (final item in items) {
+      _validateShipment(item);
+    }
     final workbook = xls.Excel.createExcel();
     const sheetName = 'Rekap';
     final sheet = workbook[sheetName];
@@ -452,7 +469,7 @@ class ExportService {
         setCell(10, row, b.totalBerat);
         setCell(11, row, b.volume);
         setCell(12, row, b.kubikasi);
-        setCell(13, row, b.photoPath != null && File(b.photoPath!).existsSync() ? 'Ada' : 'Tidak ada');
+        setCell(13, row, b.photoPath != null && await File(b.photoPath!).exists() ? 'Ada' : 'Tidak ada');
         row++;
       }
     }
@@ -507,6 +524,7 @@ class ExportService {
   /// Membuat file Excel (.xlsx) berisi rincian barang dan total
   /// kubikasi untuk satu pengiriman, lalu mengembalikan File-nya.
   Future<File> generateExcel(Pengiriman p, {ReportSettings settings = const ReportSettings()}) async {
+    _validateShipment(p);
     final workbook = xls.Excel.createExcel();
     final sheetName = 'Laporan';
     final sheet = workbook[sheetName];
@@ -553,41 +571,44 @@ class ExportService {
     row0 += 2;
 
     final tableHeaderRow = row0;
-    final headers = ['Nama Barang', 'Jumlah', 'Panjang (cm)', 'Lebar (cm)', 'Tinggi (cm)', 'Berat/pcs (kg)', 'Total Berat (kg)', 'Volume', 'Kubikasi (m³)', 'Foto'];
+    final headers = ['No', 'Nama Barang', 'Jumlah', 'Panjang (cm)', 'Lebar (cm)', 'Tinggi (cm)', 'Berat/pcs (kg)', 'Total Berat (kg)', 'Volume', 'Kubikasi (m³)', 'Foto'];
     for (var c = 0; c < headers.length; c++) {
       setCell(c, tableHeaderRow, headers[c], bold: true);
     }
 
     var row = tableHeaderRow + 1;
-    for (final b in p.barang) {
-      setCell(0, row, b.nama);
-      setCell(1, row, b.jumlah);
-      setCell(2, row, b.panjang);
-      setCell(3, row, b.lebar);
-      setCell(4, row, b.tinggi);
-      setCell(5, row, b.berat);
-      setCell(6, row, b.totalBerat);
-      setCell(7, row, b.volume);
-      setCell(8, row, b.kubikasi);
-      setCell(9, row, b.photoPath != null && File(b.photoPath!).existsSync() ? 'Ada' : 'Tidak ada');
+    for (var i = 0; i < p.barang.length; i++) {
+      final b = p.barang[i];
+      setCell(0, row, i + 1);
+      setCell(1, row, b.nama);
+      setCell(2, row, b.jumlah);
+      setCell(3, row, b.panjang);
+      setCell(4, row, b.lebar);
+      setCell(5, row, b.tinggi);
+      setCell(6, row, b.berat);
+      setCell(7, row, b.totalBerat);
+      setCell(8, row, b.volume);
+      setCell(9, row, b.kubikasi);
+      setCell(10, row, b.photoPath != null && await File(b.photoPath!).exists() ? 'Ada' : 'Tidak ada');
       row++;
     }
 
     row += 1;
     setCell(0, row, 'TOTAL', bold: true);
-    setCell(1, row, p.totalJumlah, bold: true);
-    setCell(6, row, p.totalBerat, bold: true);
-    setCell(7, row, p.totalVolume, bold: true);
-    setCell(8, row, p.totalKubikasi, bold: true);
+    setCell(2, row, p.totalJumlah, bold: true);
+    setCell(7, row, p.totalBerat, bold: true);
+    setCell(8, row, p.totalVolume, bold: true);
+    setCell(9, row, p.totalKubikasi, bold: true);
 
     for (var c = 0; c < headers.length; c++) {
       sheet.setColumnAutoFit(c);
     }
 
     final bytes = workbook.encode();
+    if (bytes == null) throw StateError('Gagal membuat file Excel.');
     final dir = await _tempDir();
     final file = File('${dir.path}/Laporan_${_sanitize(p.nomorResi)}.xlsx');
-    await file.writeAsBytes(bytes!);
+    await file.writeAsBytes(bytes);
     return file;
   }
 
