@@ -80,9 +80,6 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     // In particular, when a session-created photo is replaced, the old path
     // must remain tracked until the parent save/cancel outcome is known.
     final beforePhoto = before.photoPath;
-    final beforeWasSessionPhoto = beforePhoto != null &&
-        _sessionPhotoPaths.contains(beforePhoto);
-
     setState(() => _busy = true);
     try {
       final item = await showBarangFormSheet(context, existing: before);

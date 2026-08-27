@@ -311,6 +311,7 @@ class _BarangFormState extends State<_BarangForm> {
           ),
         ),
       ),
+      ),
     );
   }
 
