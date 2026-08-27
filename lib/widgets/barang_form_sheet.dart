@@ -396,7 +396,6 @@ class _PhotoPreview extends StatelessWidget {
           ),
         ),
       ),
-      ),
     );
   }
 }

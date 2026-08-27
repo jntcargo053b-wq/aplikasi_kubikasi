@@ -146,6 +146,14 @@ class _ReportHeaderSettingsScreenState extends State<ReportHeaderSettingsScreen>
     }
   }
 
+  String _previewHeaderText() {
+    final company = _companyController.text.trim();
+    final note = _noteController.text.trim();
+    final title = company.isEmpty ? 'Laporan Kubikasi Pengiriman' : company;
+    if (note.isEmpty) return 'Preview header: $title';
+    return 'Preview header: $title\n$note';
+  }
+
   @override
   Widget build(BuildContext context) {
     final logo = _logoPath;
@@ -182,7 +190,7 @@ class _ReportHeaderSettingsScreenState extends State<ReportHeaderSettingsScreen>
                               color: AppColors.background,
                             ),
                             child: logoExists
-                                ? Image.file(File(logo!), fit: BoxFit.contain)
+                                ? Image.file(File(logo), fit: BoxFit.contain)
                                 : const Icon(Icons.business, size: 32, color: AppColors.muted),
                           ),
                           const SizedBox(width: 14),
@@ -253,10 +261,7 @@ class _ReportHeaderSettingsScreenState extends State<ReportHeaderSettingsScreen>
                             child: Text(
                               _companyController.text.trim().isEmpty && !logoExists
                                   ? 'Preview: judul laporan default akan tetap dipakai.'
-                                  : 'Preview header:
-${_companyController.text.trim().isEmpty ? 'Laporan Kubikasi Pengiriman' : _companyController.text.trim()}'
-                                      '${_noteController.text.trim().isEmpty ? '' : '
-${_noteController.text.trim()}'}',
+                                  : _previewHeaderText(),
                               style: const TextStyle(fontSize: 12.5, color: AppColors.muted, height: 1.4),
                             ),
                           ),

@@ -99,7 +99,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
         // session, deliberately keep it tracked. It may still be the
         // persisted value if the parent save fails; it is only eligible for
         // deletion after a successful parent save proves it is unreferenced.
-        if (beforeWasSessionPhoto && beforePhoto != null) {
+        if (beforePhoto != null && _sessionPhotoPaths.contains(beforePhoto)) {
           _sessionPhotoPaths.add(beforePhoto);
         }
 
