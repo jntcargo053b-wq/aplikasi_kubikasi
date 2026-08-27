@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../models/barang_item.dart';
 import '../models/pengiriman.dart';
+import '../models/report_settings.dart';
 
 /// Layanan untuk membuat dan membagikan laporan pengiriman
 /// dalam format PDF maupun Excel (.xlsx), baik per-resi maupun gabungan.
@@ -42,10 +43,92 @@ class ExportService {
 
   /// Membuat file PDF berisi rincian barang dan total kubikasi
   /// untuk satu pengiriman, lalu mengembalikan File-nya.
-  Future<File> generatePdf(Pengiriman p) async => (await _buildPdf(p)).file;
+  Future<File> generatePdf(Pengiriman p, {ReportSettings settings = const ReportSettings()}) async =>
+      (await _buildPdf(p, settings)).file;
 
-  Future<({File file, bool hasPhotos})> _buildPdf(Pengiriman p) async {
+  /// Widget baris judul header laporan. Jika [settings.companyName] diisi,
+  /// nama usaha dijadikan judul utama dan [defaultTitle] menjadi subjudul;
+  /// jika kosong, [defaultTitle] tetap dipakai seperti sebelumnya.
+  Future<pw.MemoryImage?> _loadReportLogo(ReportSettings settings) async {
+    final path = settings.logoPath?.trim();
+    if (path == null || path.isEmpty) return null;
+    try {
+      final file = File(path);
+      if (!await file.exists()) return null;
+      final bytes = await file.readAsBytes();
+      if (bytes.isEmpty) return null;
+      return pw.MemoryImage(bytes);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  List<pw.Widget> _headerLines(ReportSettings settings, String defaultTitle, pw.MemoryImage? logo) {
+    final company = settings.companyName.trim();
+    final note = settings.headerNote.trim();
+    final title = company.isNotEmpty ? company : defaultTitle;
+    final titleStyle = pw.TextStyle(
+      fontSize: company.isNotEmpty ? 16 : 18,
+      fontWeight: pw.FontWeight.bold,
+    );
+    final children = <pw.Widget>[];
+
+    if (logo != null) {
+      children.add(
+        pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          children: [
+            pw.Container(
+              width: 52,
+              height: 52,
+              margin: const pw.EdgeInsets.only(right: 10),
+              child: pw.Image(logo, fit: pw.BoxFit.contain),
+            ),
+            pw.Expanded(
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(title, style: titleStyle),
+                  if (company.isNotEmpty)
+                    pw.SizedBox(height: 2),
+                  if (company.isNotEmpty)
+                    pw.Text(
+                      defaultTitle,
+                      style: const pw.TextStyle(fontSize: 9, color: PdfColor.fromInt(0xFF475569)),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      children.add(pw.Text(title, style: titleStyle));
+      if (company.isNotEmpty) {
+        children.add(
+          pw.Text(
+            defaultTitle,
+            style: const pw.TextStyle(fontSize: 9, color: PdfColor.fromInt(0xFF475569)),
+          ),
+        );
+      }
+    }
+
+    if (note.isNotEmpty) {
+      children.add(pw.SizedBox(height: 2));
+      children.add(
+        pw.Text(
+          note,
+          style: const pw.TextStyle(fontSize: 9, color: PdfColor.fromInt(0xFF64748B)),
+        ),
+      );
+    }
+    return children;
+  }
+
+  Future<({File file, bool hasPhotos})> _buildPdf(Pengiriman p, ReportSettings settings) async {
     final doc = pw.Document();
+    final logo = await _loadReportLogo(settings);
     final loaded = await _loadPhotos(p, limit: _maxEmbeddedPhotos);
     final photos = loaded.photos;
 
@@ -68,10 +151,7 @@ class ExportService {
         header: (context) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            pw.Text(
-              'Laporan Kubikasi Pengiriman',
-              style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
-            ),
+            ..._headerLines(settings, 'Laporan Kubikasi Pengiriman', logo),
             pw.SizedBox(height: 4),
             pw.Divider(thickness: 1),
           ],
@@ -170,11 +250,13 @@ class ExportService {
   }
 
   /// Membuat satu PDF gabungan dari beberapa pengiriman.
-  Future<File> generateCombinedPdf(List<Pengiriman> items) async => (await _buildCombinedPdf(items)).file;
+  Future<File> generateCombinedPdf(List<Pengiriman> items, {ReportSettings settings = const ReportSettings()}) async =>
+      (await _buildCombinedPdf(items, settings)).file;
 
-  Future<({File file, bool hasPhotos})> _buildCombinedPdf(List<Pengiriman> items) async {
+  Future<({File file, bool hasPhotos})> _buildCombinedPdf(List<Pengiriman> items, ReportSettings settings) async {
     if (items.isEmpty) throw ArgumentError('Tidak ada pengiriman untuk dibagikan.');
     final doc = pw.Document();
+    final logo = await _loadReportLogo(settings);
     // Pertahankan urutan yang dikirim HomeScreen (sudah mengikuti filter + sort UI).
     final sorted = List<Pengiriman>.from(items);
     final totalJumlah = sorted.fold<int>(0, (s, p) => s + p.totalJumlah);
@@ -204,7 +286,7 @@ class ExportService {
         header: (context) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            pw.Text('Rekap Laporan Kubikasi Pengiriman', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+            ..._headerLines(settings, 'Rekap Laporan Kubikasi Pengiriman', logo),
             pw.SizedBox(height: 4),
             pw.Text('Jumlah pengiriman: ${sorted.length}', style: const pw.TextStyle(fontSize: 9, color: PdfColor.fromInt(0xFF64748B))),
             pw.Divider(thickness: 1),
@@ -310,7 +392,7 @@ class ExportService {
   }
 
   /// Membuat satu Excel gabungan dari beberapa pengiriman.
-  Future<File> generateCombinedExcel(List<Pengiriman> items) async {
+  Future<File> generateCombinedExcel(List<Pengiriman> items, {ReportSettings settings = const ReportSettings()}) async {
     if (items.isEmpty) throw ArgumentError('Tidak ada pengiriman untuk dibagikan.');
     final workbook = xls.Excel.createExcel();
     const sheetName = 'Rekap';
@@ -329,10 +411,26 @@ class ExportService {
     }
     // Pertahankan urutan yang dikirim HomeScreen (sudah mengikuti filter + sort UI).
     final sorted = List<Pengiriman>.from(items);
-    setCell(0, 0, 'Rekap Laporan Kubikasi Pengiriman', bold: true);
-    setCell(0, 1, 'Jumlah Pengiriman', bold: true);
-    setCell(1, 1, sorted.length);
-    const headerRow = 3;
+    var row0 = 0;
+    final company = settings.companyName.trim();
+    final note = settings.headerNote.trim();
+    if (company.isNotEmpty) {
+      setCell(0, row0, company, bold: true);
+      row0++;
+      setCell(0, row0, 'Rekap Laporan Kubikasi Pengiriman');
+      row0++;
+    } else {
+      setCell(0, row0, 'Rekap Laporan Kubikasi Pengiriman', bold: true);
+      row0++;
+    }
+    if (note.isNotEmpty) {
+      setCell(0, row0, note);
+      row0++;
+    }
+    setCell(0, row0, 'Jumlah Pengiriman', bold: true);
+    setCell(1, row0, sorted.length);
+    row0 += 2;
+    final headerRow = row0;
     const headers = ['No', 'Tanggal', 'Nomor Resi', 'Pengirim', 'Nama Barang', 'Jumlah', 'Panjang (cm)', 'Lebar (cm)', 'Tinggi (cm)', 'Berat/pcs (kg)', 'Total Berat (kg)', 'Volume', 'Kubikasi (m³)', 'Foto'];
     for (var c = 0; c < headers.length; c++) {
       setCell(c, headerRow, headers[c], bold: true);
@@ -375,8 +473,8 @@ class ExportService {
     return file;
   }
 
-  Future<void> shareCombinedPdf(List<Pengiriman> items) async {
-    final built = await _buildCombinedPdf(items);
+  Future<void> shareCombinedPdf(List<Pengiriman> items, {ReportSettings settings = const ReportSettings()}) async {
+    final built = await _buildCombinedPdf(items, settings);
     await Share.shareXFiles(
       [XFile(built.file.path)],
       text: built.hasPhotos
@@ -386,8 +484,8 @@ class ExportService {
     );
   }
 
-  Future<void> shareCombinedExcel(List<Pengiriman> items) async {
-    final file = await generateCombinedExcel(items);
+  Future<void> shareCombinedExcel(List<Pengiriman> items, {ReportSettings settings = const ReportSettings()}) async {
+    final file = await generateCombinedExcel(items, settings: settings);
     final quotas = await _allocatePhotoQuotas(items, _maxEmbeddedPhotos);
     final photoFiles = <File>[];
     var totalValidPhotos = 0;
@@ -408,7 +506,7 @@ class ExportService {
 
   /// Membuat file Excel (.xlsx) berisi rincian barang dan total
   /// kubikasi untuk satu pengiriman, lalu mengembalikan File-nya.
-  Future<File> generateExcel(Pengiriman p) async {
+  Future<File> generateExcel(Pengiriman p, {ReportSettings settings = const ReportSettings()}) async {
     final workbook = xls.Excel.createExcel();
     final sheetName = 'Laporan';
     final sheet = workbook[sheetName];
@@ -428,15 +526,33 @@ class ExportService {
       }
     }
 
-    setCell(0, 0, 'Laporan Kubikasi Pengiriman', bold: true);
-    setCell(0, 1, 'Nomor Resi');
-    setCell(1, 1, p.nomorResi);
-    setCell(0, 2, 'Pengirim');
-    setCell(1, 2, p.pengirim);
-    setCell(0, 3, 'Tanggal');
-    setCell(1, 3, _tanggalFmt.format(p.tanggal));
+    var row0 = 0;
+    final company = settings.companyName.trim();
+    final note = settings.headerNote.trim();
+    if (company.isNotEmpty) {
+      setCell(0, row0, company, bold: true);
+      row0++;
+      setCell(0, row0, 'Laporan Kubikasi Pengiriman');
+      row0++;
+    } else {
+      setCell(0, row0, 'Laporan Kubikasi Pengiriman', bold: true);
+      row0++;
+    }
+    if (note.isNotEmpty) {
+      setCell(0, row0, note);
+      row0++;
+    }
+    setCell(0, row0, 'Nomor Resi');
+    setCell(1, row0, p.nomorResi);
+    row0++;
+    setCell(0, row0, 'Pengirim');
+    setCell(1, row0, p.pengirim);
+    row0++;
+    setCell(0, row0, 'Tanggal');
+    setCell(1, row0, _tanggalFmt.format(p.tanggal));
+    row0 += 2;
 
-    const tableHeaderRow = 5;
+    final tableHeaderRow = row0;
     final headers = ['Nama Barang', 'Jumlah', 'Panjang (cm)', 'Lebar (cm)', 'Tinggi (cm)', 'Berat/pcs (kg)', 'Total Berat (kg)', 'Volume', 'Kubikasi (m³)', 'Foto'];
     for (var c = 0; c < headers.length; c++) {
       setCell(c, tableHeaderRow, headers[c], bold: true);
@@ -475,8 +591,8 @@ class ExportService {
     return file;
   }
 
-  Future<void> sharePdf(Pengiriman p) async {
-    final built = await _buildPdf(p);
+  Future<void> sharePdf(Pengiriman p, {ReportSettings settings = const ReportSettings()}) async {
+    final built = await _buildPdf(p, settings);
     await Share.shareXFiles(
       [XFile(built.file.path)],
       text: built.hasPhotos
@@ -486,8 +602,8 @@ class ExportService {
     );
   }
 
-  Future<void> shareExcel(Pengiriman p) async {
-    final file = await generateExcel(p);
+  Future<void> shareExcel(Pengiriman p, {ReportSettings settings = const ReportSettings()}) async {
+    final file = await generateExcel(p, settings: settings);
     final photoFiles = await _compressedPhotoFiles(p, limit: _maxEmbeddedPhotos);
     await Share.shareXFiles(
       [XFile(file.path), ...photoFiles.map((f) => XFile(f.path))],

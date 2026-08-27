@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 import '../app_theme.dart';
 import '../models/barang_item.dart';
 import '../models/pengiriman.dart';
+import '../services/photo_storage_service.dart';
 import '../widgets/barang_form_sheet.dart';
 import 'barcode_scanner_screen.dart';
 
@@ -32,6 +34,10 @@ class _PengirimanFormState extends State<_PengirimanForm> {
   late final TextEditingController _resi;
   late DateTime _tanggal;
   late List<BarangItem> _barang;
+  late final Set<String> _originalPhotoPaths;
+  final Set<String> _sessionPhotoPaths = <String>{};
+  bool _saved = false;
+  bool _busy = false;
 
   @override
   void initState() {
@@ -41,25 +47,86 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     _resi = TextEditingController(text: e?.nomorResi ?? '');
     _tanggal = e?.tanggal ?? DateTime.now();
     _barang = e?.barang.map((x) => x.copyWith()).toList() ?? [];
-  }
-
-  @override
-  void dispose() {
-    _pengirim.dispose();
-    _resi.dispose();
-    super.dispose();
+    _originalPhotoPaths = _barang
+        .map((b) => b.photoPath)
+        .whereType<String>()
+        .where((p) => p.isNotEmpty)
+        .toSet();
   }
 
   String _date(DateTime d) => DateFormat('dd/MM/yyyy').format(d);
 
   Future<void> _addItem() async {
-    final item = await showBarangFormSheet(context);
-    if (item != null && mounted) setState(() => _barang.add(item));
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      final item = await showBarangFormSheet(context);
+      if (item != null && mounted) {
+        if (item.photoPath != null && !_originalPhotoPaths.contains(item.photoPath)) {
+          _sessionPhotoPaths.add(item.photoPath!);
+        }
+        setState(() => _barang.add(item));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _editItem(int index) async {
-    final item = await showBarangFormSheet(context, existing: _barang[index]);
-    if (item != null && mounted) setState(() => _barang[index] = item);
+    if (_busy || index < 0 || index >= _barang.length) return;
+    final before = _barang[index];
+
+    // Keep ownership of every photo created during this parent form session.
+    // In particular, when a session-created photo is replaced, the old path
+    // must remain tracked until the parent save/cancel outcome is known.
+    final beforePhoto = before.photoPath;
+    final beforeWasSessionPhoto = beforePhoto != null &&
+        _sessionPhotoPaths.contains(beforePhoto);
+
+    setState(() => _busy = true);
+    try {
+      final item = await showBarangFormSheet(context, existing: before);
+      if (item != null && mounted) {
+        final newPhoto = item.photoPath;
+        if (newPhoto != null &&
+            newPhoto.isNotEmpty &&
+            !_originalPhotoPaths.contains(newPhoto) &&
+            newPhoto != beforePhoto) {
+          _sessionPhotoPaths.add(newPhoto);
+        }
+
+        // If the previous photo was created in this same unsaved parent
+        // session, deliberately keep it tracked. It may still be the
+        // persisted value if the parent save fails; it is only eligible for
+        // deletion after a successful parent save proves it is unreferenced.
+        if (beforeWasSessionPhoto && beforePhoto != null) {
+          _sessionPhotoPaths.add(beforePhoto);
+        }
+
+        setState(() => _barang[index] = item);
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _removeItem(int index) async {
+    if (_busy || index < 0 || index >= _barang.length) return;
+    final removed = _barang[index];
+    setState(() => _busy = true);
+    try {
+      setState(() => _barang.removeAt(index));
+
+      // A photo created during this unsaved form session has no persisted owner
+      // once its item is removed, so it can be deleted immediately. Original
+      // shipment photos are deleted transactionally in _save().
+      final path = removed.photoPath;
+      if (path != null && _sessionPhotoPaths.remove(path)) {
+        await PhotoStorageService.delete(path);
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _scan() async {
@@ -81,7 +148,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     if (d != null) setState(() => _tanggal = d);
   }
 
-  void _save() {
+  Future<void> _save() async {
     final pengirim = _pengirim.text.trim();
     final resi = _resi.text.trim();
 
@@ -98,16 +165,30 @@ class _PengirimanFormState extends State<_PengirimanForm> {
       return;
     }
 
-    Navigator.pop(
-      context,
-      Pengiriman(
-        id: widget.existing?.id ?? DateTime.now().microsecondsSinceEpoch.toString(),
-        pengirim: pengirim,
-        tanggal: _tanggal,
-        nomorResi: resi,
-        barang: List.of(_barang),
-      ),
+    final result = Pengiriman(
+      id: widget.existing?.id ?? const Uuid().v4(),
+      pengirim: pengirim,
+      tanggal: _tanggal,
+      nomorResi: resi,
+      barang: List.of(_barang),
     );
+
+    // Do not delete any original/session photo here. The parent screen must
+    // persist the new shipment first. If persistence fails, it can then keep
+    // the original files and remove only the newly-created files.
+    _saved = true;
+    Navigator.pop(context, result);
+  }
+
+  @override
+  void dispose() {
+    if (!_saved && _sessionPhotoPaths.isNotEmpty) {
+      final paths = List<String>.from(_sessionPhotoPaths);
+      Future<void>(() => PhotoStorageService.deleteAll(paths));
+    }
+    _pengirim.dispose();
+    _resi.dispose();
+    super.dispose();
   }
 
   void _error(String text) {
@@ -127,7 +208,9 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     final totalV = _barang.fold<double>(0, (s, e) => s + e.volume);
     final totalB = _barang.fold<double>(0, (s, e) => s + e.totalBerat);
 
-    return Material(
+    return PopScope(
+      canPop: !_busy,
+      child: Material(
       color: Colors.white,
       borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       clipBehavior: Clip.antiAlias,
@@ -201,7 +284,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                     ),
                     trailing: IconButton(
                       icon: const Icon(Icons.delete_outline, color: Colors.red),
-                      onPressed: () => setState(() => _barang.removeAt(i)),
+                      onPressed: () => _removeItem(i),
                     ),
                   ),
                 );
@@ -253,6 +336,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

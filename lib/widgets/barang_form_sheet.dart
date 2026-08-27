@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:uuid/uuid.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../app_theme.dart';
 import '../models/barang_item.dart';
+import '../services/photo_storage_service.dart';
 
 Future<BarangItem?> showBarangFormSheet(
   BuildContext context, {
@@ -37,6 +39,8 @@ class _BarangFormState extends State<_BarangForm> {
   late final TextEditingController _l;
   late final TextEditingController _t;
   String? _photo;
+  final Set<String> _createdPhotos = <String>{};
+  bool _saved = false;
   bool _busy = false;
   late final Listenable _previewListenable;
 
@@ -66,6 +70,10 @@ class _BarangFormState extends State<_BarangForm> {
 
   @override
   void dispose() {
+    if (!_saved && _createdPhotos.isNotEmpty) {
+      final paths = List<String>.from(_createdPhotos);
+      Future<void>(() => PhotoStorageService.deleteAll(paths));
+    }
     for (final c in [_nama, _jumlah, _berat, _p, _l, _t]) {
       c.dispose();
     }
@@ -100,9 +108,24 @@ class _BarangFormState extends State<_BarangForm> {
       if (picked != null) {
         final dir = await getApplicationDocumentsDirectory();
         final target = File('${dir.path}/barang_${DateTime.now().millisecondsSinceEpoch}.jpg');
-        await File(picked.path).copy(target.path);
+        // Register ownership before awaiting the copy. If the sheet is
+        // dismissed during the copy, dispose() can still clean this file up.
+        _createdPhotos.add(target.path);
+        try {
+          await File(picked.path).copy(target.path);
+        } catch (_) {
+          _createdPhotos.remove(target.path);
+          rethrow;
+        }
         if (!mounted) return;
+
+        final previous = _photo;
         setState(() => _photo = target.path);
+
+        if (previous != null && _createdPhotos.contains(previous) && previous != target.path) {
+          _createdPhotos.remove(previous);
+          await PhotoStorageService.delete(previous);
+        }
       }
     } on PlatformException catch (e) {
       if (!mounted) return;
@@ -162,7 +185,7 @@ class _BarangFormState extends State<_BarangForm> {
   void _save() {
     if (!_key.currentState!.validate()) return;
     final item = BarangItem(
-      id: widget.existing?.id ?? DateTime.now().microsecondsSinceEpoch.toString(),
+      id: widget.existing?.id ?? const Uuid().v4(),
       nama: _nama.text.trim(),
       jumlah: int.parse(_jumlah.text),
       panjang: _d(_p.text),
@@ -171,6 +194,7 @@ class _BarangFormState extends State<_BarangForm> {
       berat: _d(_berat.text),
       photoPath: _photo,
     );
+    _saved = true;
     Navigator.pop(context, item);
   }
 
@@ -181,7 +205,9 @@ class _BarangFormState extends State<_BarangForm> {
     final maxHeight = media.size.height * .92;
     final availableHeight = media.size.height - bottom;
     final sheetHeight = availableHeight.clamp(0.0, maxHeight);
-    return Material(
+    return PopScope(
+      canPop: !_busy,
+      child: Material(
       color: Colors.white,
       borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       clipBehavior: Clip.antiAlias,
@@ -241,13 +267,25 @@ class _BarangFormState extends State<_BarangForm> {
                       label: Text(_photo == null ? 'Foto Barang' : 'Ganti Foto'),
                     ),
                   ),
-                  if (_photo != null && File(_photo!).existsSync()) ...[
+                  if (_photo != null) ...[
                     const SizedBox(width: 10),
                     GestureDetector(
                       onTap: () => showPhotoPreview(context, _photo!),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: Image.file(File(_photo!), width: 54, height: 54, fit: BoxFit.cover),
+                        child: Image.file(
+                          File(_photo!),
+                          width: 54,
+                          height: 54,
+                          fit: BoxFit.cover,
+                          cacheWidth: 162,
+                          cacheHeight: 162,
+                          errorBuilder: (_, __, ___) => const SizedBox(
+                            width: 54,
+                            height: 54,
+                            child: Icon(Icons.broken_image_outlined),
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -357,6 +395,7 @@ class _PhotoPreview extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }

@@ -1,11 +1,16 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../app_theme.dart';
 import '../models/pengiriman.dart';
+import '../models/report_settings.dart';
 import '../services/export_service.dart';
 import '../services/storage_service.dart';
+import '../services/settings_service.dart';
+import '../services/photo_storage_service.dart';
 import 'pengiriman_form_sheet.dart';
+import 'report_header_settings_screen.dart';
 import '../widgets/barang_form_sheet.dart';
 
 enum _SortMode { terbaru, terlama, pengirim }
@@ -19,10 +24,14 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final _storage = StorageService();
   final _exportService = ExportService();
+  final _settingsService = SettingsService();
   final _searchController = TextEditingController();
+  Timer? _searchDebounce;
+  String _searchText = '';
   bool _exporting = false;
   String? _exportingLabel;
   List<Pengiriman> _items = [];
+  ReportSettings _reportSettings = const ReportSettings();
   bool _loading = true;
   _SortMode _sort = _SortMode.terbaru;
   String _pengirim = 'Semua';
@@ -31,6 +40,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -43,14 +53,25 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _load() async {
     final data = await _storage.loadPengiriman();
+    final reportSettings = await _settingsService.loadReportSettings();
     if (!mounted) return;
     setState(() {
       _items = data;
+      _reportSettings = reportSettings;
       _loading = false;
     });
   }
 
-  String get _search => _searchController.text.trim().toLowerCase();
+  Future<void> _openReportHeaderSettings() async {
+    final result = await Navigator.of(context).push<ReportSettings>(
+      MaterialPageRoute(builder: (_) => const ReportHeaderSettingsScreen()),
+    );
+    if (result != null && mounted) {
+      setState(() => _reportSettings = result);
+    }
+  }
+
+  String get _search => _searchText;
   bool _matchesSearch(Pengiriman e) =>
       _search.isEmpty ||
       e.nomorResi.toLowerCase().contains(_search) ||
@@ -98,18 +119,83 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _newShipment() async {
     final result = await showPengirimanFormSheet(context);
-    if (result == null) return;
-    setState(() => _items.add(result));
-    await _storage.savePengiriman(_items);
+    if (result == null || !mounted) return;
+    final previous = List<Pengiriman>.of(_items);
+    final next = [...previous, result];
+    final saved = await _persistItems(next);
+    if (saved && mounted) {
+      setState(() => _items = next);
+      await _cleanupAfterSuccessfulSave(previous, next);
+    } else {
+      await _cleanupNewPhotosOnFailedSave(previous, result);
+    }
   }
 
   Future<void> _edit(Pengiriman item) async {
     final result = await showPengirimanFormSheet(context, existing: item);
-    if (result == null) return;
+    if (result == null || !mounted) return;
     final i = _items.indexWhere((e) => e.id == item.id);
     if (i == -1) return;
-    setState(() => _items[i] = result);
-    await _storage.savePengiriman(_items);
+    final previous = List<Pengiriman>.of(_items);
+    final next = List<Pengiriman>.of(_items);
+    next[i] = result;
+    final saved = await _persistItems(next);
+    if (saved && mounted) {
+      setState(() => _items = next);
+      await _cleanupAfterSuccessfulSave(previous, next);
+    } else {
+      await _cleanupNewPhotosOnFailedSave(previous, result);
+    }
+  }
+
+  Future<bool> _persistItems(List<Pengiriman> next) async {
+    try {
+      await _storage.savePengiriman(next);
+      return true;
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Gagal menyimpan data pengiriman. Perubahan tidak diterapkan.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return false;
+    }
+  }
+
+  Set<String> _photoPaths(Iterable<Pengiriman> items) => items
+      .expand((e) => e.barang)
+      .map((b) => b.photoPath)
+      .whereType<String>()
+      .where((p) => p.isNotEmpty)
+      .toSet();
+
+  Future<void> _cleanupAfterSuccessfulSave(
+    List<Pengiriman> previous,
+    List<Pengiriman> next,
+  ) async {
+    final before = _photoPaths(previous);
+    final after = _photoPaths(next);
+    // Only files that belonged to the previous persisted state and are no
+    // longer referenced may be deleted. Newly-created files remain intact.
+    await PhotoStorageService.deleteAll(before.difference(after));
+  }
+
+  Future<void> _cleanupNewPhotosOnFailedSave(
+    List<Pengiriman> previous,
+    Pengiriman result,
+  ) async {
+    final oldPaths = _photoPaths(previous);
+    final newPaths = result.barang
+        .map((b) => b.photoPath)
+        .whereType<String>()
+        .where((p) => p.isNotEmpty)
+        .toSet();
+    // Persistence failed, so remove only files introduced by this edit/new
+    // shipment. Existing persisted photos must remain untouched.
+    await PhotoStorageService.deleteAll(newPaths.difference(oldPaths));
   }
 
   Future<void> _delete(Pengiriman item) async {
@@ -129,14 +215,36 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
     if (ok != true) return;
-    setState(() => _items.removeWhere((e) => e.id == item.id));
-    await _storage.savePengiriman(_items);
+
+    // Remove the persisted shipment first, then clean up every photo owned by it.
+    // The photo cleanup is deliberately best-effort so a single stale file can
+    // never block deletion of the shipment itself.
+    final next = List<Pengiriman>.of(_items)..removeWhere((e) => e.id == item.id);
+    if (!await _persistItems(next)) return;
+    if (!mounted) return;
+    setState(() => _items = next);
+
+    // Do not delete a path that is still referenced elsewhere, even if old
+    // data happens to contain the same path more than once.
+    final remainingPhotoPaths = next
+        .expand((e) => e.barang)
+        .map((b) => b.photoPath)
+        .whereType<String>()
+        .where((p) => p.isNotEmpty)
+        .toSet();
+    final deletedShipmentPhotos = item.barang
+        .map((b) => b.photoPath)
+        .whereType<String>()
+        .where((p) => p.isNotEmpty && !remainingPhotoPaths.contains(p));
+    await PhotoStorageService.deleteAll(deletedShipmentPhotos);
   }
 
   Future<void> _shareReport(Pengiriman item, {required bool pdf}) async {
     await _runExport(
       label: 'Menyiapkan ${pdf ? 'PDF' : 'Excel'}...',
-      action: () => pdf ? _exportService.sharePdf(item) : _exportService.shareExcel(item),
+      action: () => pdf
+          ? _exportService.sharePdf(item, settings: _reportSettings)
+          : _exportService.shareExcel(item, settings: _reportSettings),
     );
   }
 
@@ -147,7 +255,9 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     await _runExport(
       label: 'Menyiapkan rekap ${pdf ? 'PDF' : 'Excel'}...',
-      action: () => pdf ? _exportService.shareCombinedPdf(items) : _exportService.shareCombinedExcel(items),
+      action: () => pdf
+          ? _exportService.shareCombinedPdf(items, settings: _reportSettings)
+          : _exportService.shareCombinedExcel(items, settings: _reportSettings),
     );
   }
 
@@ -182,12 +292,16 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _clearFilters() => setState(() {
+  void _clearFilters() {
+    _searchDebounce?.cancel();
+    setState(() {
         _searchController.clear();
+        _searchText = '';
         _pengirim = 'Semua';
         _mulai = null;
         _sampai = null;
       });
+  }
 
   String _date(DateTime d) => DateFormat('dd/MM/yyyy').format(d);
 
@@ -202,6 +316,11 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Kalkulator Kubikasi', style: TextStyle(fontWeight: FontWeight.w800)),
         actions: [
+          IconButton(
+            tooltip: 'Header Laporan',
+            onPressed: _openReportHeaderSettings,
+            icon: const Icon(Icons.edit_document),
+          ),
           PopupMenuButton<_SortMode>(
             onSelected: (v) => setState(() => _sort = v),
             itemBuilder: (_) => const [
@@ -251,12 +370,23 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
             child: TextField(
               controller: _searchController,
-              onChanged: (_) => setState(() {}),
+              onChanged: (value) {
+                _searchDebounce?.cancel();
+                final normalized = value.trim().toLowerCase();
+                _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+                  if (!mounted) return;
+                  setState(() => _searchText = normalized);
+                });
+              },
               decoration: InputDecoration(
                 hintText: 'Cari resi, pengirim, atau nama barang',
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: _search.isEmpty ? null : IconButton(
-                  onPressed: () { _searchController.clear(); setState(() {}); },
+                  onPressed: () {
+                    _searchDebounce?.cancel();
+                    _searchController.clear();
+                    setState(() => _searchText = '');
+                  },
                   icon: const Icon(Icons.clear),
                 ),
               ),
@@ -409,12 +539,20 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           ...p.barang.map((b) => ListTile(
                 dense: true,
-                leading: b.photoPath != null && File(b.photoPath!).existsSync()
-                    ? GestureDetector(
+                leading: b.photoPath == null
+                    ? const Icon(Icons.inventory_2_outlined)
+                    : GestureDetector(
                         onTap: () => showPhotoPreview(context, b.photoPath!),
-                        child: Image.file(File(b.photoPath!), width: 48, height: 48, fit: BoxFit.cover),
-                      )
-                    : const Icon(Icons.inventory_2_outlined),
+                        child: Image.file(
+                          File(b.photoPath!),
+                          width: 48,
+                          height: 48,
+                          fit: BoxFit.cover,
+                          cacheWidth: 144,
+                          cacheHeight: 144,
+                          errorBuilder: (_, __, ___) => const Icon(Icons.inventory_2_outlined),
+                        ),
+                      ),
                 title: Text(b.nama, maxLines: 1, overflow: TextOverflow.ellipsis),
                 subtitle: Text('${b.jumlah} × ${b.panjang}×${b.lebar}×${b.tinggi} cm', maxLines: 1, overflow: TextOverflow.ellipsis),
                 trailing: Text('${b.kubikasi.toStringAsFixed(3)} m³'),
