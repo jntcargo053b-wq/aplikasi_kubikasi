@@ -4,7 +4,7 @@ import 'package:path_provider/path_provider.dart';
 /// Owns the company logo copied into the app documents directory.
 /// Source files selected from the gallery are never deleted by this service.
 class ReportLogoStorageService {
-  static Future<String> copyIntoAppStorage(String sourcePath) async {
+  static Future<String> prepareTargetPath(String sourcePath) async {
     final source = File(sourcePath);
     if (!await source.exists()) {
       throw StateError('File logo tidak ditemukan.');
@@ -17,11 +17,13 @@ class ReportLogoStorageService {
     final dot = sourcePath.lastIndexOf('.');
     final extension = dot >= 0 ? sourcePath.substring(dot).toLowerCase() : '';
     final safeExtension = extension == '.png' ? '.png' : '.jpg';
-    final target = File(
-      '${dir.path}/company_logo_${DateTime.now().microsecondsSinceEpoch}$safeExtension',
-    );
-    await source.copy(target.path);
-    return target.path;
+    return '${dir.path}/company_logo_${DateTime.now().microsecondsSinceEpoch}$safeExtension';
+  }
+
+  static Future<String> copyIntoAppStorage(String sourcePath) async {
+    final targetPath = await prepareTargetPath(sourcePath);
+    await File(sourcePath).copy(targetPath);
+    return targetPath;
   }
 
   static Future<bool> delete(String? path) async {

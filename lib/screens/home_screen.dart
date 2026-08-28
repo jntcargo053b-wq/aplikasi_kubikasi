@@ -52,7 +52,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _load() async {
-    final results = await Future.wait<Object?>([
+    final results = await Future.wait<dynamic>([
       _storage.loadPengiriman(),
       _settingsService.loadReportSettings(),
     ]);

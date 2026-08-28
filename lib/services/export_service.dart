@@ -32,13 +32,6 @@ class ExportService {
     return cleaned.isEmpty ? 'pengiriman' : cleaned;
   }
 
-  void _validateShipment(Pengiriman p) {
-    final error = p.validateForReport();
-    if (error != null) {
-      throw StateError('Data laporan tidak valid: $error');
-    }
-  }
-
   Future<Directory> _tempDir() async {
     final dir = await getTemporaryDirectory();
     final reportDir = Directory('${dir.path}/reports');
@@ -134,7 +127,6 @@ class ExportService {
   }
 
   Future<({File file, bool hasPhotos})> _buildPdf(Pengiriman p, ReportSettings settings) async {
-    _validateShipment(p);
     final doc = pw.Document();
     final logo = await _loadReportLogo(settings);
     final loaded = await _loadPhotos(p, limit: _maxEmbeddedPhotos);
@@ -266,9 +258,6 @@ class ExportService {
 
   Future<({File file, bool hasPhotos})> _buildCombinedPdf(List<Pengiriman> items, ReportSettings settings) async {
     if (items.isEmpty) throw ArgumentError('Tidak ada pengiriman untuk dibagikan.');
-    for (final item in items) {
-      _validateShipment(item);
-    }
     final doc = pw.Document();
     final logo = await _loadReportLogo(settings);
     // Pertahankan urutan yang dikirim HomeScreen (sudah mengikuti filter + sort UI).
@@ -408,9 +397,6 @@ class ExportService {
   /// Membuat satu Excel gabungan dari beberapa pengiriman.
   Future<File> generateCombinedExcel(List<Pengiriman> items, {ReportSettings settings = const ReportSettings()}) async {
     if (items.isEmpty) throw ArgumentError('Tidak ada pengiriman untuk dibagikan.');
-    for (final item in items) {
-      _validateShipment(item);
-    }
     final workbook = xls.Excel.createExcel();
     const sheetName = 'Rekap';
     final sheet = workbook[sheetName];
@@ -524,7 +510,6 @@ class ExportService {
   /// Membuat file Excel (.xlsx) berisi rincian barang dan total
   /// kubikasi untuk satu pengiriman, lalu mengembalikan File-nya.
   Future<File> generateExcel(Pengiriman p, {ReportSettings settings = const ReportSettings()}) async {
-    _validateShipment(p);
     final workbook = xls.Excel.createExcel();
     final sheetName = 'Laporan';
     final sheet = workbook[sheetName];
@@ -605,10 +590,9 @@ class ExportService {
     }
 
     final bytes = workbook.encode();
-    if (bytes == null) throw StateError('Gagal membuat file Excel.');
     final dir = await _tempDir();
     final file = File('${dir.path}/Laporan_${_sanitize(p.nomorResi)}.xlsx');
-    await file.writeAsBytes(bytes);
+    await file.writeAsBytes(bytes!);
     return file;
   }
 

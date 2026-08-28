@@ -29,6 +29,7 @@ class _ReportHeaderSettingsScreenState extends State<ReportHeaderSettingsScreen>
   bool _logoRemoved = false;
   bool _logoAvailable = false;
   bool _committed = false;
+  final Set<Future<void>> _pendingLogoCopies = <Future<void>>{};
 
   @override
   void initState() {
@@ -46,6 +47,10 @@ class _ReportHeaderSettingsScreenState extends State<ReportHeaderSettingsScreen>
 
   Future<void> _cleanupUnsavedLogo() async {
     if (_committed) return;
+    final copies = List<Future<void>>.from(_pendingLogoCopies);
+    if (copies.isNotEmpty) {
+      await Future.wait(copies, eagerError: false);
+    }
     final pending = _pendingLogoPath;
     if (pending != null && pending != _originalLogoPath) {
       await ReportLogoStorageService.delete(pending);
@@ -80,12 +85,27 @@ class _ReportHeaderSettingsScreenState extends State<ReportHeaderSettingsScreen>
       if (picked == null || !mounted) return;
 
       final previousPending = _pendingLogoPath;
-      final target = await ReportLogoStorageService.copyIntoAppStorage(picked.path);
+      final target = await ReportLogoStorageService.prepareTargetPath(picked.path);
+      // Register ownership before the copy starts. dispose() will wait for
+      // the in-flight copy before deleting the target, closing the async race.
+      _pendingLogoPath = target;
+      final copyFuture = File(picked.path).copy(target);
+      _pendingLogoCopies.add(copyFuture);
+      try {
+        await copyFuture;
+      } catch (_) {
+        if (mounted) {
+          await ReportLogoStorageService.delete(target);
+          if (_pendingLogoPath == target) _pendingLogoPath = previousPending;
+        }
+        rethrow;
+      } finally {
+        _pendingLogoCopies.remove(copyFuture);
+      }
       if (!mounted) {
         await ReportLogoStorageService.delete(target);
         return;
       }
-      _pendingLogoPath = target;
       _logoPath = target;
       _logoAvailable = true;
       _logoRemoved = false;

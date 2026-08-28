@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -40,6 +41,7 @@ class _BarangFormState extends State<_BarangForm> {
   late final TextEditingController _t;
   String? _photo;
   final Set<String> _createdPhotos = <String>{};
+  final Set<Future<void>> _pendingPhotoCopies = <Future<void>>{};
   bool _saved = false;
   bool _busy = false;
   late final Listenable _previewListenable;
@@ -72,7 +74,13 @@ class _BarangFormState extends State<_BarangForm> {
   void dispose() {
     if (!_saved && _createdPhotos.isNotEmpty) {
       final paths = List<String>.from(_createdPhotos);
-      Future<void>(() => PhotoStorageService.deleteAll(paths));
+      final copies = List<Future<void>>.from(_pendingPhotoCopies);
+      unawaited(() async {
+        if (copies.isNotEmpty) {
+          await Future.wait(copies, eagerError: false);
+        }
+        await PhotoStorageService.deleteAll(paths);
+      }());
     }
     for (final c in [_nama, _jumlah, _berat, _p, _l, _t]) {
       c.dispose();
@@ -111,11 +119,18 @@ class _BarangFormState extends State<_BarangForm> {
         // Register ownership before awaiting the copy. If the sheet is
         // dismissed during the copy, dispose() can still clean this file up.
         _createdPhotos.add(target.path);
+        final copyFuture = File(picked.path).copy(target.path);
+        _pendingPhotoCopies.add(copyFuture);
         try {
-          await File(picked.path).copy(target.path);
+          await copyFuture;
         } catch (_) {
+          // The copy may have created a partial/complete target before failing.
+          // Clean it up before releasing ownership so no orphan can remain.
+          await PhotoStorageService.delete(target.path);
           _createdPhotos.remove(target.path);
           rethrow;
+        } finally {
+          _pendingPhotoCopies.remove(copyFuture);
         }
         if (!mounted) return;
 
@@ -236,8 +251,7 @@ class _BarangFormState extends State<_BarangForm> {
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(labelText: 'Jumlah'),
                 validator: (v) {
-                  final raw = (v ?? '').trim();
-                  final x = int.tryParse(raw);
+                  final x = int.tryParse(v ?? '');
                   return x == null || x <= 0 ? 'Jumlah tidak valid' : null;
                 },
               ),
@@ -246,15 +260,7 @@ class _BarangFormState extends State<_BarangForm> {
                 controller: _berat,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(labelText: 'Berat per unit', suffixText: 'kg'),
-                validator: (v) {
-                  final raw = (v ?? '').trim();
-                  if (raw.isEmpty) return null;
-                  final value = double.tryParse(raw.replaceAll(',', '.'));
-                  if (value == null || !value.isFinite || value < 0) {
-                    return 'Berat tidak valid';
-                  }
-                  return null;
-                },
+                validator: (v) => _d(v ?? '') < 0 ? 'Berat tidak valid' : null,
               ),
               const SizedBox(height: 12),
               Row(
@@ -329,11 +335,7 @@ class _BarangFormState extends State<_BarangForm> {
           controller: c,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(labelText: label, suffixText: 'cm'),
-          validator: (v) {
-            final raw = (v ?? '').trim();
-            final value = double.tryParse(raw.replaceAll(',', '.'));
-            return value == null || !value.isFinite || value <= 0 ? 'Wajib' : null;
-          },
+          validator: (v) => _d(v ?? '') <= 0 ? 'Wajib' : null,
         ),
       );
 
