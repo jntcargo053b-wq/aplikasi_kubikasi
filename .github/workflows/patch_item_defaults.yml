@@ -1,0 +1,78 @@
+name: Patch item form defaults
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, 'Apply item form defaults') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch item form
+        shell: python
+        run: |
+          from pathlib import Path
+
+          p = Path('lib/widgets/barang_form_sheet.dart')
+          s = p.read_text()
+
+          s = s.replace(
+              "Future<BarangItem?> showBarangFormSheet(\n  BuildContext context, {\n  BarangItem? existing,\n}) {",
+              "Future<BarangItem?> showBarangFormSheet(\n  BuildContext context, {\n  BarangItem? existing,\n  String? initialName,\n}) {"
+          )
+          s = s.replace(
+              "builder: (_) => _BarangForm(existing: existing),",
+              "builder: (_) => _BarangForm(existing: existing, initialName: initialName),"
+          )
+          s = s.replace(
+              "  final BarangItem? existing;\n  const _BarangForm({this.existing});",
+              "  final BarangItem? existing;\n  final String? initialName;\n  const _BarangForm({this.existing, this.initialName});"
+          )
+          s = s.replace(
+              "_nama = TextEditingController(text: e?.nama ?? '');",
+              "_nama = TextEditingController(text: e?.nama ?? widget.initialName ?? '');"
+          )
+          s = s.replace(
+              "_berat = TextEditingController(text: e == null ? '' : _n(e.berat));",
+              "_berat = TextEditingController(text: e == null ? '0' : _n(e.berat));"
+          )
+          s = s.replace(
+              "_p = TextEditingController(text: e == null ? '' : _n(e.panjang));",
+              "_p = TextEditingController(text: e == null ? '0' : _n(e.panjang));"
+          )
+          s = s.replace(
+              "_l = TextEditingController(text: e == null ? '' : _n(e.lebar));",
+              "_l = TextEditingController(text: e == null ? '0' : _n(e.lebar));"
+          )
+          s = s.replace(
+              "_t = TextEditingController(text: e == null ? '' : _n(e.tinggi));",
+              "_t = TextEditingController(text: e == null ? '0' : _n(e.tinggi));"
+          )
+          p.write_text(s)
+
+          p = Path('lib/screens/pengiriman_form_sheet.dart')
+          s = p.read_text()
+          s = s.replace(
+              "final item = await showBarangFormSheet(context);",
+              "final item = await showBarangFormSheet(\n        context,\n        initialName: 'Item${_barang.length + 1}',\n      );",
+              1,
+          )
+          p.write_text(s)
+
+      - name: Format
+        run: dart format lib/widgets/barang_form_sheet.dart lib/screens/pengiriman_form_sheet.dart
+
+      - name: Commit and remove patch workflow
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add lib/widgets/barang_form_sheet.dart lib/screens/pengiriman_form_sheet.dart
+          git rm .github/workflows/patch_item_defaults.yml
+          git commit -m 'Apply item form defaults'
+          git push
