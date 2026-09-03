@@ -52,10 +52,10 @@ class _BarangFormState extends State<_BarangForm> {
     final e = widget.existing;
     _nama = TextEditingController(text: e?.nama ?? '');
     _jumlah = TextEditingController(text: '${e?.jumlah ?? 1}');
-    _berat = TextEditingController(text: e == null ? '' : _n(e.berat));
-    _p = TextEditingController(text: e == null ? '' : _n(e.panjang));
-    _l = TextEditingController(text: e == null ? '' : _n(e.lebar));
-    _t = TextEditingController(text: e == null ? '' : _n(e.tinggi));
+    _berat = TextEditingController(text: e == null ? '0' : _n(e.berat));
+    _p = TextEditingController(text: e == null ? '0' : _n(e.panjang));
+    _l = TextEditingController(text: e == null ? '0' : _n(e.lebar));
+    _t = TextEditingController(text: e == null ? '0' : _n(e.tinggi));
     _photo = e?.photoPath;
 
     _previewListenable = Listenable.merge([
@@ -89,9 +89,6 @@ class _BarangFormState extends State<_BarangForm> {
   }
 
   Future<void> _pickPhoto(ImageSource source) async {
-    // The camera is a dangerous permission on Android and must be
-    // requested explicitly; the gallery uses the system photo
-    // picker on modern Android/iOS and needs no extra permission.
     if (source == ImageSource.camera) {
       final status = await Permission.camera.request();
       if (!status.isGranted) {
@@ -116,16 +113,12 @@ class _BarangFormState extends State<_BarangForm> {
       if (picked != null) {
         final dir = await getApplicationDocumentsDirectory();
         final target = File('${dir.path}/barang_${DateTime.now().millisecondsSinceEpoch}.jpg');
-        // Register ownership before awaiting the copy. If the sheet is
-        // dismissed during the copy, dispose() can still clean this file up.
         _createdPhotos.add(target.path);
         final copyFuture = File(picked.path).copy(target.path);
         _pendingPhotoCopies.add(copyFuture);
         try {
           await copyFuture;
         } catch (_) {
-          // The copy may have created a partial/complete target before failing.
-          // Clean it up before releasing ownership so no orphan can remain.
           await PhotoStorageService.delete(target.path);
           _createdPhotos.remove(target.path);
           rethrow;
