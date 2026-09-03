@@ -26,12 +26,21 @@ jobs:
           path = Path('lib/screens/home_screen.dart')
           text = path.read_text()
 
+          import_marker = "import '../models/pengiriman.dart';"
+          if "import '../models/barang_item.dart';" not in text:
+              if import_marker not in text:
+                  raise SystemExit('Could not find model import marker')
+              text = text.replace(
+                  import_marker,
+                  import_marker + "\nimport '../models/barang_item.dart';",
+                  1,
+              )
+
           marker = "  Future<void> _removeItem(int index) async {"
           method = r'''  Future<void> _editBarang(Pengiriman shipment, int index) async {
     if (index < 0 || index >= shipment.barang.length) return;
 
     final before = shipment.barang[index];
-    final oldPhoto = before.photoPath;
     final result = await showBarangFormSheet(context, existing: before);
     if (result == null || !mounted) return;
 
@@ -62,11 +71,6 @@ jobs:
         await PhotoStorageService.delete(newPath);
       }
     }
-
-    // oldPhoto is intentionally not deleted directly here. The shared
-    // transactional cleanup removes it only when it is no longer referenced.
-    // This keeps photos safe when the same path is referenced elsewhere.
-    assert(oldPhoto == before.photoPath);
   }
 
 '''
@@ -86,15 +90,16 @@ jobs:
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ),"""
-          if old not in text:
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif 'onTap: () => _editBarang(p, p.barang.indexOf(b))' not in text:
               raise SystemExit('Could not find barang title to patch')
-          text = text.replace(old, new, 1)
 
           path.write_text(text)
           PY
 
           dart format lib/screens/home_screen.dart
-          grep -n "_editBarang\|InkWell" lib/screens/home_screen.dart
+          grep -n "_editBarang\|InkWell\|barang_item.dart" lib/screens/home_screen.dart
 
       - name: Commit source change and remove one-time patch workflow
         shell: bash
