@@ -60,7 +60,10 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     if (_busy) return;
     setState(() => _busy = true);
     try {
-      final item = await showBarangFormSheet(context);
+      final item = await showBarangFormSheet(
+        context,
+        initialName: 'Item${_barang.length + 1}',
+      );
       if (item != null && mounted) {
         if (item.photoPath != null && !_originalPhotoPaths.contains(item.photoPath)) {
           _sessionPhotoPaths.add(item.photoPath!);
@@ -76,9 +79,6 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     if (_busy || index < 0 || index >= _barang.length) return;
     final before = _barang[index];
 
-    // Keep ownership of every photo created during this parent form session.
-    // In particular, when a session-created photo is replaced, the old path
-    // must remain tracked until the parent save/cancel outcome is known.
     final beforePhoto = before.photoPath;
     setState(() => _busy = true);
     try {
@@ -92,10 +92,6 @@ class _PengirimanFormState extends State<_PengirimanForm> {
           _sessionPhotoPaths.add(newPhoto);
         }
 
-        // If the previous photo was created in this same unsaved parent
-        // session, deliberately keep it tracked. It may still be the
-        // persisted value if the parent save fails; it is only eligible for
-        // deletion after a successful parent save proves it is unreferenced.
         if (beforePhoto != null && _sessionPhotoPaths.contains(beforePhoto)) {
           _sessionPhotoPaths.add(beforePhoto);
         }
@@ -113,12 +109,9 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     setState(() => _busy = true);
     try {
       setState(() => _barang.removeAt(index));
-
-      // A photo created during this unsaved form session has no persisted owner
-      // once its item is removed, so it can be deleted immediately. Original
-      // shipment photos are deleted transactionally in _save().
       final path = removed.photoPath;
-      if (path != null && _sessionPhotoPaths.remove(path)) {
+      if (path != null && _sessionPhotoPaths.contains(path)) {
+        _sessionPhotoPaths.remove(path);
         await PhotoStorageService.delete(path);
       }
     } finally {
@@ -126,53 +119,30 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     }
   }
 
-  Future<void> _scan() async {
+  Future<void> _scanResi() async {
+    if (_busy) return;
     final result = await Navigator.of(context).push<String>(
       MaterialPageRoute(builder: (_) => const BarcodeScannerScreen()),
     );
-    if (result != null && result.trim().isNotEmpty) {
-      setState(() => _resi.text = result.trim());
+    if (result != null && mounted) {
+      setState(() => _resi.text = result);
     }
   }
 
-  Future<void> _pickDate() async {
-    final d = await showDatePicker(
-      context: context,
-      initialDate: _tanggal,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
-    if (d != null) setState(() => _tanggal = d);
-  }
-
-  Future<void> _save() async {
-    final pengirim = _pengirim.text.trim();
-    final resi = _resi.text.trim();
-
-    if (pengirim.isEmpty) {
-      _error('Nama pengirim wajib diisi.');
+  void _save() {
+    if (_pengirim.text.trim().isEmpty || _resi.text.trim().isEmpty || _barang.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Lengkapi pengirim, resi, dan minimal satu barang.')),
+      );
       return;
     }
-    if (_barang.isEmpty) {
-      _error('Tambahkan minimal satu barang.');
-      return;
-    }
-    if (resi.isEmpty) {
-      _error('Nomor resi wajib diisi atau dipindai.');
-      return;
-    }
-
     final result = Pengiriman(
       id: widget.existing?.id ?? const Uuid().v4(),
-      pengirim: pengirim,
+      pengirim: _pengirim.text.trim(),
       tanggal: _tanggal,
-      nomorResi: resi,
-      barang: List.of(_barang),
+      nomorResi: _resi.text.trim(),
+      barang: _barang.map((x) => x.copyWith()).toList(),
     );
-
-    // Do not delete any original/session photo here. The parent screen must
-    // persist the new shipment first. If persistence fails, it can then keep
-    // the original files and remove only the newly-created files.
     _saved = true;
     Navigator.pop(context, result);
   }
@@ -181,159 +151,121 @@ class _PengirimanFormState extends State<_PengirimanForm> {
   void dispose() {
     if (!_saved && _sessionPhotoPaths.isNotEmpty) {
       final paths = List<String>.from(_sessionPhotoPaths);
-      Future<void>(() => PhotoStorageService.deleteAll(paths));
+      Future.microtask(() => PhotoStorageService.deleteAll(paths));
     }
     _pengirim.dispose();
     _resi.dispose();
     super.dispose();
   }
 
-  void _error(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(text), backgroundColor: Colors.red),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final media = MediaQuery.of(context);
-    final bottom = media.viewInsets.bottom;
-    final maxHeight = media.size.height * .94;
-    final availableHeight = media.size.height - bottom;
-    final sheetHeight = availableHeight.clamp(0.0, maxHeight);
-    final totalK = _barang.fold<double>(0, (s, e) => s + e.kubikasi);
-    final totalV = _barang.fold<double>(0, (s, e) => s + e.volume);
-    final totalB = _barang.fold<double>(0, (s, e) => s + e.totalBerat);
-
-    return PopScope(
-      canPop: !_busy,
-      child: Material(
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    return Material(
       color: Colors.white,
       borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       clipBehavior: Clip.antiAlias,
-      child: SizedBox(
-        height: sheetHeight,
-        child: ListView(
-          padding: EdgeInsets.fromLTRB(20, 12, 20, 24 + bottom),
-          children: [
-            Center(child: Container(width: 42, height: 4, color: AppColors.border)),
-            const SizedBox(height: 14),
-            Text(
-              widget.existing == null ? 'Pengiriman Baru' : 'Edit Pengiriman',
-              style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: _pengirim,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                labelText: 'Nama Pengirim',
-                hintText: 'Isi sekali untuk seluruh barang',
-                prefixIcon: Icon(Icons.person_outline),
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(20, 14, 20, 24 + bottom),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(child: Container(width: 42, height: 4, color: AppColors.border)),
+              const SizedBox(height: 16),
+              Text(
+                widget.existing == null ? 'Tambah Pengiriman' : 'Edit Pengiriman',
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
               ),
-            ),
-            const SizedBox(height: 10),
-            InkWell(
-              onTap: _pickDate,
-              child: InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: 'Tanggal',
-                  prefixIcon: Icon(Icons.calendar_today_outlined),
-                ),
-                child: Text(_date(_tanggal)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _pengirim,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(labelText: 'Nama Pengirim'),
               ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                const Expanded(
-                  child: Text('Daftar Barang', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-                ),
-                FilledButton.tonalIcon(
-                  onPressed: _addItem,
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Tambah Barang'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            if (_barang.isEmpty)
-              Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: AppColors.background,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: const Text('Belum ada barang. Tekan “Tambah Barang”.'),
-              )
-            else
-              ...List.generate(_barang.length, (i) {
-                final b = _barang[i];
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: ListTile(
-                    onTap: () => _editItem(i),
-                    title: Text(b.nama, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
-                    subtitle: Text(
-                      '${b.jumlah} × ${b.panjang}×${b.lebar}×${b.tinggi} cm • Kubikasi ${b.kubikasi.toStringAsFixed(3)} m³',
-                      maxLines: 1, overflow: TextOverflow.ellipsis,
-                    ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete_outline, color: Colors.red),
-                      onPressed: () => _removeItem(i),
-                    ),
+              const SizedBox(height: 12),
+              InkWell(
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: _tanggal,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2100),
+                  );
+                  if (picked != null && mounted) setState(() => _tanggal = picked);
+                },
+                child: InputDecorator(
+                  decoration: const InputDecoration(labelText: 'Tanggal'),
+                  child: Row(
+                    children: [
+                      Expanded(child: Text(_date(_tanggal))),
+                      const Icon(Icons.calendar_today_outlined, size: 20),
+                    ],
                   ),
-                );
-              }),
-            if (_barang.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
-                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: Text(
-                  'Total: ${_barang.length} jenis • Volume ${totalV.toStringAsFixed(2)} • '
-                  'Kubikasi ${totalK.toStringAsFixed(3)} m³ • Berat ${totalB.toStringAsFixed(2)} kg',
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _resi,
+                textInputAction: TextInputAction.done,
+                decoration: InputDecoration(
+                  labelText: 'Nomor Resi',
+                  suffixIcon: IconButton(
+                    tooltip: 'Scan Resi',
+                    onPressed: _busy ? null : _scanResi,
+                    icon: const Icon(Icons.qr_code_scanner_outlined),
+                  ),
                 ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text('Daftar Barang', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : _addItem,
+                    icon: const Icon(Icons.add),
+                    label: const Text('Tambah Barang'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (_barang.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Center(child: Text('Belum ada barang.')),
+                )
+              else
+                ..._barang.asMap().entries.map(
+                  (entry) {
+                    final i = entry.key;
+                    final b = entry.value;
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        onTap: _busy ? null : () => _editItem(i),
+                        leading: const Icon(Icons.inventory_2_outlined),
+                        title: Text(b.nama, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        subtitle: Text('${b.jumlah} × ${b.panjang} × ${b.lebar} × ${b.tinggi} cm • ${b.berat} kg'),
+                        trailing: IconButton(
+                          tooltip: 'Hapus Barang',
+                          onPressed: _busy ? null : () => _removeItem(i),
+                          icon: const Icon(Icons.delete_outline),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: _busy ? null : _save,
+                child: Text(widget.existing == null ? 'Simpan Pengiriman' : 'Simpan Perubahan'),
               ),
             ],
-            const SizedBox(height: 18),
-            const Text('Nomor Resi', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _resi,
-              textCapitalization: TextCapitalization.characters,
-              decoration: const InputDecoration(
-                labelText: 'Nomor Resi',
-                hintText: 'Scan barcode atau ketik manual',
-                prefixIcon: Icon(Icons.local_shipping_outlined),
-              ),
-            ),
-            const SizedBox(height: 10),
-            OutlinedButton.icon(
-              onPressed: _scan,
-              icon: const Icon(Icons.qr_code_scanner),
-              label: const Text('Scan Barcode Resi'),
-            ),
-            const SizedBox(height: 18),
-            FilledButton.icon(
-              onPressed: _save,
-              icon: const Icon(Icons.check_circle_outline),
-              label: const Text('Selesai & Simpan Pengiriman'),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Pengiriman tidak disimpan sebagai transaksi selesai sebelum nomor resi tersedia.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: AppColors.muted),
-            ),
-          ],
+          ),
         ),
-      ),
       ),
     );
   }
