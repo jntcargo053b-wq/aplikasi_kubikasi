@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../app_theme.dart';
 import '../models/pengiriman.dart';
+import '../models/barang_item.dart';
 import '../models/report_settings.dart';
 import '../services/export_service.dart';
 import '../services/storage_service.dart';
@@ -149,6 +150,42 @@ class _HomeScreenState extends State<HomeScreen> {
       await _cleanupAfterSuccessfulSave(previous, next);
     } else {
       await _cleanupNewPhotosOnFailedSave(previous, result);
+    }
+  }
+
+  Future<void> _editBarang(Pengiriman shipment, int index) async {
+    if (index < 0 || index >= shipment.barang.length) return;
+
+    final before = shipment.barang[index];
+    final result = await showBarangFormSheet(context, existing: before);
+    if (result == null || !mounted) return;
+
+    final i = _items.indexWhere((e) => e.id == shipment.id);
+    if (i == -1) return;
+
+    final previous = List<Pengiriman>.of(_items);
+    final updatedBarang = List<BarangItem>.of(shipment.barang);
+    updatedBarang[index] = result;
+    final updatedShipment = Pengiriman(
+      id: shipment.id,
+      pengirim: shipment.pengirim,
+      tanggal: shipment.tanggal,
+      nomorResi: shipment.nomorResi,
+      barang: updatedBarang,
+    );
+    final next = List<Pengiriman>.of(_items);
+    next[i] = updatedShipment;
+
+    final saved = await _persistItems(next);
+    if (saved && mounted) {
+      setState(() => _items = next);
+      await _cleanupAfterSuccessfulSave(previous, next);
+    } else {
+      final oldPaths = _photoPaths(previous);
+      final newPath = result.photoPath;
+      if (newPath != null && newPath.isNotEmpty && !oldPaths.contains(newPath)) {
+        await PhotoStorageService.delete(newPath);
+      }
     }
   }
 
@@ -557,7 +594,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           errorBuilder: (_, __, ___) => const Icon(Icons.inventory_2_outlined),
                         ),
                       ),
-                title: Text(b.nama, maxLines: 1, overflow: TextOverflow.ellipsis),
+                title: InkWell(
+                  onTap: () => _editBarang(p, p.barang.indexOf(b)),
+                  child: Text(
+                    b.nama,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
                 subtitle: Text('${b.jumlah} × ${b.panjang}×${b.lebar}×${b.tinggi} cm', maxLines: 1, overflow: TextOverflow.ellipsis),
                 trailing: Text('${b.kubikasi.toStringAsFixed(3)} m³'),
               )),
