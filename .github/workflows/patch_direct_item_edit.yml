@@ -30,11 +30,7 @@ jobs:
           if "import '../models/barang_item.dart';" not in text:
               if import_marker not in text:
                   raise SystemExit('Could not find model import marker')
-              text = text.replace(
-                  import_marker,
-                  import_marker + "\nimport '../models/barang_item.dart';",
-                  1,
-              )
+              text = text.replace(import_marker, import_marker + "\nimport '../models/barang_item.dart';", 1)
 
           marker = "  Future<void> _removeItem(int index) async {"
           method = r'''  Future<void> _editBarang(Pengiriman shipment, int index) async {
@@ -80,7 +76,7 @@ jobs:
                   raise SystemExit('Could not find _removeItem insertion marker')
               text = text.replace(marker, method + marker, 1)
 
-          old = """                title: Text(b.nama, maxLines: 1, overflow: TextOverflow.ellipsis),"""
+          old = "                title: Text(b.nama, maxLines: 1, overflow: TextOverflow.ellipsis),"
           new = """                title: InkWell(
                   onTap: () => _editBarang(p, p.barang.indexOf(b)),
                   child: Text(
@@ -111,3 +107,5 @@ jobs:
           git rm .github/workflows/patch_direct_item_edit.yml
           git commit -m "Enable direct item editing"
           git push
+
+# Trigger patch execution.
