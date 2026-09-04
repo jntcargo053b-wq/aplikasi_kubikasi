@@ -284,7 +284,8 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                 )
               else
                 DropdownButtonFormField<IndonesiaRegion>(
-                  value: _selectedKotaKabupaten,
+                  key: ValueKey(_selectedKotaKabupaten?.code ?? 'kota-kabupaten-none'),
+                  initialValue: _selectedKotaKabupaten,
                   isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Kota/Kabupaten',
@@ -315,7 +316,8 @@ class _PengirimanFormState extends State<_PengirimanForm> {
               ],
               const SizedBox(height: 12),
               DropdownButtonFormField<IndonesiaRegion>(
-                value: _selectedKecamatan,
+                key: ValueKey(_selectedKecamatan?.code ?? 'kecamatan-none-${_selectedKotaKabupaten?.code ?? ''}'),
+                initialValue: _selectedKecamatan,
                 isExpanded: true,
                 decoration: const InputDecoration(
                   labelText: 'Kecamatan',
