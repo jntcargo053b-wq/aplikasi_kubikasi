@@ -87,11 +87,11 @@ class _PengirimanFormState extends State<_PengirimanForm> {
         _wilayahError = null;
       });
       if (selected != null) await _loadKecamatan(selected);
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
         _loadingWilayah = false;
-        _wilayahError = 'Gagal memuat daftar kota/kabupaten. Periksa koneksi internet.';
+        _wilayahError = 'Daftar wilayah offline gagal dimuat. Coba tutup dan buka kembali form.';
       });
     }
   }
@@ -124,7 +124,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
       if (!mounted) return;
       setState(() => _loadingKecamatan = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kecamatan gagal dimuat. Silakan coba pilih kota/kabupaten lagi.')),
+        const SnackBar(content: Text('Daftar kecamatan offline gagal dimuat. Silakan coba pilih kota/kabupaten lagi.')),
       );
     }
   }
@@ -280,7 +280,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
               if (_loadingWilayah)
                 const InputDecorator(
                   decoration: InputDecoration(labelText: 'Kota/Kabupaten'),
-                  child: Row(children: [SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)), SizedBox(width: 10), Text('Memuat daftar wilayah...')]),
+                  child: Row(children: [SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)), SizedBox(width: 10), Text('Memuat daftar wilayah offline...')]),
                 )
               else
                 DropdownButtonFormField<IndonesiaRegion>(
