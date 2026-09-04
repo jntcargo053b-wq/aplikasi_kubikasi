@@ -1,4 +1,4 @@
-import 'package:flutter_wilayah_indonesia/flutter_wilayah_indonesia.dart';
+import 'package:flutter_wilayah_indonesia/services/wilayah_service.dart';
 
 class IndonesiaRegion {
   final String code;
@@ -53,7 +53,9 @@ class IndonesiaRegionService {
     return sorted;
   }
 
-  static Future<List<IndonesiaRegion>> loadKecamatan(String kabupatenCode) async {
+  static Future<List<IndonesiaRegion>> loadKecamatan(
+    String kabupatenCode,
+  ) async {
     final code = kabupatenCode.trim();
     if (code.isEmpty) return const [];
 
