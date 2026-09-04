@@ -6,6 +6,8 @@ class Pengiriman {
   final String pengirim;
   final DateTime tanggal;
   final String nomorResi;
+  final String kotaKabupaten;
+  final String kecamatan;
   final List<BarangItem> barang;
 
   Pengiriman({
@@ -13,6 +15,8 @@ class Pengiriman {
     required this.pengirim,
     required this.tanggal,
     required this.nomorResi,
+    this.kotaKabupaten = '',
+    this.kecamatan = '',
     required this.barang,
   });
 
@@ -26,6 +30,8 @@ class Pengiriman {
         'pengirim': pengirim,
         'tanggal': tanggal.toIso8601String(),
         'nomorResi': nomorResi,
+        'kotaKabupaten': kotaKabupaten,
+        'kecamatan': kecamatan,
         'barang': barang.map((e) => e.toJson()).toList(),
       };
 
@@ -44,9 +50,10 @@ class Pengiriman {
     return Pengiriman(
       id: json['id'] as String? ?? const Uuid().v4(),
       pengirim: json['pengirim'] as String? ?? '',
-      tanggal: DateTime.tryParse(json['tanggal'] as String? ?? '') ??
-          DateTime.now(),
+      tanggal: DateTime.tryParse(json['tanggal'] as String? ?? '') ?? DateTime.now(),
       nomorResi: json['nomorResi'] as String? ?? '',
+      kotaKabupaten: json['kotaKabupaten'] as String? ?? '',
+      kecamatan: json['kecamatan'] as String? ?? '',
       barang: list,
     );
   }
