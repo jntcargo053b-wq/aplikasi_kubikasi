@@ -15,6 +15,43 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Persist report location fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('lib/services/export_service.dart')
+          s = p.read_text(encoding='utf-8')
+          old = "build: (context) => [_photoSection(photos: photos, title: 'DOKUMENTASI FOTO — RESI ${shipment.nomorResi}', resi: shipment.nomorResi, pengirim: shipment.pengirim, tanggal: shipment.tanggal)],"
+          new = "build: (context) => [_photoSection(photos: photos, title: 'DOKUMENTASI FOTO — RESI ${shipment.nomorResi}', resi: shipment.nomorResi, pengirim: shipment.pengirim, kotaKabupaten: shipment.kotaKabupaten, kecamatan: shipment.kecamatan, tanggal: shipment.tanggal)],"
+          if old in s:
+              s = s.replace(old, new, 1)
+          old = "setCell(0, row0, 'Pengirim', 'Kota/Kabupaten', 'Kecamatan');\n    setCell(1, row0, p.pengirim, p.kotaKabupaten, p.kecamatan);"
+          new = "setCell(0, row0, 'Pengirim');\n    setCell(1, row0, p.pengirim);\n    row0++;\n    setCell(0, row0, 'Kota/Kabupaten');\n    setCell(1, row0, p.kotaKabupaten);\n    row0++;\n    setCell(0, row0, 'Kecamatan');\n    setCell(1, row0, p.kecamatan);"
+          if old in s:
+              s = s.replace(old, new, 1)
+          old = "const headers = ['No', 'Tanggal', 'Nomor Resi', 'Pengirim', 'Nama Barang', 'Jumlah', 'Panjang (cm)', 'Lebar (cm)', 'Tinggi (cm)', 'Berat/pcs (kg)', 'Total Berat (kg)', 'Volume', 'Kubikasi (m³)', 'Foto'];"
+          new = "const headers = ['No', 'Tanggal', 'Nomor Resi', 'Pengirim', 'Kota/Kabupaten', 'Kecamatan', 'Nama Barang', 'Jumlah', 'Panjang (cm)', 'Lebar (cm)', 'Tinggi (cm)', 'Berat/pcs (kg)', 'Total Berat (kg)', 'Volume', 'Kubikasi (m³)', 'Foto'];"
+          # Only replace the first occurrence, which belongs to the combined Excel report.
+          if old in s:
+              s = s.replace(old, new, 1)
+          old = "setCell(3, row, shipment.pengirim);\n        setCell(4, row, b.nama);\n        setCell(5, row, b.jumlah);\n        setCell(6, row, b.panjang);\n        setCell(7, row, b.lebar);\n        setCell(8, row, b.tinggi);\n        setCell(9, row, b.berat);\n        setCell(10, row, b.totalBerat);\n        setCell(11, row, b.volume);\n        setCell(12, row, b.kubikasi);\n        setCell(13, row, b.photoPath != null && await File(b.photoPath!).exists() ? 'Ada' : 'Tidak ada');"
+          new = "setCell(3, row, shipment.pengirim);\n        setCell(4, row, shipment.kotaKabupaten);\n        setCell(5, row, shipment.kecamatan);\n        setCell(6, row, b.nama);\n        setCell(7, row, b.jumlah);\n        setCell(8, row, b.panjang);\n        setCell(9, row, b.lebar);\n        setCell(10, row, b.tinggi);\n        setCell(11, row, b.berat);\n        setCell(12, row, b.totalBerat);\n        setCell(13, row, b.volume);\n        setCell(14, row, b.kubikasi);\n        setCell(15, row, b.photoPath != null && await File(b.photoPath!).exists() ? 'Ada' : 'Tidak ada');"
+          if old in s:
+              s = s.replace(old, new, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+          if git diff --quiet -- lib/services/export_service.dart; then
+            echo 'No report source changes needed.'
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add lib/services/export_service.dart
+            git commit -m "fix: include city and district in all reports"
+            git push
+          fi
+
       - name: Java 17
         uses: actions/setup-java@v4
         with:
@@ -34,44 +71,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           python3 - <<'PY'
           from pathlib import Path
           import re
-
           settings = Path("android/settings.gradle")
           text = settings.read_text()
-
-          text, count = re.subn(
-              r'(id\s+["\']com\.android\.application["\']\s+version\s+["\'])[^"\']+(["\'])',
-              r'\g<1>8.11.1\2',
-              text,
-              count=1,
-          )
-          if count == 0:
-              raise SystemExit("com.android.application version not found")
-
-          text, count = re.subn(
-              r'(id\s+["\']org\.jetbrains\.kotlin\.android["\']\s+version\s+["\'])[^"\']+(["\'])',
-              r'\g<1>2.2.20\2',
-              text,
-              count=1,
-          )
-          if count == 0:
-              raise SystemExit("org.jetbrains.kotlin.android version not found")
-
+          text, count = re.subn(r'(id\s+["\']com\.android\.application["\']\s+version\s+["\'])[^"\']+(["\'])', r'\g<1>8.11.1\2', text, count=1)
+          if count == 0: raise SystemExit("com.android.application version not found")
+          text, count = re.subn(r'(id\s+["\']org\.jetbrains\.kotlin\.android["\']\s+version\s+["\'])[^"\']+(["\'])', r'\g<1>2.2.20\2', text, count=1)
+          if count == 0: raise SystemExit("org.jetbrains.kotlin.android version not found")
           settings.write_text(text)
-
-          for path in (
-              Path("android/settings.gradle.kts"),
-              Path("android/build.gradle.kts"),
-              Path("android/app/build.gradle.kts"),
-          ):
-              if path.exists():
-                  path.unlink()
-                  print(f"Removed duplicate: {path}")
+          for path in (Path("android/settings.gradle.kts"), Path("android/build.gradle.kts"), Path("android/app/build.gradle.kts")):
+              if path.exists(): path.unlink()
           PY
-
           grep -q "com.android.application.*8.11.1" android/settings.gradle
           grep -q "org.jetbrains.kotlin.android.*2.2.20" android/settings.gradle
           test ! -e android/settings.gradle.kts
@@ -90,8 +102,7 @@ jobs:
           text = p.read_text()
           url = r"distributionUrl=https\://services.gradle.org/distributions/gradle-8.14-bin.zip"
           text = re.sub(r"^distributionUrl=.*$", url, text, flags=re.MULTILINE)
-          if "distributionUrl=" not in text:
-              text += "\n" + url + "\n"
+          if "distributionUrl=" not in text: text += "\n" + url + "\n"
           p.write_text(text)
           PY
           grep -q "gradle-8.14-bin.zip" android/gradle/wrapper/gradle-wrapper.properties
@@ -109,11 +120,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if grep -q '^org.gradle.vfs.watch=' android/gradle.properties 2>/dev/null; then
-            sed -i 's/^org.gradle.vfs.watch=.*/org.gradle.vfs.watch=false/' android/gradle.properties
-          else
-            printf '\norg.gradle.vfs.watch=false\n' >> android/gradle.properties
-          fi
+          if grep -q '^org.gradle.vfs.watch=' android/gradle.properties 2>/dev/null; then sed -i 's/^org.gradle.vfs.watch=.*/org.gradle.vfs.watch=false/' android/gradle.properties; else printf '\norg.gradle.vfs.watch=false\n' >> android/gradle.properties; fi
           grep -q "org.gradle.vfs.watch=false" android/gradle.properties
 
       - name: Verify Gradle version
