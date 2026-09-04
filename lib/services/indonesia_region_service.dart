@@ -1,4 +1,4 @@
-import 'package:flutter_wilayah_indonesia/services/wilayah_service.dart';
+import 'package:flutter_wilayah_indonesia/flutter_wilayah_indonesia.dart';
 
 class IndonesiaRegion {
   final String code;
@@ -12,12 +12,9 @@ class IndonesiaRegion {
   });
 }
 
-/// Data kabupaten/kota dan kecamatan untuk form pengiriman.
-///
-/// Seluruh data berasal dari dataset yang dibundel oleh
-/// flutter_wilayah_indonesia sehingga tidak ada HTTP/API call saat aplikasi
-/// berjalan. Data tersedia langsung dari asset package dan tetap bekerja
-/// ketika perangkat berada dalam mode pesawat/tanpa internet.
+/// Offline region data for the shipment form.
+/// The package bundles the Indonesian administrative datasets, so no
+/// HTTP/API request is made while the application is running.
 class IndonesiaRegionService {
   static Future<List<IndonesiaRegion>> loadAllKabupatenKota() async {
     final provinces = await WilayahService.getProvinsi();
