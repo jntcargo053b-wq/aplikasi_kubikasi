@@ -155,6 +155,8 @@ class ExportService {
     required String title,
     required String resi,
     required String pengirim,
+    required String kotaKabupaten,
+    required String kecamatan,
     required DateTime tanggal,
   }) => pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -163,6 +165,8 @@ class ExportService {
           pw.SizedBox(height: 3),
           pw.Text('Resi: $resi', style: const pw.TextStyle(fontSize: 9)),
           pw.Text('Pengirim: $pengirim', style: const pw.TextStyle(fontSize: 9)),
+          pw.Text('Kota/Kabupaten: $kotaKabupaten', style: const pw.TextStyle(fontSize: 9)),
+          pw.Text('Kecamatan: $kecamatan', style: const pw.TextStyle(fontSize: 9)),
           pw.Text('Tanggal: ${_tanggalFmt.format(tanggal)}', style: const pw.TextStyle(fontSize: 9)),
           pw.SizedBox(height: 8),
           pw.Divider(thickness: 0.7),
@@ -201,7 +205,7 @@ class ExportService {
       build: (context) => [
         pw.SizedBox(height: 4),
         _infoRow('Nomor Resi', p.nomorResi), _infoRow('Pengirim', p.pengirim),
-        _infoRow('Tanggal', _tanggalFmt.format(p.tanggal)), _infoRow('Jumlah Jenis Barang', '${p.barang.length}'),
+        _infoRow('Tanggal', _tanggalFmt.format(p.tanggal)), _infoRow('Kota/Kabupaten', p.kotaKabupaten), _infoRow('Kecamatan', p.kecamatan), _infoRow('Jumlah Jenis Barang', '${p.barang.length}'),
         pw.SizedBox(height: 14),
         pw.TableHelper.fromTextArray(
           headers: headers, data: rows,
@@ -237,7 +241,7 @@ class ExportService {
           pw.SizedBox(height: 4), pw.Divider(thickness: 1),
         ]),
         build: (context) => [
-          _photoSection(photos: photos, title: 'DOKUMENTASI FOTO', resi: p.nomorResi, pengirim: p.pengirim, tanggal: p.tanggal),
+          _photoSection(photos: photos, title: 'DOKUMENTASI FOTO', resi: p.nomorResi, pengirim: p.pengirim, kotaKabupaten: p.kotaKabupaten, kecamatan: p.kecamatan, tanggal: p.tanggal),
           if (loaded.truncated) pw.Padding(
             padding: const pw.EdgeInsets.only(top: 8),
             child: pw.Text('Catatan: hanya $_maxEmbeddedPhotos foto pertama yang disertakan agar ukuran file tetap aman.', style: pw.TextStyle(fontSize: 8, fontStyle: pw.FontStyle.italic, color: const PdfColor.fromInt(0xFF64748B))),
@@ -285,8 +289,8 @@ class ExportService {
       build: (context) => [
         pw.SizedBox(height: 4),
         pw.TableHelper.fromTextArray(
-          headers: const ['No', 'Tanggal', 'Resi', 'Pengirim', 'Barang', 'Berat (kg)', 'Kubikasi (m³)'],
-          data: [for (var i = 0; i < sorted.length; i++) ['${i + 1}', _tanggalFmt.format(sorted[i].tanggal), sorted[i].nomorResi, sorted[i].pengirim, '${sorted[i].totalJumlah}', sorted[i].totalBerat.toStringAsFixed(2), sorted[i].totalKubikasi.toStringAsFixed(3)]],
+          headers: const ['No', 'Tanggal', 'Resi', 'Pengirim', 'Kota/Kabupaten', 'Kecamatan', 'Barang', 'Berat (kg)', 'Kubikasi (m³)'],
+          data: [for (var i = 0; i < sorted.length; i++) ['${i + 1}', _tanggalFmt.format(sorted[i].tanggal), sorted[i].nomorResi, sorted[i].pengirim, sorted[i].kotaKabupaten, sorted[i].kecamatan, '${sorted[i].totalJumlah}', sorted[i].totalBerat.toStringAsFixed(2), sorted[i].totalKubikasi.toStringAsFixed(3)]],
           headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8), cellStyle: const pw.TextStyle(fontSize: 7.5),
           headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFE2E8F0)), border: pw.TableBorder.all(color: const PdfColor.fromInt(0xFFCBD5E1), width: 0.5),
           columnWidths: const {0: pw.FixedColumnWidth(22), 1: pw.FixedColumnWidth(55), 2: pw.FlexColumnWidth(1.25), 3: pw.FlexColumnWidth(1.4), 4: pw.FixedColumnWidth(38), 5: pw.FixedColumnWidth(50), 6: pw.FixedColumnWidth(58)},
@@ -489,8 +493,8 @@ class ExportService {
     setCell(0, row0, 'Nomor Resi');
     setCell(1, row0, p.nomorResi);
     row0++;
-    setCell(0, row0, 'Pengirim');
-    setCell(1, row0, p.pengirim);
+    setCell(0, row0, 'Pengirim', 'Kota/Kabupaten', 'Kecamatan');
+    setCell(1, row0, p.pengirim, p.kotaKabupaten, p.kecamatan);
     row0++;
     setCell(0, row0, 'Tanggal');
     setCell(1, row0, _tanggalFmt.format(p.tanggal));
