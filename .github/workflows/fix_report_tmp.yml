@@ -1,0 +1,53 @@
+name: Fix Report Tmp
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fix report export
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('lib/services/export_service.dart')
+          s = p.read_text()
+          old = "build: (context) => [_photoSection(photos: photos, title: 'DOKUMENTASI FOTO — RESI ${shipment.nomorResi}', resi: shipment.nomorResi, pengirim: shipment.pengirim, tanggal: shipment.tanggal)],"
+          new = "build: (context) => [_photoSection(photos: photos, title: 'DOKUMENTASI FOTO — RESI ${shipment.nomorResi}', resi: shipment.nomorResi, pengirim: shipment.pengirim, kotaKabupaten: shipment.kotaKabupaten, kecamatan: shipment.kecamatan, tanggal: shipment.tanggal)],"
+          if old not in s:
+              raise SystemExit('combined photo call not found')
+          s = s.replace(old, new, 1)
+          old = "setCell(0, row0, 'Pengirim', 'Kota/Kabupaten', 'Kecamatan');\n    setCell(1, row0, p.pengirim, p.kotaKabupaten, p.kecamatan);"
+          new = "setCell(0, row0, 'Pengirim');\n    setCell(1, row0, p.pengirim);\n    row0++;\n    setCell(0, row0, 'Kota/Kabupaten');\n    setCell(1, row0, p.kotaKabupaten);\n    row0++;\n    setCell(0, row0, 'Kecamatan');\n    setCell(1, row0, p.kecamatan);"
+          if old not in s:
+              raise SystemExit('invalid Excel location block not found')
+          s = s.replace(old, new, 1)
+          # Add destination columns to the combined Excel table.
+          old = "const headers = ['No', 'Tanggal', 'Nomor Resi', 'Pengirim', 'Nama Barang', 'Jumlah', 'Panjang (cm)', 'Lebar (cm)', 'Tinggi (cm)', 'Berat/pcs (kg)', 'Total Berat (kg)', 'Volume', 'Kubikasi (m³)', 'Foto'];"
+          new = "const headers = ['No', 'Tanggal', 'Nomor Resi', 'Pengirim', 'Kota/Kabupaten', 'Kecamatan', 'Nama Barang', 'Jumlah', 'Panjang (cm)', 'Lebar (cm)', 'Tinggi (cm)', 'Berat/pcs (kg)', 'Total Berat (kg)', 'Volume', 'Kubikasi (m³)', 'Foto'];"
+          if old not in s:
+              raise SystemExit('combined Excel headers not found')
+          s = s.replace(old, new, 1)
+          old = "setCell(3, row, shipment.pengirim);\n        setCell(4, row, b.nama);\n        setCell(5, row, b.jumlah);\n        setCell(6, row, b.panjang);\n        setCell(7, row, b.lebar);\n        setCell(8, row, b.tinggi);\n        setCell(9, row, b.berat);\n        setCell(10, row, b.totalBerat);\n        setCell(11, row, b.volume);\n        setCell(12, row, b.kubikasi);\n        setCell(13, row, b.photoPath != null && await File(b.photoPath!).exists() ? 'Ada' : 'Tidak ada');"
+          new = "setCell(3, row, shipment.pengirim);\n        setCell(4, row, shipment.kotaKabupaten);\n        setCell(5, row, shipment.kecamatan);\n        setCell(6, row, b.nama);\n        setCell(7, row, b.jumlah);\n        setCell(8, row, b.panjang);\n        setCell(9, row, b.lebar);\n        setCell(10, row, b.tinggi);\n        setCell(11, row, b.berat);\n        setCell(12, row, b.totalBerat);\n        setCell(13, row, b.volume);\n        setCell(14, row, b.kubikasi);\n        setCell(15, row, b.photoPath != null && await File(b.photoPath!).exists() ? 'Ada' : 'Tidak ada');"
+          if old not in s:
+              raise SystemExit('combined Excel row not found')
+          s = s.replace(old, new, 1)
+          # Single Excel table shifts two columns after Pengirim.
+          old = "final headers = ['No', 'Nama Barang', 'Jumlah', 'Panjang (cm)', 'Lebar (cm)', 'Tinggi (cm)', 'Berat/pcs (kg)', 'Total Berat (kg)', 'Volume', 'Kubikasi (m³)', 'Foto'];"
+          new = "final headers = ['No', 'Nama Barang', 'Jumlah', 'Panjang (cm)', 'Lebar (cm)', 'Tinggi (cm)', 'Berat/pcs (kg)', 'Total Berat (kg)', 'Volume', 'Kubikasi (m³)', 'Foto'];"
+          # Keep single Excel item table unchanged; location is already in its info block.
+          if old not in s:
+              raise SystemExit('single Excel table not found')
+          p.write_text(s)
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/services/export_service.dart .github/workflows/fix_report_tmp.yml
+          git rm -f .github/workflows/fix_report_tmp.yml
+          git commit -m "fix: complete city and district report output"
+          git push
