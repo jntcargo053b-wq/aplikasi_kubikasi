@@ -13,7 +13,9 @@ jobs:
         with:
           python-version: '3.x'
       - name: Apply patch
-        run: python3 scripts/patch_report_layout.py
+        run: |
+          sed -i '${/^PY$/d;}' scripts/patch_report_layout.py
+          python3 scripts/patch_report_layout.py
       - name: Commit patch
         run: |
           git config user.name 'github-actions[bot]'
