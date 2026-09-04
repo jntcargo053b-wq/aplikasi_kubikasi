@@ -315,7 +315,7 @@ class ExportService {
         header: (context) => pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
           ..._headerLines(settings, 'Rekap Laporan Kubikasi Pengiriman', logo), pw.SizedBox(height: 4), pw.Divider(thickness: 1),
         ]),
-        build: (context) => [_photoSection(photos: photos, title: 'DOKUMENTASI FOTO — RESI ${shipment.nomorResi}', resi: shipment.nomorResi, pengirim: shipment.pengirim, tanggal: shipment.tanggal)],
+        build: (context) => [_photoSection(photos: photos, title: 'DOKUMENTASI FOTO — RESI ${shipment.nomorResi}', resi: shipment.nomorResi, pengirim: shipment.pengirim, kotaKabupaten: shipment.kotaKabupaten, kecamatan: shipment.kecamatan, tanggal: shipment.tanggal)],
       ));
     }
 
@@ -379,7 +379,7 @@ class ExportService {
     setCell(1, row0, sorted.length);
     row0 += 2;
     final headerRow = row0;
-    const headers = ['No', 'Tanggal', 'Nomor Resi', 'Pengirim', 'Nama Barang', 'Jumlah', 'Panjang (cm)', 'Lebar (cm)', 'Tinggi (cm)', 'Berat/pcs (kg)', 'Total Berat (kg)', 'Volume', 'Kubikasi (m³)', 'Foto'];
+    const headers = ['No', 'Tanggal', 'Nomor Resi', 'Pengirim', 'Kota/Kabupaten', 'Kecamatan', 'Nama Barang', 'Jumlah', 'Panjang (cm)', 'Lebar (cm)', 'Tinggi (cm)', 'Berat/pcs (kg)', 'Total Berat (kg)', 'Volume', 'Kubikasi (m³)', 'Foto'];
     for (var c = 0; c < headers.length; c++) {
       setCell(c, headerRow, headers[c], bold: true);
     }
@@ -391,16 +391,18 @@ class ExportService {
         setCell(1, row, _tanggalFmt.format(shipment.tanggal));
         setCell(2, row, shipment.nomorResi);
         setCell(3, row, shipment.pengirim);
-        setCell(4, row, b.nama);
-        setCell(5, row, b.jumlah);
-        setCell(6, row, b.panjang);
-        setCell(7, row, b.lebar);
-        setCell(8, row, b.tinggi);
-        setCell(9, row, b.berat);
-        setCell(10, row, b.totalBerat);
-        setCell(11, row, b.volume);
-        setCell(12, row, b.kubikasi);
-        setCell(13, row, b.photoPath != null && await File(b.photoPath!).exists() ? 'Ada' : 'Tidak ada');
+        setCell(4, row, shipment.kotaKabupaten);
+        setCell(5, row, shipment.kecamatan);
+        setCell(6, row, b.nama);
+        setCell(7, row, b.jumlah);
+        setCell(8, row, b.panjang);
+        setCell(9, row, b.lebar);
+        setCell(10, row, b.tinggi);
+        setCell(11, row, b.berat);
+        setCell(12, row, b.totalBerat);
+        setCell(13, row, b.volume);
+        setCell(14, row, b.kubikasi);
+        setCell(15, row, b.photoPath != null && await File(b.photoPath!).exists() ? 'Ada' : 'Tidak ada');
         row++;
       }
     }
@@ -493,8 +495,14 @@ class ExportService {
     setCell(0, row0, 'Nomor Resi');
     setCell(1, row0, p.nomorResi);
     row0++;
-    setCell(0, row0, 'Pengirim', 'Kota/Kabupaten', 'Kecamatan');
-    setCell(1, row0, p.pengirim, p.kotaKabupaten, p.kecamatan);
+    setCell(0, row0, 'Pengirim');
+    setCell(1, row0, p.pengirim);
+    row0++;
+    setCell(0, row0, 'Kota/Kabupaten');
+    setCell(1, row0, p.kotaKabupaten);
+    row0++;
+    setCell(0, row0, 'Kecamatan');
+    setCell(1, row0, p.kecamatan);
     row0++;
     setCell(0, row0, 'Tanggal');
     setCell(1, row0, _tanggalFmt.format(p.tanggal));
