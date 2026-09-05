@@ -59,7 +59,6 @@ class _BarangFormState extends State<_BarangForm> {
     _l = TextEditingController(text: e == null ? '0' : _n(e.lebar));
     _t = TextEditingController(text: e == null ? '0' : _n(e.tinggi));
     _photo = e?.photoPath;
-
     _previewListenable = Listenable.merge([_jumlah, _p, _l, _t]);
   }
 
@@ -83,7 +82,9 @@ class _BarangFormState extends State<_BarangForm> {
         await PhotoStorageService.deleteAll(paths);
       }());
     }
-    for (final c in [_nama, _jumlah, _berat, _p, _l, _t]) c.dispose();
+    for (final c in [_nama, _jumlah, _berat, _p, _l, _t]) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -111,7 +112,9 @@ class _BarangFormState extends State<_BarangForm> {
       );
       if (picked != null) {
         final dir = await getApplicationDocumentsDirectory();
-        final target = File('${dir.path}/barang_${DateTime.now().millisecondsSinceEpoch}.jpg');
+        final target = File(
+          '${dir.path}/barang_${DateTime.now().millisecondsSinceEpoch}.jpg',
+        );
         _createdPhotos.add(target.path);
         final copyFuture = File(picked.path).copy(target.path);
         _pendingPhotoCopies.add(copyFuture);
@@ -127,16 +130,21 @@ class _BarangFormState extends State<_BarangForm> {
         if (!mounted) return;
         final previous = _photo;
         setState(() => _photo = target.path);
-        if (previous != null && _createdPhotos.contains(previous) && previous != target.path) {
+        if (previous != null &&
+            _createdPhotos.contains(previous) &&
+            previous != target.path) {
           _createdPhotos.remove(previous);
           await PhotoStorageService.delete(previous);
         }
       }
     } on PlatformException catch (e) {
       if (!mounted) return;
-      final isPermissionError = e.code == 'camera_access_denied' || e.code == 'photo_access_denied';
+      final isPermissionError =
+          e.code == 'camera_access_denied' || e.code == 'photo_access_denied';
       _showPickerMessage(
-        isPermissionError ? 'Izin akses ditolak. Aktifkan lewat Setelan.' : 'Gagal mengambil foto (${e.code}).',
+        isPermissionError
+            ? 'Izin akses ditolak. Aktifkan lewat Setelan.'
+            : 'Gagal mengambil foto (${e.code}).',
         showSettingsAction: isPermissionError,
       );
     } finally {
@@ -148,7 +156,9 @@ class _BarangFormState extends State<_BarangForm> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        action: showSettingsAction ? SnackBarAction(label: 'Setelan', onPressed: openAppSettings) : null,
+        action: showSettingsAction
+            ? SnackBarAction(label: 'Setelan', onPressed: openAppSettings)
+            : null,
       ),
     );
   }
@@ -157,7 +167,9 @@ class _BarangFormState extends State<_BarangForm> {
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (ctx) => SafeArea(
         child: Wrap(
           children: [
@@ -214,14 +226,28 @@ class _BarangFormState extends State<_BarangForm> {
             child: ListView(
               padding: EdgeInsets.fromLTRB(20, 12, 20, 24 + bottom),
               children: [
-                Center(child: Container(width: 42, height: 4, color: AppColors.border)),
+                Center(
+                  child: Container(
+                    width: 42,
+                    height: 4,
+                    color: AppColors.border,
+                  ),
+                ),
                 const SizedBox(height: 16),
-                Text(widget.existing == null ? 'Tambah Barang' : 'Edit Barang', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                Text(
+                  widget.existing == null ? 'Tambah Barang' : 'Edit Barang',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _nama,
                   decoration: const InputDecoration(labelText: 'Nama Barang'),
-                  validator: (v) => v == null || v.trim().isEmpty ? 'Nama barang wajib diisi' : null,
+                  validator: (v) => v == null || v.trim().isEmpty
+                      ? 'Nama barang wajib diisi'
+                      : null,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
@@ -230,16 +256,24 @@ class _BarangFormState extends State<_BarangForm> {
                   decoration: const InputDecoration(labelText: 'Jumlah'),
                   validator: (v) {
                     final x = int.tryParse(v ?? '');
-                    return x == null || x <= 0 ? 'Jumlah harus lebih dari 0' : null;
+                    return x == null || x <= 0
+                        ? 'Jumlah harus lebih dari 0'
+                        : null;
                   },
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _berat,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(labelText: 'Berat per unit', suffixText: 'kg'),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Berat per unit',
+                    suffixText: 'kg',
+                  ),
                   onChanged: (_) => _keepZero(_berat),
-                  validator: (v) => _d(v ?? '') < 0 ? 'Berat tidak valid' : null,
+                  validator: (v) =>
+                      _d(v ?? '') < 0 ? 'Berat tidak valid' : null,
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -257,8 +291,14 @@ class _BarangFormState extends State<_BarangForm> {
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: _busy ? null : _showPhotoSourceSheet,
-                        icon: Icon(_photo == null ? Icons.add_a_photo_outlined : Icons.photo_camera_back_outlined),
-                        label: Text(_photo == null ? 'Foto Barang' : 'Ganti Foto'),
+                        icon: Icon(
+                          _photo == null
+                              ? Icons.add_a_photo_outlined
+                              : Icons.photo_camera_back_outlined,
+                        ),
+                        label: Text(
+                          _photo == null ? 'Foto Barang' : 'Ganti Foto',
+                        ),
                       ),
                     ),
                     if (_photo != null) ...[
@@ -274,7 +314,11 @@ class _BarangFormState extends State<_BarangForm> {
                             fit: BoxFit.cover,
                             cacheWidth: 162,
                             cacheHeight: 162,
-                            errorBuilder: (_, __, ___) => const SizedBox(width: 54, height: 54, child: Icon(Icons.broken_image_outlined)),
+                            errorBuilder: (_, __, ___) => const SizedBox(
+                              width: 54,
+                              height: 54,
+                              child: Icon(Icons.broken_image_outlined),
+                            ),
                           ),
                         ),
                       ),
@@ -286,14 +330,33 @@ class _BarangFormState extends State<_BarangForm> {
                   animation: _previewListenable,
                   builder: (context, _) => Row(
                     children: [
-                      Expanded(child: _metric('VOLUME TIMBANG', _volume.toStringAsFixed(2), '')),
+                      Expanded(
+                        child: _metric(
+                          'VOLUME TIMBANG',
+                          _volume.toStringAsFixed(2),
+                          '',
+                        ),
+                      ),
                       const SizedBox(width: 8),
-                      Expanded(child: _metric('KUBIKASI', _kubikasi.toStringAsFixed(3), 'm³')),
+                      Expanded(
+                        child: _metric(
+                          'KUBIKASI',
+                          _kubikasi.toStringAsFixed(3),
+                          'm³',
+                        ),
+                      ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 20),
-                FilledButton(onPressed: _save, child: Text(widget.existing == null ? 'Tambah Barang' : 'Simpan Perubahan')),
+                FilledButton(
+                  onPressed: _save,
+                  child: Text(
+                    widget.existing == null
+                        ? 'Tambah Barang'
+                        : 'Simpan Perubahan',
+                  ),
+                ),
               ],
             ),
           ),
@@ -312,23 +375,41 @@ class _BarangFormState extends State<_BarangForm> {
 
   Widget _metric(String title, String value, String suffix) => Container(
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColors.border)),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.border),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontSize: 10, color: AppColors.muted)),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 10, color: AppColors.muted),
+            ),
             const SizedBox(height: 4),
             FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
-              child: Text('$value $suffix', maxLines: 1, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+              child: Text(
+                '$value $suffix',
+                maxLines: 1,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
             ),
           ],
         ),
       );
 
-  double get _volume => (_d(_p.text) * _d(_l.text) * _d(_t.text) / kFaktorVolumetrik) * (int.tryParse(_jumlah.text) ?? 0);
-  double get _kubikasi => (_d(_p.text) * _d(_l.text) * _d(_t.text) / kFaktorKubikasi) * (int.tryParse(_jumlah.text) ?? 0);
+  double get _volume =>
+      (_d(_p.text) * _d(_l.text) * _d(_t.text) / kFaktorVolumetrik) *
+      (int.tryParse(_jumlah.text) ?? 0);
+  double get _kubikasi =>
+      (_d(_p.text) * _d(_l.text) * _d(_t.text) / kFaktorKubikasi) *
+      (int.tryParse(_jumlah.text) ?? 0);
 }
 
 void showPhotoPreview(BuildContext context, String path) {
@@ -354,11 +435,24 @@ class _PhotoPreview extends StatelessWidget {
         body: SafeArea(
           child: Stack(
             children: [
-              Center(child: InteractiveViewer(minScale: 1, maxScale: 4, child: Image.file(File(path)))),
+              Center(
+                child: InteractiveViewer(
+                  minScale: 1,
+                  maxScale: 4,
+                  child: Image.file(File(path)),
+                ),
+              ),
               Positioned(
                 top: 8,
                 right: 8,
-                child: IconButton(icon: const Icon(Icons.close, color: Colors.white, size: 28), onPressed: () => Navigator.of(context).pop()),
+                child: IconButton(
+                  icon: const Icon(
+                    Icons.close,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
               ),
             ],
           ),
