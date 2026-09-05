@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../app_theme.dart';
 import '../models/report_settings.dart';
+import '../services/backup_service.dart';
 import '../services/report_logo_storage_service.dart';
 import '../services/settings_service.dart';
+import 'backup_restore_screen.dart';
 
 /// Layar untuk mengatur header kustom yang tampil pada laporan PDF/Excel.
 class ReportHeaderSettingsScreen extends StatefulWidget {
@@ -117,6 +119,18 @@ class _ReportHeaderSettingsScreenState extends State<ReportHeaderSettingsScreen>
       _logoAvailable = false;
       _logoRemoved = true;
     });
+  }
+
+  Future<void> _openBackupRestore() async {
+    if (_saving || _loading) return;
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const BackupRestoreScreen()),
+    );
+    if (changed == true && mounted) {
+      final settings = await _settingsService.loadReportSettings();
+      if (!mounted) return;
+      Navigator.of(context).pop(settings);
+    }
   }
 
   Future<void> _save() async {
@@ -279,6 +293,17 @@ class _ReportHeaderSettingsScreenState extends State<ReportHeaderSettingsScreen>
                           const Divider(height: 1),
                         ],
                       ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Card(
+                    margin: EdgeInsets.zero,
+                    child: ListTile(
+                      leading: const CircleAvatar(child: Icon(Icons.backup_outlined)),
+                      title: const Text('Data & Backup', style: TextStyle(fontWeight: FontWeight.w700)),
+                      subtitle: const Text('Backup/restore pengiriman, barang, foto, dan header laporan.'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: _openBackupRestore,
                     ),
                   ),
                 ],
