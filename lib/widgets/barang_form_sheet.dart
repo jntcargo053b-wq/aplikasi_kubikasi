@@ -60,21 +60,12 @@ class _BarangFormState extends State<_BarangForm> {
     _t = TextEditingController(text: e == null ? '0' : _n(e.tinggi));
     _photo = e?.photoPath;
 
-    _previewListenable = Listenable.merge([
-      _jumlah,
-      _p,
-      _l,
-      _t,
-    ]);
+    _previewListenable = Listenable.merge([_jumlah, _p, _l, _t]);
   }
 
   String _n(double v) => v == v.roundToDouble() ? '${v.toInt()}' : '$v';
-
   double _d(String s) => double.tryParse(s.replaceAll(',', '.')) ?? 0;
 
-  // Keep the default zero visible when the field is focused. If a field was
-  // ever cleared by the keyboard/IME, restore its zero value instead of
-  // leaving an empty input.
   void _keepZero(TextEditingController controller) {
     if (controller.text.isEmpty) {
       controller.value = const TextEditingValue(text: '0');
@@ -88,15 +79,11 @@ class _BarangFormState extends State<_BarangForm> {
       final paths = List<String>.from(_createdPhotos);
       final copies = List<Future<void>>.from(_pendingPhotoCopies);
       unawaited(() async {
-        if (copies.isNotEmpty) {
-          await Future.wait(copies, eagerError: false);
-        }
+        if (copies.isNotEmpty) await Future.wait(copies, eagerError: false);
         await PhotoStorageService.deleteAll(paths);
       }());
     }
-    for (final c in [_nama, _jumlah, _berat, _p, _l, _t]) {
-      c.dispose();
-    }
+    for (final c in [_nama, _jumlah, _berat, _p, _l, _t]) c.dispose();
     super.dispose();
   }
 
@@ -138,10 +125,8 @@ class _BarangFormState extends State<_BarangForm> {
           _pendingPhotoCopies.remove(copyFuture);
         }
         if (!mounted) return;
-
         final previous = _photo;
         setState(() => _photo = target.path);
-
         if (previous != null && _createdPhotos.contains(previous) && previous != target.path) {
           _createdPhotos.remove(previous);
           await PhotoStorageService.delete(previous);
@@ -149,12 +134,9 @@ class _BarangFormState extends State<_BarangForm> {
       }
     } on PlatformException catch (e) {
       if (!mounted) return;
-      final isPermissionError = e.code == 'camera_access_denied' ||
-          e.code == 'photo_access_denied';
+      final isPermissionError = e.code == 'camera_access_denied' || e.code == 'photo_access_denied';
       _showPickerMessage(
-        isPermissionError
-            ? 'Izin akses ditolak. Aktifkan lewat Setelan.'
-            : 'Gagal mengambil foto (${e.code}).',
+        isPermissionError ? 'Izin akses ditolak. Aktifkan lewat Setelan.' : 'Gagal mengambil foto (${e.code}).',
         showSettingsAction: isPermissionError,
       );
     } finally {
@@ -166,9 +148,7 @@ class _BarangFormState extends State<_BarangForm> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        action: showSettingsAction
-            ? SnackBarAction(label: 'Setelan', onPressed: openAppSettings)
-            : null,
+        action: showSettingsAction ? SnackBarAction(label: 'Setelan', onPressed: openAppSettings) : null,
       ),
     );
   }
@@ -177,9 +157,7 @@ class _BarangFormState extends State<_BarangForm> {
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => SafeArea(
         child: Wrap(
           children: [
@@ -197,9 +175,7 @@ class _BarangFormState extends State<_BarangForm> {
         ),
       ),
     );
-    if (source != null) {
-      await _pickPhoto(source);
-    }
+    if (source != null) await _pickPhoto(source);
   }
 
   void _save() {
@@ -240,15 +216,12 @@ class _BarangFormState extends State<_BarangForm> {
               children: [
                 Center(child: Container(width: 42, height: 4, color: AppColors.border)),
                 const SizedBox(height: 16),
-                Text(
-                  widget.existing == null ? 'Tambah Barang' : 'Edit Barang',
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
-                ),
+                Text(widget.existing == null ? 'Tambah Barang' : 'Edit Barang', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _nama,
                   decoration: const InputDecoration(labelText: 'Nama Barang'),
-                  validator: (v) => v == null || v.trim().isEmpty ? 'Wajib diisi' : null,
+                  validator: (v) => v == null || v.trim().isEmpty ? 'Nama barang wajib diisi' : null,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
@@ -257,7 +230,7 @@ class _BarangFormState extends State<_BarangForm> {
                   decoration: const InputDecoration(labelText: 'Jumlah'),
                   validator: (v) {
                     final x = int.tryParse(v ?? '');
-                    return x == null || x <= 0 ? 'Jumlah tidak valid' : null;
+                    return x == null || x <= 0 ? 'Jumlah harus lebih dari 0' : null;
                   },
                 ),
                 const SizedBox(height: 12),
@@ -284,7 +257,7 @@ class _BarangFormState extends State<_BarangForm> {
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: _busy ? null : _showPhotoSourceSheet,
-                        icon: const Icon(Icons.camera_alt_outlined),
+                        icon: Icon(_photo == null ? Icons.add_a_photo_outlined : Icons.photo_camera_back_outlined),
                         label: Text(_photo == null ? 'Foto Barang' : 'Ganti Foto'),
                       ),
                     ),
@@ -301,11 +274,7 @@ class _BarangFormState extends State<_BarangForm> {
                             fit: BoxFit.cover,
                             cacheWidth: 162,
                             cacheHeight: 162,
-                            errorBuilder: (_, __, ___) => const SizedBox(
-                              width: 54,
-                              height: 54,
-                              child: Icon(Icons.broken_image_outlined),
-                            ),
+                            errorBuilder: (_, __, ___) => const SizedBox(width: 54, height: 54, child: Icon(Icons.broken_image_outlined)),
                           ),
                         ),
                       ),
@@ -324,10 +293,7 @@ class _BarangFormState extends State<_BarangForm> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                FilledButton(
-                  onPressed: _save,
-                  child: Text(widget.existing == null ? 'Tambah Barang' : 'Simpan Perubahan'),
-                ),
+                FilledButton(onPressed: _save, child: Text(widget.existing == null ? 'Tambah Barang' : 'Simpan Perubahan')),
               ],
             ),
           ),
@@ -346,11 +312,7 @@ class _BarangFormState extends State<_BarangForm> {
 
   Widget _metric(String title, String value, String suffix) => Container(
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.border),
-        ),
+        decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColors.border)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -359,23 +321,14 @@ class _BarangFormState extends State<_BarangForm> {
             FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
-              child: Text(
-                '$value $suffix',
-                maxLines: 1,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-              ),
+              child: Text('$value $suffix', maxLines: 1, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
             ),
           ],
         ),
       );
 
-  double get _volume =>
-      (_d(_p.text) * _d(_l.text) * _d(_t.text) / kFaktorVolumetrik) *
-      (int.tryParse(_jumlah.text) ?? 0);
-
-  double get _kubikasi =>
-      (_d(_p.text) * _d(_l.text) * _d(_t.text) / kFaktorKubikasi) *
-      (int.tryParse(_jumlah.text) ?? 0);
+  double get _volume => (_d(_p.text) * _d(_l.text) * _d(_t.text) / kFaktorVolumetrik) * (int.tryParse(_jumlah.text) ?? 0);
+  double get _kubikasi => (_d(_p.text) * _d(_l.text) * _d(_t.text) / kFaktorKubikasi) * (int.tryParse(_jumlah.text) ?? 0);
 }
 
 void showPhotoPreview(BuildContext context, String path) {
@@ -401,20 +354,11 @@ class _PhotoPreview extends StatelessWidget {
         body: SafeArea(
           child: Stack(
             children: [
-              Center(
-                child: InteractiveViewer(
-                  minScale: 1,
-                  maxScale: 4,
-                  child: Image.file(File(path)),
-                ),
-              ),
+              Center(child: InteractiveViewer(minScale: 1, maxScale: 4, child: Image.file(File(path)))),
               Positioned(
                 top: 8,
                 right: 8,
-                child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white, size: 28),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
+                child: IconButton(icon: const Icon(Icons.close, color: Colors.white, size: 28), onPressed: () => Navigator.of(context).pop()),
               ),
             ],
           ),
