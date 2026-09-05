@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
+import 'package:uuid/uuid.dart';
+import '../models/barang_item.dart';
 import '../models/pengiriman.dart';
 import '../models/report_settings.dart';
 import 'settings_service.dart';
@@ -37,8 +39,8 @@ class BackupService {
       }
     }
 
-    final logoPath = settings.logoPath;
     String? logoData;
+    final logoPath = settings.logoPath;
     if (logoPath != null && logoPath.trim().isNotEmpty) {
       final file = File(logoPath);
       if (await file.exists()) logoData = base64Encode(await file.readAsBytes());
@@ -55,7 +57,7 @@ class BackupService {
       },
       'shipments': items.map((e) => e.toJson()).toList(),
       'reportSettings': settings.toJson(),
-      'photos': files.map((key, value) => MapEntry(key, value)),
+      'photos': files,
       'logoData': logoData,
     };
 
@@ -74,7 +76,9 @@ class BackupService {
   Future<BackupData> readBackup(File file) async {
     final raw = await file.readAsString();
     final decoded = jsonDecode(raw);
-    if (decoded is! Map) throw const FormatException('Format backup tidak valid.');
+    if (decoded is! Map) {
+      throw const FormatException('Format backup tidak valid.');
+    }
     if (decoded['format'] != format) {
       throw const FormatException('File bukan backup Nextcube yang valid.');
     }
@@ -117,15 +121,119 @@ class BackupService {
     final settings = rawSettings is Map
         ? ReportSettings.fromJson(Map<String, dynamic>.from(rawSettings))
         : const ReportSettings();
-    final logoData = decoded['logoData'] as String?;
 
     return BackupData(
       shipments: shipments,
       settings: settings,
       photoData: photoData,
-      logoData: logoData,
+      logoData: decoded['logoData'] as String?,
       createdAt: DateTime.tryParse(decoded['createdAt'] as String? ?? ''),
     );
+  }
+
+  Future<RestoreResult> restore(
+    BackupData data, {
+    required bool merge,
+  }) async {
+    final existing = await _storage.loadPengiriman();
+    final existingIds = existing.map((e) => e.id).toSet();
+    final selected = merge
+        ? data.shipments.where((e) => !existingIds.contains(e.id)).toList()
+        : List<Pengiriman>.of(data.shipments);
+
+    final pathMap = <String, String>{};
+    final restoredShipments = <Pengiriman>[];
+    for (final shipment in selected) {
+      final restoredBarang = <BarangItem>[];
+      for (final item in shipment.barang) {
+        final oldPath = item.photoPath;
+        String? newPath;
+        if (oldPath != null && data.photoData.containsKey(oldPath)) {
+          newPath = pathMap[oldPath];
+          if (newPath == null) {
+            newPath = await _writePhoto(oldPath, data.photoData[oldPath]!);
+            pathMap[oldPath] = newPath;
+          }
+        }
+        restoredBarang.add(
+          oldPath != null && newPath == null
+              ? item.copyWith(clearPhoto: true)
+              : item.copyWith(photoPath: newPath),
+        );
+      }
+      restoredShipments.add(
+        Pengiriman(
+          id: shipment.id,
+          pengirim: shipment.pengirim,
+          tanggal: shipment.tanggal,
+          nomorResi: shipment.nomorResi,
+          kotaKabupaten: shipment.kotaKabupaten,
+          kecamatan: shipment.kecamatan,
+          barang: restoredBarang,
+        ),
+      );
+    }
+
+    final target = merge
+        ? [...existing, ...restoredShipments]
+        : restoredShipments;
+    await _storage.savePengiriman(target);
+
+    var settings = await _settings.loadReportSettings();
+    if (!merge || settings.isEmpty) {
+      String? logoPath;
+      if (data.logoData != null && data.logoData!.isNotEmpty) {
+        logoPath = await _writeLogo(data.logoData!);
+      }
+      settings = ReportSettings(
+        companyName: data.settings.companyName,
+        headerNote: data.settings.headerNote,
+        logoPath: logoPath,
+      );
+      await _settings.saveReportSettings(settings);
+    }
+
+    return RestoreResult(
+      restoredShipments: restoredShipments.length,
+      restoredItems: restoredShipments.fold<int>(
+        0,
+        (sum, e) => sum + e.barang.length,
+      ),
+      restoredPhotos: pathMap.length,
+      skippedDuplicates: merge ? data.shipments.length - selected.length : 0,
+      settings: settings,
+    );
+  }
+
+  Future<String> _writePhoto(String oldPath, String encoded) async {
+    final docs = await getApplicationDocumentsDirectory();
+    final dir = Directory('${docs.path}/backup_photos');
+    await dir.create(recursive: true);
+    final extension = _extension(oldPath);
+    final target = File(
+      '${dir.path}/photo_${DateTime.now().microsecondsSinceEpoch}_'
+      '${const Uuid().v4()}$extension',
+    );
+    await target.writeAsBytes(base64Decode(encoded), flush: true);
+    return target.path;
+  }
+
+  Future<String> _writeLogo(String encoded) async {
+    final docs = await getApplicationDocumentsDirectory();
+    final dir = Directory('${docs.path}/report_header');
+    await dir.create(recursive: true);
+    final target = File(
+      '${dir.path}/company_logo_restore_${DateTime.now().microsecondsSinceEpoch}.jpg',
+    );
+    await target.writeAsBytes(base64Decode(encoded), flush: true);
+    return target.path;
+  }
+
+  String _extension(String path) {
+    final dot = path.lastIndexOf('.');
+    if (dot < 0 || dot == path.length - 1) return '.jpg';
+    final ext = path.substring(dot).toLowerCase();
+    return {'.jpg', '.jpeg', '.png', '.webp'}.contains(ext) ? ext : '.jpg';
   }
 }
 
@@ -142,5 +250,21 @@ class BackupData {
     required this.photoData,
     required this.logoData,
     required this.createdAt,
+  });
+}
+
+class RestoreResult {
+  final int restoredShipments;
+  final int restoredItems;
+  final int restoredPhotos;
+  final int skippedDuplicates;
+  final ReportSettings settings;
+
+  const RestoreResult({
+    required this.restoredShipments,
+    required this.restoredItems,
+    required this.restoredPhotos,
+    required this.skippedDuplicates,
+    required this.settings,
   });
 }
