@@ -72,6 +72,16 @@ class _BarangFormState extends State<_BarangForm> {
 
   double _d(String s) => double.tryParse(s.replaceAll(',', '.')) ?? 0;
 
+  // Keep the default zero visible when the field is focused. If a field was
+  // ever cleared by the keyboard/IME, restore its zero value instead of
+  // leaving an empty input.
+  void _keepZero(TextEditingController controller) {
+    if (controller.text.isEmpty) {
+      controller.value = const TextEditingValue(text: '0');
+      controller.selection = const TextSelection.collapsed(offset: 1);
+    }
+  }
+
   @override
   void dispose() {
     if (!_saved && _createdPhotos.isNotEmpty) {
@@ -255,6 +265,7 @@ class _BarangFormState extends State<_BarangForm> {
                   controller: _berat,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: const InputDecoration(labelText: 'Berat per unit', suffixText: 'kg'),
+                  onChanged: (_) => _keepZero(_berat),
                   validator: (v) => _d(v ?? '') < 0 ? 'Berat tidak valid' : null,
                 ),
                 const SizedBox(height: 12),
@@ -329,7 +340,8 @@ class _BarangFormState extends State<_BarangForm> {
         controller: c,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         decoration: InputDecoration(labelText: label, suffixText: 'cm'),
-        validator: (v) => _d(v ?? '') <= 0 ? 'Wajib' : null,
+        onChanged: (_) => _keepZero(c),
+        validator: (v) => _d(v ?? '') < 0 ? '$label tidak valid' : null,
       );
 
   Widget _metric(String title, String value, String suffix) => Container(
