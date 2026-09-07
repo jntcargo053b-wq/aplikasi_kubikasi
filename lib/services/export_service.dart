@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:excel/excel.dart' as xls;
 import 'package:intl/intl.dart';
@@ -8,7 +7,6 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
 
-import '../models/barang_item.dart';
 import '../models/pengiriman.dart';
 import '../models/report_settings.dart';
 
@@ -21,6 +19,11 @@ class ExportService {
   static const int _maxEmbeddedPhotos = 60;
   static const int _reportPhotoMaxDimension = 1400;
   static const int _reportPhotoJpegQuality = 82;
+
+  String _fmtNum(double value) {
+    if (value == value.roundToDouble()) return value.toInt().toString();
+    return value.toStringAsFixed(2).replaceFirst(RegExp(r'0+\$'), '').replaceFirst(RegExp(r'\.\$'), '');
+  }
 
   String _sanitize(String value) {
     final cleaned = value.trim().replaceAll(RegExp(r'[\\/:*?"<>|]'), '-');
@@ -456,27 +459,27 @@ class ExportService {
     if (limit <= 0) return const _LoadedPhotos(photos: [], truncated: false);
     final result = <_PhotoData>[];
     for (final item in p.barang) {
-      for (final path in item.fotoPaths) {
-        if (result.length >= limit) {
-          return _LoadedPhotos(photos: result, truncated: true);
-        }
-        final file = File(path);
-        if (!await file.exists()) continue;
-        try {
-          final bytes = await file.readAsBytes();
-          if (bytes.isEmpty) continue;
-          final decoded = img.decodeImage(bytes);
-          if (decoded == null) continue;
-          final processed = _prepareReportImage(decoded);
-          result.add(_PhotoData(image: pw.MemoryImage(img.encodeJpg(processed, quality: _reportPhotoJpegQuality)), itemName: item.nama));
-        } catch (_) {
-          // Abaikan foto yang rusak agar export laporan tetap berjalan.
-        }
+      final path = item.photoPath;
+      if (path == null || path.isEmpty) continue;
+      if (result.length >= limit) {
+        return _LoadedPhotos(photos: result, truncated: true);
+      }
+      final file = File(path);
+      if (!await file.exists()) continue;
+      try {
+        final bytes = await file.readAsBytes();
+        if (bytes.isEmpty) continue;
+        final decoded = img.decodeImage(bytes);
+        if (decoded == null) continue;
+        final processed = _prepareReportImage(decoded);
+        result.add(_PhotoData(image: pw.MemoryImage(img.encodeJpg(processed, quality: _reportPhotoJpegQuality)), itemName: item.nama));
+      } catch (_) {
+        // Abaikan foto yang rusak agar export laporan tetap berjalan.
       }
     }
     var totalAvailable = 0;
     for (final item in p.barang) {
-      totalAvailable += item.fotoPaths.length;
+      if (item.photoPath != null && item.photoPath!.isNotEmpty) totalAvailable++;
     }
     return _LoadedPhotos(photos: result, truncated: totalAvailable > result.length);
   }
@@ -496,7 +499,7 @@ class ExportService {
     for (final item in items) {
       var count = 0;
       for (final barang in item.barang) {
-        count += barang.fotoPaths.length;
+        if (barang.photoPath != null && barang.photoPath!.isNotEmpty) count++;
       }
       counts[item.id] = count;
       total += count;
