@@ -28,6 +28,7 @@ class _PengirimanForm extends StatefulWidget {
 
 class _PengirimanFormState extends State<_PengirimanForm> {
   late final TextEditingController _pengirim;
+  late final TextEditingController _noTelepon;
   late final TextEditingController _resi;
   late DateTime _tanggal;
   late List<BarangItem> _barang;
@@ -49,6 +50,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     super.initState();
     final e = widget.existing;
     _pengirim = TextEditingController(text: e?.pengirim ?? '');
+    _noTelepon = TextEditingController(text: e?.noTelepon ?? '');
     _resi = TextEditingController(text: e?.nomorResi ?? '');
     _tanggal = e?.tanggal ?? DateTime.now();
     _barang = e?.barang.map((x) => x.copyWith()).toList() ?? [];
@@ -366,6 +368,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     final result = Pengiriman(
       id: widget.existing?.id ?? const Uuid().v4(),
       pengirim: _pengirim.text.trim(),
+      noTelepon: _noTelepon.text.trim(),
       tanggal: _tanggal,
       nomorResi: _resi.text.trim(),
       kotaKabupaten: _selectedKotaKabupaten!.name,
@@ -383,6 +386,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
       Future.microtask(() => PhotoStorageService.deleteAll(paths));
     }
     _pengirim.dispose();
+    _noTelepon.dispose();
     _resi.dispose();
     super.dispose();
   }
@@ -445,6 +449,16 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                 controller: _pengirim,
                 textInputAction: TextInputAction.next,
                 decoration: const InputDecoration(labelText: 'Nama Pengirim'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _noTelepon,
+                keyboardType: TextInputType.phone,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(
+                  labelText: 'No. Telepon',
+                  prefixIcon: Icon(Icons.phone_outlined),
+                ),
               ),
               const SizedBox(height: 12),
               InkWell(
