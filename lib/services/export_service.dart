@@ -18,12 +18,7 @@ class ExportService {
   final _tanggalFmt = DateFormat('dd/MM/yyyy');
   final _waktuFmt = DateFormat('dd/MM/yyyy HH:mm');
 
-  /// Batas jumlah foto yang disisipkan/dilampirkan per laporan, supaya
-  /// laporan (khususnya rekap gabungan) tidak membengkak dan berisiko
-  /// membuat aplikasi kehabisan memori di perangkat low-end.
   static const int _maxEmbeddedPhotos = 60;
-  /// Foto laporan diperkecil khusus untuk PDF agar penggunaan RAM dan ukuran
-  /// file tetap aman. File foto asli tidak pernah diubah.
   static const int _reportPhotoMaxDimension = 1400;
   static const int _reportPhotoJpegQuality = 82;
 
@@ -41,13 +36,11 @@ class ExportService {
     return reportDir;
   }
 
-  /// Membuat file PDF berisi rincian barang dan total kubikasi
-  /// untuk satu pengiriman, lalu mengembalikan File-nya.
   Future<File> generatePdf(Pengiriman p, {ReportSettings settings = const ReportSettings()}) async =>
       (await _buildPdf(p, settings)).file;
 
-  /// Header export dengan urutan: nama perusahaan, alamat, judul laporan.
-  /// [reportTitle] dapat dikustomisasi melalui pengaturan header laporan.
+  /// Header export: logo, nama perusahaan, alamat perusahaan, judul laporan.
+  /// Judul laporan mengikuti pengaturan header dan memiliki fallback aman.
   Future<pw.MemoryImage?> _loadReportLogo(ReportSettings settings) async {
     final path = settings.logoPath?.trim();
     if (path == null || path.isEmpty) return null;
@@ -75,7 +68,7 @@ class ExportService {
       fontSize: 9,
       color: PdfColor.fromInt(0xFF64748B),
     );
-    final reportTitleStyle = const pw.TextStyle(
+    final reportTitleStyle = pw.TextStyle(
       fontSize: 9,
       fontWeight: pw.FontWeight.bold,
       color: PdfColor.fromInt(0xFF475569),
@@ -244,7 +237,6 @@ class ExportService {
     return (file: file, hasPhotos: photos.isNotEmpty);
   }
 
-  /// Membuat satu PDF gabungan dari beberapa pengiriman.
   Future<File> generateCombinedPdf(List<Pengiriman> items, {ReportSettings settings = const ReportSettings()}) async =>
       (await _buildCombinedPdf(items, settings)).file;
 
@@ -281,17 +273,18 @@ class ExportService {
           data: [for (var i = 0; i < sorted.length; i++) ['${i + 1}', _tanggalFmt.format(sorted[i].tanggal), sorted[i].nomorResi, sorted[i].pengirim, sorted[i].kotaKabupaten, sorted[i].kecamatan, '${sorted[i].totalJumlah}', sorted[i].totalBerat.toStringAsFixed(2), sorted[i].totalKubikasi.toStringAsFixed(3)]],
           headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8), cellStyle: const pw.TextStyle(fontSize: 7.5),
           headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFE2E8F0)), border: pw.TableBorder.all(color: const PdfColor.fromInt(0xFFCBD5E1), width: 0.5),
-          columnWidths: const {0: pw.FixedColumnWidth(22), 1: pw.FixedColumnWidth(55), 2: pw.FlexColumnWidth(1.25), 3: pw.FlexColumnWidth(1.4), 4: pw.FixedColumnWidth(38), 5: pw.FixedColumnWidth(50), 6: pw.FixedColumnWidth(58)},
         ),
-        pw.SizedBox(height: 14),
+        pw.SizedBox(height: 12),
         pw.Container(
-          padding: const pw.EdgeInsets.all(10), decoration: pw.BoxDecoration(border: pw.Border.all(color: const PdfColor.fromInt(0xFF2563EB), width: 1), borderRadius: pw.BorderRadius.circular(4)),
+          padding: const pw.EdgeInsets.all(10),
+          decoration: pw.BoxDecoration(border: pw.Border.all(color: const PdfColor.fromInt(0xFF2563EB), width: 1), borderRadius: pw.BorderRadius.circular(4)),
           child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-            pw.Text('RINGKASAN TOTAL', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11)), pw.SizedBox(height: 6),
-            _totalRow('Total Pengiriman', '${sorted.length}'), _totalRow('Total Jumlah Barang', '$totalJumlah'), _totalRow('Total Berat', '${totalBerat.toStringAsFixed(2)} kg'), _totalRow('Total Volume', totalVolume.toStringAsFixed(2)), _totalRow('Total Kubikasi', '${totalKubikasi.toStringAsFixed(3)} m³'),
+            pw.Text('TOTAL GABUNGAN', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11)), pw.SizedBox(height: 6),
+            _totalRow('Total Pengiriman', '${sorted.length}'), _totalRow('Total Jumlah Barang', '$totalJumlah'),
+            _totalRow('Total Berat', '${totalBerat.toStringAsFixed(2)} kg'), _totalRow('Total Volume', totalVolume.toStringAsFixed(2)),
+            _totalRow('Total Kubikasi', '${totalKubikasi.toStringAsFixed(3)} m³'),
           ]),
         ),
-        pw.SizedBox(height: 18), pw.Text('Dicetak: ${_waktuFmt.format(DateTime.now())}', style: const pw.TextStyle(fontSize: 8, color: PdfColor.fromInt(0xFF64748B))),
       ],
     ));
 
@@ -303,418 +296,249 @@ class ExportService {
         header: (context) => pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
           ..._headerLines(settings, 'Rekap Laporan Kubikasi Pengiriman', logo), pw.SizedBox(height: 4), pw.Divider(thickness: 1),
         ]),
-        build: (context) => [_photoSection(photos: photos, title: 'DOKUMENTASI FOTO — RESI ${shipment.nomorResi}', resi: shipment.nomorResi, pengirim: shipment.pengirim, kotaKabupaten: shipment.kotaKabupaten, kecamatan: shipment.kecamatan, tanggal: shipment.tanggal)],
-      ));
-    }
-
-    if (anyTruncated) {
-      doc.addPage(pw.MultiPage(
-        pageFormat: PdfPageFormat.a4, margin: const pw.EdgeInsets.all(28), footer: _reportFooter,
-        header: (context) => pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-          ..._headerLines(settings, 'Rekap Laporan Kubikasi Pengiriman', logo), pw.SizedBox(height: 4), pw.Divider(thickness: 1),
-        ]),
         build: (context) => [
-          pw.Text('CATATAN DOKUMENTASI', style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
-          pw.SizedBox(height: 8),
-          pw.Text('Dokumentasi foto dibatasi maksimal $_maxEmbeddedPhotos foto untuk menjaga ukuran file dan penggunaan memori. Foto dialokasikan secara merata antar-resi.', style: const pw.TextStyle(fontSize: 9)),
+          _photoSection(photos: photos, title: 'DOKUMENTASI FOTO', resi: shipment.nomorResi, pengirim: shipment.pengirim, kotaKabupaten: shipment.kotaKabupaten, kecamatan: shipment.kecamatan, tanggal: shipment.tanggal),
         ],
       ));
     }
 
+    if (anyTruncated || totalEmbedded >= _maxEmbeddedPhotos) {
+      doc.addPage(pw.Page(
+        pageFormat: PdfPageFormat.a4, margin: const pw.EdgeInsets.all(28),
+        build: (context) => pw.Text('Catatan: dokumentasi foto dibatasi maksimal $_maxEmbeddedPhotos foto pada laporan gabungan.', style: const pw.TextStyle(fontSize: 9)),
+      ));
+    }
+
     final dir = await _tempDir();
-    final file = File('${dir.path}/Rekap_Kubikasi_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.pdf');
+    final file = File('${dir.path}/Rekap_Laporan_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.pdf');
     await file.writeAsBytes(await doc.save());
     return (file: file, hasPhotos: totalEmbedded > 0);
   }
 
-  /// Membuat satu Excel gabungan dari beberapa pengiriman.
-  Future<File> generateCombinedExcel(List<Pengiriman> items, {ReportSettings settings = const ReportSettings()}) async {
-    if (items.isEmpty) throw ArgumentError('Tidak ada pengiriman untuk dibagikan.');
-    final workbook = xls.Excel.createExcel();
-    const sheetName = 'Rekap';
-    final sheet = workbook[sheetName];
-    if (workbook.getDefaultSheet() != null && workbook.getDefaultSheet() != sheetName) {
-      workbook.delete(workbook.getDefaultSheet()!);
-    }
-    void setCell(int col, int row, dynamic value, {bool bold = false}) {
-      final cell = sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
-      if (value is num) {
-        cell.value = xls.DoubleCellValue(value.toDouble());
-      } else {
-        cell.value = xls.TextCellValue(value.toString());
-      }
-      if (bold) cell.cellStyle = xls.CellStyle(bold: true);
-    }
-    // Pertahankan urutan yang dikirim HomeScreen (sudah mengikuti filter + sort UI).
-    final sorted = List<Pengiriman>.from(items);
-    var row0 = 0;
+  Future<File> generateExcel(Pengiriman p, {ReportSettings settings = const ReportSettings()}) async {
+    final excel = xls.Excel.createExcel();
+    final sheet = excel['Laporan'];
+    var row = 0;
     final company = settings.companyName.trim();
     final address = settings.headerNote.trim();
-    final reportTitle = settings.reportTitle.trim().isNotEmpty
-        ? settings.reportTitle.trim()
-        : 'Rekap Laporan Kubikasi Pengiriman';
-    if (company.isNotEmpty) {
-      setCell(0, row0, company, bold: true);
-      row0++;
-    }
-    if (address.isNotEmpty) {
-      setCell(0, row0, address);
-      row0++;
-    }
-    setCell(0, row0, reportTitle, bold: true);
-    row0++;
-    setCell(0, row0, 'Jumlah Pengiriman', bold: true);
-    setCell(1, row0, sorted.length);
-    row0 += 2;
-    final headerRow = row0;
-    const headers = ['No', 'Tanggal', 'Nomor Resi', 'Pengirim', 'Kota/Kabupaten', 'Kecamatan', 'Nama Barang', 'Jumlah', 'Panjang (cm)', 'Lebar (cm)', 'Tinggi (cm)', 'Berat/pcs (kg)', 'Total Berat (kg)', 'Volume', 'Kubikasi (m³)', 'Foto'];
-    for (var c = 0; c < headers.length; c++) {
-      setCell(c, headerRow, headers[c], bold: true);
-    }
-    var row = headerRow + 1;
-    for (var i = 0; i < sorted.length; i++) {
-      final shipment = sorted[i];
-      for (final b in shipment.barang) {
-        setCell(0, row, i + 1);
-        setCell(1, row, _tanggalFmt.format(shipment.tanggal));
-        setCell(2, row, shipment.nomorResi);
-        setCell(3, row, shipment.pengirim);
-        setCell(4, row, shipment.kotaKabupaten);
-        setCell(5, row, shipment.kecamatan);
-        setCell(6, row, b.nama);
-        setCell(7, row, b.jumlah);
-        setCell(8, row, b.panjang);
-        setCell(9, row, b.lebar);
-        setCell(10, row, b.tinggi);
-        setCell(11, row, b.berat);
-        setCell(12, row, b.totalBerat);
-        setCell(13, row, b.volume);
-        setCell(14, row, b.kubikasi);
-        setCell(15, row, b.photoPath != null && await File(b.photoPath!).exists() ? 'Ada' : 'Tidak ada');
-        row++;
-      }
+    final configuredTitle = settings.reportTitle.trim();
+    final reportTitle = configuredTitle.isNotEmpty ? configuredTitle : 'Laporan Kubikasi Pengiriman';
+    if (company.isNotEmpty) sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row++)).value = xls.TextCellValue(company);
+    if (address.isNotEmpty) sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row++)).value = xls.TextCellValue(address);
+    sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row++)).value = xls.TextCellValue(reportTitle);
+    sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row++)).value = xls.TextCellValue('Nomor Resi: ${p.nomorResi}');
+    sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row++)).value = xls.TextCellValue('Pengirim: ${p.pengirim}');
+    sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row++)).value = xls.TextCellValue('Tanggal: ${_tanggalFmt.format(p.tanggal)}');
+    sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row++)).value = xls.TextCellValue('Kota/Kabupaten: ${p.kotaKabupaten}');
+    sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row++)).value = xls.TextCellValue('Kecamatan: ${p.kecamatan}');
+    row++;
+    final headers = ['No', 'Nama Barang', 'Jumlah', 'Panjang (cm)', 'Lebar (cm)', 'Tinggi (cm)', 'Berat/unit (kg)', 'Total Berat (kg)', 'Volume', 'Kubikasi (m³)'];
+    for (var i = 0; i < headers.length; i++) {
+      sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: i, rowIndex: row)).value = xls.TextCellValue(headers[i]);
     }
     row++;
-    setCell(0, row, 'TOTAL', bold: true);
-    setCell(5, row, sorted.fold<int>(0, (s, p) => s + p.totalJumlah), bold: true);
-    setCell(10, row, sorted.fold<double>(0, (s, p) => s + p.totalBerat), bold: true);
-    setCell(11, row, sorted.fold<double>(0, (s, p) => s + p.totalVolume), bold: true);
-    setCell(12, row, sorted.fold<double>(0, (s, p) => s + p.totalKubikasi), bold: true);
-    for (var c = 0; c < headers.length; c++) {
-      sheet.setColumnAutoFit(c);
+    for (var i = 0; i < p.barang.length; i++) {
+      final b = p.barang[i];
+      final values = [i + 1, b.nama, b.jumlah, b.panjang, b.lebar, b.tinggi, b.berat, b.totalBerat, b.volume, b.kubikasi];
+      for (var j = 0; j < values.length; j++) {
+        final value = values[j];
+        final cell = sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: j, rowIndex: row));
+        if (value is int) {
+          cell.value = xls.IntCellValue(value);
+        } else if (value is double) {
+          cell.value = xls.DoubleCellValue(value);
+        } else {
+          cell.value = xls.TextCellValue(value.toString());
+        }
+      }
+      row++;
     }
-    final bytes = workbook.encode();
+    row++;
+    final totals = [
+      'TOTAL JUMLAH BARANG: ${p.totalJumlah}',
+      'TOTAL BERAT: ${p.totalBerat.toStringAsFixed(2)} kg',
+      'TOTAL VOLUME: ${p.totalVolume.toStringAsFixed(2)}',
+      'TOTAL KUBIKASI: ${p.totalKubikasi.toStringAsFixed(3)} m³',
+    ];
+    for (final t in totals) {
+      sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row++)).value = xls.TextCellValue(t);
+    }
+    final bytes = excel.encode();
     if (bytes == null) throw StateError('Gagal membuat file Excel.');
     final dir = await _tempDir();
-    final file = File('${dir.path}/Rekap_Kubikasi_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx');
+    final file = File('${dir.path}/Laporan_${_sanitize(p.nomorResi)}.xlsx');
     await file.writeAsBytes(bytes);
     return file;
   }
 
-  Future<void> shareCombinedPdf(List<Pengiriman> items, {ReportSettings settings = const ReportSettings()}) async {
-    final built = await _buildCombinedPdf(items, settings);
-    await Share.shareXFiles(
-      [XFile(built.file.path)],
-      text: built.hasPhotos
-          ? 'Rekap Kubikasi - ${items.length} pengiriman (dengan foto)'
-          : 'Rekap Kubikasi - ${items.length} pengiriman',
-      subject: 'Rekap Kubikasi Pengiriman',
-    );
-  }
-
-  Future<void> shareCombinedExcel(List<Pengiriman> items, {ReportSettings settings = const ReportSettings()}) async {
-    final file = await generateCombinedExcel(items, settings: settings);
-    final quotas = await _allocatePhotoQuotas(items, _maxEmbeddedPhotos);
-    final photoFiles = <File>[];
-    var totalValidPhotos = 0;
-    for (final item in items) {
-      totalValidPhotos += await _countValidPhotos(item);
-      final quota = quotas[item.id] ?? 0;
-      photoFiles.addAll(await _compressedPhotoFiles(item, limit: quota));
-    }
-    final truncated = totalValidPhotos > _maxEmbeddedPhotos;
-    await Share.shareXFiles(
-      [XFile(file.path), ...photoFiles.map((f) => XFile(f.path))],
-      text: photoFiles.isEmpty
-          ? 'Rekap Kubikasi - ${items.length} pengiriman'
-          : 'Rekap Kubikasi - ${items.length} pengiriman + ${photoFiles.length} foto terkompresi${truncated ? ' (maks $_maxEmbeddedPhotos, dibagi merata per resi)' : ''}',
-      subject: 'Rekap Kubikasi Pengiriman',
-    );
-  }
-
-  /// Membuat file Excel (.xlsx) berisi rincian barang dan total
-  /// kubikasi untuk satu pengiriman, lalu mengembalikan File-nya.
-  Future<File> generateExcel(Pengiriman p, {ReportSettings settings = const ReportSettings()}) async {
-    final workbook = xls.Excel.createExcel();
-    final sheetName = 'Laporan';
-    final sheet = workbook[sheetName];
-    if (workbook.getDefaultSheet() != null && workbook.getDefaultSheet() != sheetName) {
-      workbook.delete(workbook.getDefaultSheet()!);
-    }
-
-    void setCell(int col, int row, dynamic value, {bool bold = false}) {
-      final cell = sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
-      if (value is num) {
-        cell.value = xls.DoubleCellValue(value.toDouble());
-      } else {
-        cell.value = xls.TextCellValue(value.toString());
-      }
-      if (bold) {
-        cell.cellStyle = xls.CellStyle(bold: true);
-      }
-    }
-
-    var row0 = 0;
+  Future<File> generateCombinedExcel(List<Pengiriman> items, {ReportSettings settings = const ReportSettings()}) async {
+    if (items.isEmpty) throw ArgumentError('Tidak ada pengiriman untuk dibagikan.');
+    final excel = xls.Excel.createExcel();
+    final sheet = excel['Rekap'];
+    var row = 0;
     final company = settings.companyName.trim();
     final address = settings.headerNote.trim();
-    final reportTitle = settings.reportTitle.trim().isNotEmpty
-        ? settings.reportTitle.trim()
-        : 'Laporan Kubikasi Pengiriman';
-    if (company.isNotEmpty) {
-      setCell(0, row0, company, bold: true);
-      row0++;
+    final configuredTitle = settings.reportTitle.trim();
+    final reportTitle = configuredTitle.isNotEmpty ? configuredTitle : 'Rekap Laporan Kubikasi Pengiriman';
+    if (company.isNotEmpty) sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row++)).value = xls.TextCellValue(company);
+    if (address.isNotEmpty) sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row++)).value = xls.TextCellValue(address);
+    sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row++)).value = xls.TextCellValue(reportTitle);
+    row++;
+    final headers = ['No', 'Tanggal', 'Resi', 'Pengirim', 'Kota/Kabupaten', 'Kecamatan', 'Jumlah Barang', 'Berat (kg)', 'Volume', 'Kubikasi (m³)'];
+    for (var i = 0; i < headers.length; i++) {
+      sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: i, rowIndex: row)).value = xls.TextCellValue(headers[i]);
     }
-    if (address.isNotEmpty) {
-      setCell(0, row0, address);
-      row0++;
-    }
-    setCell(0, row0, reportTitle, bold: true);
-    row0++;
-    setCell(0, row0, 'Nomor Resi');
-    setCell(1, row0, p.nomorResi);
-    row0++;
-    setCell(0, row0, 'Pengirim');
-    setCell(1, row0, p.pengirim);
-    row0++;
-    setCell(0, row0, 'Kota/Kabupaten');
-    setCell(1, row0, p.kotaKabupaten);
-    row0++;
-    setCell(0, row0, 'Kecamatan');
-    setCell(1, row0, p.kecamatan);
-    row0++;
-    setCell(0, row0, 'Tanggal');
-    setCell(1, row0, _tanggalFmt.format(p.tanggal));
-    row0 += 2;
-
-    final tableHeaderRow = row0;
-    final headers = ['No', 'Nama Barang', 'Jumlah', 'Panjang (cm)', 'Lebar (cm)', 'Tinggi (cm)', 'Berat/pcs (kg)', 'Total Berat (kg)', 'Volume', 'Kubikasi (m³)', 'Foto'];
-    for (var c = 0; c < headers.length; c++) {
-      setCell(c, tableHeaderRow, headers[c], bold: true);
-    }
-
-    var row = tableHeaderRow + 1;
-    for (var i = 0; i < p.barang.length; i++) {
-      final b = p.barang[i];
-      setCell(0, row, i + 1);
-      setCell(1, row, b.nama);
-      setCell(2, row, b.jumlah);
-      setCell(3, row, b.panjang);
-      setCell(4, row, b.lebar);
-      setCell(5, row, b.tinggi);
-      setCell(6, row, b.berat);
-      setCell(7, row, b.totalBerat);
-      setCell(8, row, b.volume);
-      setCell(9, row, b.kubikasi);
-      setCell(10, row, b.photoPath != null && await File(b.photoPath!).exists() ? 'Ada' : 'Tidak ada');
+    row++;
+    var totalJumlah = 0;
+    var totalBerat = 0.0;
+    var totalVolume = 0.0;
+    var totalKubikasi = 0.0;
+    for (var i = 0; i < items.length; i++) {
+      final p = items[i];
+      final values = [i + 1, _tanggalFmt.format(p.tanggal), p.nomorResi, p.pengirim, p.kotaKabupaten, p.kecamatan, p.totalJumlah, p.totalBerat, p.totalVolume, p.totalKubikasi];
+      for (var j = 0; j < values.length; j++) {
+        final value = values[j];
+        final cell = sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: j, rowIndex: row));
+        if (value is int) {
+          cell.value = xls.IntCellValue(value);
+        } else if (value is double) {
+          cell.value = xls.DoubleCellValue(value);
+        } else {
+          cell.value = xls.TextCellValue(value.toString());
+        }
+      }
       row++;
+      totalJumlah += p.totalJumlah;
+      totalBerat += p.totalBerat;
+      totalVolume += p.totalVolume;
+      totalKubikasi += p.totalKubikasi;
     }
-
-    row += 1;
-    setCell(0, row, 'TOTAL', bold: true);
-    setCell(2, row, p.totalJumlah, bold: true);
-    setCell(7, row, p.totalBerat, bold: true);
-    setCell(8, row, p.totalVolume, bold: true);
-    setCell(9, row, p.totalKubikasi, bold: true);
-
-    for (var c = 0; c < headers.length; c++) {
-      sheet.setColumnAutoFit(c);
+    row++;
+    final totals = [
+      'TOTAL PENGIRIMAN: ${items.length}',
+      'TOTAL JUMLAH BARANG: $totalJumlah',
+      'TOTAL BERAT: ${totalBerat.toStringAsFixed(2)} kg',
+      'TOTAL VOLUME: ${totalVolume.toStringAsFixed(2)}',
+      'TOTAL KUBIKASI: ${totalKubikasi.toStringAsFixed(3)} m³',
+    ];
+    for (final t in totals) {
+      sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row++)).value = xls.TextCellValue(t);
     }
-
-    final bytes = workbook.encode();
+    final bytes = excel.encode();
+    if (bytes == null) throw StateError('Gagal membuat file Excel gabungan.');
     final dir = await _tempDir();
-    final file = File('${dir.path}/Laporan_${_sanitize(p.nomorResi)}.xlsx');
-    await file.writeAsBytes(bytes!);
+    final file = File('${dir.path}/Rekap_Laporan_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx');
+    await file.writeAsBytes(bytes);
     return file;
   }
 
   Future<void> sharePdf(Pengiriman p, {ReportSettings settings = const ReportSettings()}) async {
-    final built = await _buildPdf(p, settings);
-    await Share.shareXFiles(
-      [XFile(built.file.path)],
-      text: built.hasPhotos
-          ? 'Laporan Kubikasi - Resi ${p.nomorResi} (dengan foto)'
-          : 'Laporan Kubikasi - Resi ${p.nomorResi}',
-      subject: 'Laporan Kubikasi - Resi ${p.nomorResi}',
-    );
+    final file = await generatePdf(p, settings: settings);
+    await Share.shareXFiles([XFile(file.path)], text: 'Laporan kubikasi ${p.nomorResi}');
   }
 
   Future<void> shareExcel(Pengiriman p, {ReportSettings settings = const ReportSettings()}) async {
     final file = await generateExcel(p, settings: settings);
-    final photoFiles = await _compressedPhotoFiles(p, limit: _maxEmbeddedPhotos);
-    await Share.shareXFiles(
-      [XFile(file.path), ...photoFiles.map((f) => XFile(f.path))],
-      text: photoFiles.isEmpty
-          ? 'Laporan Kubikasi - Resi ${p.nomorResi}'
-          : 'Laporan Kubikasi - Resi ${p.nomorResi} + ${photoFiles.length} foto terkompresi',
-      subject: 'Laporan Kubikasi - Resi ${p.nomorResi}',
-    );
+    await Share.shareXFiles([XFile(file.path)], text: 'Laporan kubikasi ${p.nomorResi}');
   }
 
-  /// Memuat foto barang untuk disisipkan ke PDF, dibatasi oleh [limit]
-  /// agar tidak membebani memori. `truncated` bernilai true jika ada
-  /// foto valid yang tidak ikut dimuat karena melebihi batas.
-  Future<({List<_PhotoData> photos, bool truncated})> _loadPhotos(
-    Pengiriman p, {
-    required int limit,
-  }) async {
-    final validItems = <BarangItem>[];
-    for (final item in p.barang) {
-      final path = item.photoPath;
-      if (path == null || path.trim().isEmpty) continue;
-      if (await File(path).exists()) validItems.add(item);
-    }
+  Future<void> shareCombinedPdf(List<Pengiriman> items, {ReportSettings settings = const ReportSettings()}) async {
+    final file = await generateCombinedPdf(items, settings: settings);
+    await Share.shareXFiles([XFile(file.path)], text: 'Rekap laporan kubikasi (${items.length} pengiriman)');
+  }
 
-    final truncated = validItems.length > limit;
-    final toLoad = truncated ? validItems.sublist(0, limit) : validItems;
+  Future<void> shareCombinedExcel(List<Pengiriman> items, {ReportSettings settings = const ReportSettings()}) async {
+    final file = await generateCombinedExcel(items, settings: settings);
+    await Share.shareXFiles([XFile(file.path)], text: 'Rekap laporan kubikasi (${items.length} pengiriman)');
+  }
 
+  Future<_LoadedPhotos> _loadPhotos(Pengiriman p, {required int limit}) async {
+    if (limit <= 0) return const _LoadedPhotos(photos: [], truncated: false);
     final result = <_PhotoData>[];
-    for (final item in toLoad) {
-      try {
-        final bytes = await File(item.photoPath!).readAsBytes();
-        if (bytes.isEmpty) continue;
-        // Decode/resize/encode dilakukan di isolate terpisah supaya UI tetap
-        // responsif ketika laporan berisi banyak foto beresolusi tinggi.
-        final reportBytes = await compute(_preparePhotoForReportIsolate, bytes);
-        if (reportBytes.isEmpty) continue;
-        result.add(_PhotoData(item.nama, pw.MemoryImage(reportBytes)));
-      } catch (_) {}
-    }
-    return (photos: result, truncated: truncated);
-  }
-
-  Future<Map<String, int>> _allocatePhotoQuotas(List<Pengiriman> items, int budget) async {
-    final counts = <String, int>{};
-    for (final item in items) {
-      var count = 0;
-      for (final b in item.barang) {
-        final path = b.photoPath;
-        if (path == null || path.trim().isEmpty) continue;
-        if (await File(path).exists()) count++;
-      }
-      counts[item.id] = count;
-    }
-
-    final quotas = <String, int>{for (final item in items) item.id: 0};
-    var remaining = budget;
-    // Round-robin: satu foto per resi setiap putaran. Jika ada resi yang
-    // sudah habis fotonya, slot berikutnya diberikan ke resi lain.
-    while (remaining > 0) {
-      var allocatedThisRound = false;
-      for (final item in items) {
-        if (remaining <= 0) break;
-        final id = item.id;
-        final current = quotas[id] ?? 0;
-        if (current < (counts[id] ?? 0)) {
-          quotas[id] = current + 1;
-          remaining--;
-          allocatedThisRound = true;
+    for (final item in p.barang) {
+      for (final path in item.fotoPaths) {
+        if (result.length >= limit) {
+          return _LoadedPhotos(photos: result, truncated: true);
+        }
+        final file = File(path);
+        if (!await file.exists()) continue;
+        try {
+          final bytes = await file.readAsBytes();
+          if (bytes.isEmpty) continue;
+          final decoded = img.decodeImage(bytes);
+          if (decoded == null) continue;
+          final processed = _prepareReportImage(decoded);
+          result.add(_PhotoData(image: pw.MemoryImage(img.encodeJpg(processed, quality: _reportPhotoJpegQuality)), itemName: item.nama));
+        } catch (_) {
+          // Abaikan foto yang rusak agar export laporan tetap berjalan.
         }
       }
-      if (!allocatedThisRound) break;
     }
-    return quotas;
+    var totalAvailable = 0;
+    for (final item in p.barang) {
+      totalAvailable += item.fotoPaths.length;
+    }
+    return _LoadedPhotos(photos: result, truncated: totalAvailable > result.length);
   }
 
-  Future<int> _countValidPhotos(Pengiriman p) async {
-    var count = 0;
-    for (final item in p.barang) {
-      final path = item.photoPath;
-      if (path == null || path.trim().isEmpty) continue;
-      if (await File(path).exists()) count++;
-    }
-    return count;
+  img.Image _prepareReportImage(img.Image source) {
+    final width = source.width;
+    final height = source.height;
+    final maxDimension = width > height ? width : height;
+    if (maxDimension <= _reportPhotoMaxDimension) return source;
+    final scale = _reportPhotoMaxDimension / maxDimension;
+    return img.copyResize(source, width: (width * scale).round(), height: (height * scale).round());
   }
 
-  Future<List<File>> _compressedPhotoFiles(Pengiriman p, {int? limit}) async {
-    final result = <File>[];
-    final dir = await _tempDir();
-    // Sertakan id pengiriman pada nama file: dua pengiriman berbeda dapat
-    // memiliki barang dengan nama yang sama (mis. "Kardus"), dan tanpa id
-    // di sini file kompresi milik pengiriman kedua akan menimpa milik
-    // pengiriman pertama sebelum sempat dibagikan.
-    final safeShipment = _sanitize(
-      p.nomorResi.trim().isNotEmpty ? p.nomorResi : p.id,
-    );
-    var index = 0;
-    for (final item in p.barang) {
-      if (limit != null && result.length >= limit) break;
-      final path = item.photoPath;
-      if (path == null || path.trim().isEmpty) continue;
-      final source = File(path);
-      if (!await source.exists()) continue;
-      try {
-        final bytes = await source.readAsBytes();
-        if (bytes.isEmpty) continue;
-        final prepared = await compute(_preparePhotoForReportIsolate, bytes);
-        final safeName = _sanitize(item.nama);
-        final output = File(
-          '${dir.path}/share_photo_${safeShipment}_${safeName}_${(index++ + 1).toString().padLeft(2, '0')}.jpg',
-        );
-        await output.writeAsBytes(prepared, flush: true);
-        result.add(output);
-      } catch (_) {}
+  Future<Map<String, int>> _allocatePhotoQuotas(List<Pengiriman> items, int maxTotal) async {
+    final counts = <String, int>{};
+    var total = 0;
+    for (final item in items) {
+      var count = 0;
+      for (final barang in item.barang) {
+        count += barang.fotoPaths.length;
+      }
+      counts[item.id] = count;
+      total += count;
+    }
+    if (total <= maxTotal) return counts;
+    final result = <String, int>{for (final item in items) item.id: 0};
+    var remaining = maxTotal;
+    for (final item in items) {
+      if (remaining <= 0) break;
+      final quota = counts[item.id] ?? 0;
+      final assigned = quota > remaining ? remaining : quota;
+      result[item.id] = assigned;
+      remaining -= assigned;
     }
     return result;
   }
 
-  String _fmtNum(double v) => v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toString();
-
   pw.Widget _infoRow(String label, String value) => pw.Padding(
-        padding: const pw.EdgeInsets.symmetric(vertical: 1.5),
-        child: pw.Row(
-          children: [
-            pw.SizedBox(width: 140, child: pw.Text(label, style: const pw.TextStyle(fontSize: 10))),
-            pw.Text(': ', style: const pw.TextStyle(fontSize: 10)),
-            pw.Text(value, style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
-          ],
-        ),
+        padding: const pw.EdgeInsets.only(bottom: 3),
+        child: pw.Row(children: [
+          pw.SizedBox(width: 115, child: pw.Text(label, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
+          pw.Expanded(child: pw.Text(value, style: const pw.TextStyle(fontSize: 9))),
+        ]),
       );
 
   pw.Widget _totalRow(String label, String value) => pw.Padding(
-        padding: const pw.EdgeInsets.symmetric(vertical: 1.5),
-        child: pw.Row(
-          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-          children: [
-            pw.Text(label, style: const pw.TextStyle(fontSize: 10)),
-            pw.Text(value, style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
-          ],
-        ),
+        padding: const pw.EdgeInsets.only(bottom: 3),
+        child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+          pw.Text(label, style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
+          pw.Text(value, style: const pw.TextStyle(fontSize: 9)),
+        ]),
       );
-}
-
-Uint8List _preparePhotoForReportIsolate(Uint8List bytes) {
-  const maxDimension = ExportService._reportPhotoMaxDimension;
-  const quality = ExportService._reportPhotoJpegQuality;
-  try {
-    final decoded = img.decodeImage(bytes);
-    if (decoded == null) return bytes;
-    img.Image prepared = decoded;
-    if (decoded.width > maxDimension || decoded.height > maxDimension) {
-      prepared = img.copyResize(
-        decoded,
-        width: decoded.width >= decoded.height ? maxDimension : null,
-        height: decoded.height > decoded.width ? maxDimension : null,
-        interpolation: img.Interpolation.linear,
-      );
-    }
-    return Uint8List.fromList(img.encodeJpg(prepared, quality: quality));
-  } catch (_) {
-    return bytes;
-  }
 }
 
 class _PhotoData {
-  final String itemName;
   final pw.MemoryImage image;
-  const _PhotoData(this.itemName, this.image);
+  final String itemName;
+  const _PhotoData({required this.image, required this.itemName});
+}
+
+class _LoadedPhotos {
+  final List<_PhotoData> photos;
+  final bool truncated;
+  const _LoadedPhotos({required this.photos, required this.truncated});
 }
