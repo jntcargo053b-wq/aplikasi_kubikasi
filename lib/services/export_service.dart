@@ -46,9 +46,8 @@ class ExportService {
   Future<File> generatePdf(Pengiriman p, {ReportSettings settings = const ReportSettings()}) async =>
       (await _buildPdf(p, settings)).file;
 
-  /// Widget baris judul header laporan. Jika [settings.companyName] diisi,
-  /// nama usaha dijadikan judul utama dan [defaultTitle] menjadi subjudul;
-  /// jika kosong, [defaultTitle] tetap dipakai seperti sebelumnya.
+  /// Header export dengan urutan: nama perusahaan, alamat, judul laporan.
+  /// [reportTitle] dapat dikustomisasi melalui pengaturan header laporan.
   Future<pw.MemoryImage?> _loadReportLogo(ReportSettings settings) async {
     final path = settings.logoPath?.trim();
     if (path == null || path.isEmpty) return null;
@@ -65,65 +64,54 @@ class ExportService {
 
   List<pw.Widget> _headerLines(ReportSettings settings, String defaultTitle, pw.MemoryImage? logo) {
     final company = settings.companyName.trim();
-    final note = settings.headerNote.trim();
-    final title = company.isNotEmpty ? company : defaultTitle;
-    final titleStyle = pw.TextStyle(
+    final address = settings.headerNote.trim();
+    final configuredTitle = settings.reportTitle.trim();
+    final reportTitle = configuredTitle.isNotEmpty ? configuredTitle : defaultTitle;
+    final companyStyle = pw.TextStyle(
       fontSize: company.isNotEmpty ? 16 : 18,
       fontWeight: pw.FontWeight.bold,
     );
-    final children = <pw.Widget>[];
+    final addressStyle = const pw.TextStyle(
+      fontSize: 9,
+      color: PdfColor.fromInt(0xFF64748B),
+    );
+    final reportTitleStyle = const pw.TextStyle(
+      fontSize: 9,
+      fontWeight: pw.FontWeight.bold,
+      color: PdfColor.fromInt(0xFF475569),
+    );
 
-    if (logo != null) {
-      children.add(
-        pw.Row(
-          crossAxisAlignment: pw.CrossAxisAlignment.center,
-          children: [
-            pw.Container(
-              width: 52,
-              height: 52,
-              margin: const pw.EdgeInsets.only(right: 10),
-              child: pw.Image(logo, fit: pw.BoxFit.contain),
-            ),
-            pw.Expanded(
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Text(title, style: titleStyle),
-                  if (company.isNotEmpty)
-                    pw.SizedBox(height: 2),
-                  if (company.isNotEmpty)
-                    pw.Text(
-                      defaultTitle,
-                      style: const pw.TextStyle(fontSize: 9, color: PdfColor.fromInt(0xFF475569)),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    } else {
-      children.add(pw.Text(title, style: titleStyle));
-      if (company.isNotEmpty) {
-        children.add(
-          pw.Text(
-            defaultTitle,
-            style: const pw.TextStyle(fontSize: 9, color: PdfColor.fromInt(0xFF475569)),
+    final content = <pw.Widget>[];
+    if (company.isNotEmpty) {
+      content.add(pw.Text(company, style: companyStyle));
+    }
+    if (address.isNotEmpty) {
+      content.add(pw.SizedBox(height: 2));
+      content.add(pw.Text(address, style: addressStyle));
+    }
+    content.add(pw.SizedBox(height: 2));
+    content.add(pw.Text(reportTitle, style: reportTitleStyle));
+
+    if (logo == null) return content;
+    return [
+      pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        children: [
+          pw.Container(
+            width: 52,
+            height: 52,
+            margin: const pw.EdgeInsets.only(right: 10),
+            child: pw.Image(logo, fit: pw.BoxFit.contain),
           ),
-        );
-      }
-    }
-
-    if (note.isNotEmpty) {
-      children.add(pw.SizedBox(height: 2));
-      children.add(
-        pw.Text(
-          note,
-          style: const pw.TextStyle(fontSize: 9, color: PdfColor.fromInt(0xFF64748B)),
-        ),
-      );
-    }
-    return children;
+          pw.Expanded(
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: content,
+            ),
+          ),
+        ],
+      ),
+    ];
   }
 
   pw.Widget _reportFooter(pw.Context context) => pw.Align(
@@ -361,20 +349,20 @@ class ExportService {
     final sorted = List<Pengiriman>.from(items);
     var row0 = 0;
     final company = settings.companyName.trim();
-    final note = settings.headerNote.trim();
+    final address = settings.headerNote.trim();
+    final reportTitle = settings.reportTitle.trim().isNotEmpty
+        ? settings.reportTitle.trim()
+        : 'Rekap Laporan Kubikasi Pengiriman';
     if (company.isNotEmpty) {
       setCell(0, row0, company, bold: true);
       row0++;
-      setCell(0, row0, 'Rekap Laporan Kubikasi Pengiriman');
-      row0++;
-    } else {
-      setCell(0, row0, 'Rekap Laporan Kubikasi Pengiriman', bold: true);
+    }
+    if (address.isNotEmpty) {
+      setCell(0, row0, address);
       row0++;
     }
-    if (note.isNotEmpty) {
-      setCell(0, row0, note);
-      row0++;
-    }
+    setCell(0, row0, reportTitle, bold: true);
+    row0++;
     setCell(0, row0, 'Jumlah Pengiriman', bold: true);
     setCell(1, row0, sorted.length);
     row0 += 2;
@@ -478,20 +466,20 @@ class ExportService {
 
     var row0 = 0;
     final company = settings.companyName.trim();
-    final note = settings.headerNote.trim();
+    final address = settings.headerNote.trim();
+    final reportTitle = settings.reportTitle.trim().isNotEmpty
+        ? settings.reportTitle.trim()
+        : 'Laporan Kubikasi Pengiriman';
     if (company.isNotEmpty) {
       setCell(0, row0, company, bold: true);
       row0++;
-      setCell(0, row0, 'Laporan Kubikasi Pengiriman');
-      row0++;
-    } else {
-      setCell(0, row0, 'Laporan Kubikasi Pengiriman', bold: true);
+    }
+    if (address.isNotEmpty) {
+      setCell(0, row0, address);
       row0++;
     }
-    if (note.isNotEmpty) {
-      setCell(0, row0, note);
-      row0++;
-    }
+    setCell(0, row0, reportTitle, bold: true);
+    row0++;
     setCell(0, row0, 'Nomor Resi');
     setCell(1, row0, p.nomorResi);
     row0++;
