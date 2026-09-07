@@ -4,6 +4,7 @@ import 'barang_item.dart';
 class Pengiriman {
   final String id;
   final String pengirim;
+  final String noTelepon;
   final DateTime tanggal;
   final String nomorResi;
   final String kotaKabupaten;
@@ -13,6 +14,7 @@ class Pengiriman {
   Pengiriman({
     required this.id,
     required this.pengirim,
+    this.noTelepon = '',
     required this.tanggal,
     required this.nomorResi,
     this.kotaKabupaten = '',
@@ -28,6 +30,7 @@ class Pengiriman {
   Map<String, dynamic> toJson() => {
         'id': id,
         'pengirim': pengirim,
+        'noTelepon': noTelepon,
         'tanggal': tanggal.toIso8601String(),
         'nomorResi': nomorResi,
         'kotaKabupaten': kotaKabupaten,
@@ -50,6 +53,7 @@ class Pengiriman {
     return Pengiriman(
       id: json['id'] as String? ?? const Uuid().v4(),
       pengirim: json['pengirim'] as String? ?? '',
+      noTelepon: json['noTelepon'] as String? ?? '',
       tanggal: DateTime.tryParse(json['tanggal'] as String? ?? '') ?? DateTime.now(),
       nomorResi: json['nomorResi'] as String? ?? '',
       kotaKabupaten: json['kotaKabupaten'] as String? ?? '',
