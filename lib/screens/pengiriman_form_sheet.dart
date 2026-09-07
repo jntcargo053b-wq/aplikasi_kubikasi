@@ -486,7 +486,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
               const SizedBox(height: 12),
               if (_loadingWilayah)
                 const InputDecorator(
-                  decoration: InputDecoration(labelText: 'Kota/Kabupaten'),
+                  decoration: InputDecoration(labelText: 'Kota/Kab. Tujuan'),
                   child: Row(
                     children: [
                       SizedBox(
@@ -501,8 +501,8 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                 )
               else
                 _regionField(
-                  label: 'Kota/Kabupaten',
-                  hint: 'Pilih kota/kabupaten',
+                  label: 'Kota/Kab. Tujuan',
+                  hint: 'Pilih kota/kabupaten tujuan',
                   icon: Icons.location_city_outlined,
                   enabled: !_busy,
                   onTap: _selectKotaKabupaten,
@@ -525,10 +525,10 @@ class _PengirimanFormState extends State<_PengirimanForm> {
               ],
               const SizedBox(height: 12),
               _regionField(
-                label: 'Kecamatan',
+                label: 'Kecamatan Tujuan',
                 hint: _selectedKotaKabupaten == null
-                    ? 'Pilih kota/kabupaten terlebih dahulu'
-                    : 'Pilih kecamatan',
+                    ? 'Pilih kota/kabupaten tujuan terlebih dahulu'
+                    : 'Pilih kecamatan tujuan',
                 icon: Icons.place_outlined,
                 enabled: _selectedKotaKabupaten != null &&
                     !_loadingKecamatan &&
