@@ -188,6 +188,7 @@ class BackupService {
       settings = ReportSettings(
         companyName: data.settings.companyName,
         headerNote: data.settings.headerNote,
+        reportTitle: data.settings.reportTitle,
         logoPath: logoPath,
       );
       await _settings.saveReportSettings(settings);
