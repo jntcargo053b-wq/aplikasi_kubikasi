@@ -44,3 +44,6 @@ the existing Dart source and existing Android files.
 
 ## Gradle CI fix
 The workflow explicitly rewrites android/gradle/wrapper/gradle-wrapper.properties to Gradle 8.14 and runs `./gradlew --version` before `flutter build apk`, so a generated Gradle 8.7 wrapper cannot silently reach the Flutter plugin check.
+
+## Source integrity
+Verified source fixes preserve shipment header fields when editing an individual barang and correct report number formatting without changing calculation logic.
