@@ -381,8 +381,17 @@ class _PengirimanFormState extends State<_PengirimanForm> {
 
   @override
   void dispose() {
-    if (!_saved && _sessionPhotoPaths.isNotEmpty) {
-      final paths = List<String>.from(_sessionPhotoPaths);
+    final currentPhotoPaths = _barang
+        .map((b) => b.photoPath)
+        .whereType<String>()
+        .map((p) => p.trim())
+        .where((p) => p.isNotEmpty)
+        .toSet();
+    final cleanupPaths = _saved
+        ? _sessionPhotoPaths.difference(currentPhotoPaths)
+        : _sessionPhotoPaths;
+    if (cleanupPaths.isNotEmpty) {
+      final paths = List<String>.from(cleanupPaths);
       Future.microtask(() => PhotoStorageService.deleteAll(paths));
     }
     _pengirim.dispose();
