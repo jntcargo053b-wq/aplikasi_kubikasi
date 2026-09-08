@@ -145,6 +145,11 @@ class BackupService {
     final pathMap = <String, String>{};
     final createdPhotoPaths = <String>[];
     String? createdLogoPath;
+    var shipmentsCommitted = false;
+
+    // Snapshot the settings before restore so a later settings failure can
+    // roll the complete restore back to the pre-restore state.
+    final previousSettings = await _settings.loadReportSettings();
 
     try {
       final restoredShipments = <Pengiriman>[];
@@ -185,6 +190,7 @@ class BackupService {
           ? [...existing, ...restoredShipments]
           : restoredShipments;
       await _storage.savePengiriman(target);
+      shipmentsCommitted = true;
 
       var settings = await _settings.loadReportSettings();
       if (!merge || settings.isEmpty) {
@@ -213,9 +219,25 @@ class BackupService {
         settings: settings,
       );
     } catch (_) {
+      // Restore is treated as one logical transaction. If shipment data was
+      // already persisted but report settings later failed, restore the
+      // original shipment snapshot before removing newly-created files.
+      if (shipmentsCommitted) {
+        try {
+          await _storage.savePengiriman(existing);
+        } catch (_) {
+          // Preserve the original error; the persisted state is best-effort
+          // rollback if the storage layer itself is unavailable.
+        }
+      }
       await PhotoStorageService.deleteAll(createdPhotoPaths);
       if (createdLogoPath != null) {
         await PhotoStorageService.delete(createdLogoPath);
+      }
+      try {
+        await _settings.saveReportSettings(previousSettings);
+      } catch (_) {
+        // Preserve the original restore error.
       }
       rethrow;
     }
