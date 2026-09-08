@@ -2,13 +2,13 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import '../lib/models/barang_item.dart';
-import '../lib/models/pengiriman.dart';
+import 'package:volume_calculator/models/barang_item.dart';
+import 'package:volume_calculator/models/pengiriman.dart';
 
 void main() {
   group('data integrity regression', () {
     test('zero dimensions and weight remain valid and formulas stay stable', () {
-      const item = BarangItem(
+      final item = BarangItem(
         id: '1',
         nama: 'Box',
         jumlah: 2,
@@ -23,7 +23,7 @@ void main() {
     });
 
     test('volume, kubikasi and total weight use quantity correctly', () {
-      const item = BarangItem(
+      final item = BarangItem(
         id: '1',
         nama: 'Box',
         jumlah: 3,
@@ -38,7 +38,7 @@ void main() {
     });
 
     test('copyWith preserves photo unless explicitly cleared', () {
-      const item = BarangItem(
+      final item = BarangItem(
         id: '1',
         nama: 'Box',
         jumlah: 1,
@@ -61,7 +61,7 @@ void main() {
         nomorResi: 'RESI123',
         kotaKabupaten: 'Kota Malang',
         kecamatan: 'Klojen',
-        barang: const [
+        barang: [
           BarangItem(
             id: 'item-1',
             nama: 'Box',
