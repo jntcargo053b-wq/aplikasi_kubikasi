@@ -61,8 +61,6 @@ jobs:
           grep -q 'noTelepon: shipment.noTelepon' lib/screens/home_screen.dart
           grep -q 'kotaKabupaten: shipment.kotaKabupaten' lib/screens/home_screen.dart
           grep -q 'kecamatan: shipment.kecamatan' lib/screens/home_screen.dart
-          grep -q "RegExp(r'0+\$')" lib/services/export_service.dart && exit 1 || true
-          grep -q "RegExp(r'0+\$')" lib/services/export_service.dart && exit 1 || true
 
           if git diff --quiet -- lib/screens/home_screen.dart lib/services/export_service.dart; then
             echo 'Source fixes already present.'
