@@ -7,6 +7,7 @@ import '../models/pengiriman.dart';
 import '../models/report_settings.dart';
 import 'settings_service.dart';
 import 'storage_service.dart';
+import 'photo_storage_service.dart';
 
 /// Portable, offline backup for shipment data, report settings, and app-owned
 /// photos. The backup is a single UTF-8 JSON file with a .ncbak extension.
@@ -142,69 +143,82 @@ class BackupService {
         : List<Pengiriman>.of(data.shipments);
 
     final pathMap = <String, String>{};
-    final restoredShipments = <Pengiriman>[];
-    for (final shipment in selected) {
-      final restoredBarang = <BarangItem>[];
-      for (final item in shipment.barang) {
-        final oldPath = item.photoPath;
-        String? newPath;
-        if (oldPath != null && data.photoData.containsKey(oldPath)) {
-          newPath = pathMap[oldPath];
-          if (newPath == null) {
-            newPath = await _writePhoto(oldPath, data.photoData[oldPath]!);
-            pathMap[oldPath] = newPath;
+    final createdPhotoPaths = <String>[];
+    String? createdLogoPath;
+
+    try {
+      final restoredShipments = <Pengiriman>[];
+      for (final shipment in selected) {
+        final restoredBarang = <BarangItem>[];
+        for (final item in shipment.barang) {
+          final oldPath = item.photoPath;
+          String? newPath;
+          if (oldPath != null && data.photoData.containsKey(oldPath)) {
+            newPath = pathMap[oldPath];
+            if (newPath == null) {
+              newPath = await _writePhoto(oldPath, data.photoData[oldPath]!);
+              pathMap[oldPath] = newPath;
+              createdPhotoPaths.add(newPath);
+            }
           }
+          restoredBarang.add(
+            oldPath != null && newPath == null
+                ? item.copyWith(clearPhoto: true)
+                : item.copyWith(photoPath: newPath),
+          );
         }
-        restoredBarang.add(
-          oldPath != null && newPath == null
-              ? item.copyWith(clearPhoto: true)
-              : item.copyWith(photoPath: newPath),
+        restoredShipments.add(
+          Pengiriman(
+            id: shipment.id,
+            pengirim: shipment.pengirim,
+            noTelepon: shipment.noTelepon,
+            tanggal: shipment.tanggal,
+            nomorResi: shipment.nomorResi,
+            kotaKabupaten: shipment.kotaKabupaten,
+            kecamatan: shipment.kecamatan,
+            barang: restoredBarang,
+          ),
         );
       }
-      restoredShipments.add(
-        Pengiriman(
-          id: shipment.id,
-          pengirim: shipment.pengirim,
-          noTelepon: shipment.noTelepon,
-          tanggal: shipment.tanggal,
-          nomorResi: shipment.nomorResi,
-          kotaKabupaten: shipment.kotaKabupaten,
-          kecamatan: shipment.kecamatan,
-          barang: restoredBarang,
-        ),
-      );
-    }
 
-    final target = merge
-        ? [...existing, ...restoredShipments]
-        : restoredShipments;
-    await _storage.savePengiriman(target);
+      final target = merge
+          ? [...existing, ...restoredShipments]
+          : restoredShipments;
+      await _storage.savePengiriman(target);
 
-    var settings = await _settings.loadReportSettings();
-    if (!merge || settings.isEmpty) {
-      String? logoPath;
-      if (data.logoData != null && data.logoData!.isNotEmpty) {
-        logoPath = await _writeLogo(data.logoData!);
+      var settings = await _settings.loadReportSettings();
+      if (!merge || settings.isEmpty) {
+        String? logoPath;
+        if (data.logoData != null && data.logoData!.isNotEmpty) {
+          logoPath = await _writeLogo(data.logoData!);
+          createdLogoPath = logoPath;
+        }
+        settings = ReportSettings(
+          companyName: data.settings.companyName,
+          headerNote: data.settings.headerNote,
+          reportTitle: data.settings.reportTitle,
+          logoPath: logoPath,
+        );
+        await _settings.saveReportSettings(settings);
       }
-      settings = ReportSettings(
-        companyName: data.settings.companyName,
-        headerNote: data.settings.headerNote,
-        reportTitle: data.settings.reportTitle,
-        logoPath: logoPath,
-      );
-      await _settings.saveReportSettings(settings);
-    }
 
-    return RestoreResult(
-      restoredShipments: restoredShipments.length,
-      restoredItems: restoredShipments.fold<int>(
-        0,
-        (sum, e) => sum + e.barang.length,
-      ),
-      restoredPhotos: pathMap.length,
-      skippedDuplicates: merge ? data.shipments.length - selected.length : 0,
-      settings: settings,
-    );
+      return RestoreResult(
+        restoredShipments: restoredShipments.length,
+        restoredItems: restoredShipments.fold<int>(
+          0,
+          (sum, e) => sum + e.barang.length,
+        ),
+        restoredPhotos: pathMap.length,
+        skippedDuplicates: merge ? data.shipments.length - selected.length : 0,
+        settings: settings,
+      );
+    } catch (_) {
+      await PhotoStorageService.deleteAll(createdPhotoPaths);
+      if (createdLogoPath != null) {
+        await PhotoStorageService.delete(createdLogoPath);
+      }
+      rethrow;
+    }
   }
 
   Future<String> _writePhoto(String oldPath, String encoded) async {
