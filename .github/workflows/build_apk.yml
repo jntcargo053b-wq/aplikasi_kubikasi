@@ -5,166 +5,79 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  workflow_dispatch: {}
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Persist report location fix
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-
-          p = Path('lib/services/export_service.dart')
-          s = p.read_text(encoding='utf-8')
-          old = "build: (context) => [_photoSection(photos: photos, title: 'DOKUMENTASI FOTO — RESI ${shipment.nomorResi}', resi: shipment.nomorResi, pengirim: shipment.pengirim, tanggal: shipment.tanggal)],"
-          new = "build: (context) => [_photoSection(photos: photos, title: 'DOKUMENTASI FOTO — RESI ${shipment.nomorResi}', resi: shipment.nomorResi, pengirim: shipment.pengirim, kotaKabupaten: shipment.kotaKabupaten, kecamatan: shipment.kecamatan, tanggal: shipment.tanggal)],"
-          if old in s:
-              s = s.replace(old, new, 1)
-          old = "setCell(0, row0, 'Pengirim', 'Kota/Kabupaten', 'Kecamatan');\n    setCell(1, row0, p.pengirim, p.kotaKabupaten, p.kecamatan);"
-          new = "setCell(0, row0, 'Pengirim');\n    setCell(1, row0, p.pengirim);\n    row0++;\n    setCell(0, row0, 'Kota/Kabupaten');\n    setCell(1, row0, p.kotaKabupaten);\n    row0++;\n    setCell(0, row0, 'Kecamatan');\n    setCell(1, row0, p.kecamatan);"
-          if old in s:
-              s = s.replace(old, new, 1)
-          old = "const headers = ['No', 'Tanggal', 'Nomor Resi', 'Pengirim', 'Nama Barang', 'Jumlah', 'Panjang (cm)', 'Lebar (cm)', 'Tinggi (cm)', 'Berat/pcs (kg)', 'Total Berat (kg)', 'Volume', 'Kubikasi (m³)', 'Foto'];"
-          new = "const headers = ['No', 'Tanggal', 'Nomor Resi', 'Pengirim', 'Kota/Kabupaten', 'Kecamatan', 'Nama Barang', 'Jumlah', 'Panjang (cm)', 'Lebar (cm)', 'Tinggi (cm)', 'Berat/pcs (kg)', 'Total Berat (kg)', 'Volume', 'Kubikasi (m³)', 'Foto'];"
-          if old in s:
-              s = s.replace(old, new, 1)
-          old = "setCell(3, row, shipment.pengirim);\n        setCell(4, row, b.nama);\n        setCell(5, row, b.jumlah);\n        setCell(6, row, b.panjang);\n        setCell(7, row, b.lebar);\n        setCell(8, row, b.tinggi);\n        setCell(9, row, b.berat);\n        setCell(10, row, b.totalBerat);\n        setCell(11, row, b.volume);\n        setCell(12, row, b.kubikasi);\n        setCell(13, row, b.photoPath != null && await File(b.photoPath!).exists() ? 'Ada' : 'Tidak ada');"
-          new = "setCell(3, row, shipment.pengirim);\n        setCell(4, row, shipment.kotaKabupaten);\n        setCell(5, row, shipment.kecamatan);\n        setCell(6, row, b.nama);\n        setCell(7, row, b.jumlah);\n        setCell(8, row, b.panjang);\n        setCell(9, row, b.lebar);\n        setCell(10, row, b.tinggi);\n        setCell(11, row, b.berat);\n        setCell(12, row, b.totalBerat);\n        setCell(13, row, b.volume);\n        setCell(14, row, b.kubikasi);\n        setCell(15, row, b.photoPath != null && await File(b.photoPath!).exists() ? 'Ada' : 'Tidak ada');"
-          if old in s:
-              s = s.replace(old, new, 1)
-
-          old = "replaceFirst(RegExp(r'0+\\$'), '').replaceFirst(RegExp(r'\\.\\$'), '')"
-          new = "replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\\.$'), '')"
-          if old in s:
-              s = s.replace(old, new, 1)
-
-          p.write_text(s, encoding='utf-8')
-
-          home = Path('lib/screens/home_screen.dart')
-          h = home.read_text(encoding='utf-8')
-          old = """    final updatedShipment = Pengiriman(\n      id: shipment.id,\n      pengirim: shipment.pengirim,\n      tanggal: shipment.tanggal,\n      nomorResi: shipment.nomorResi,\n      barang: updatedBarang,\n    );"""
-          new = """    final updatedShipment = Pengiriman(\n      id: shipment.id,\n      pengirim: shipment.pengirim,\n      noTelepon: shipment.noTelepon,\n      tanggal: shipment.tanggal,\n      nomorResi: shipment.nomorResi,\n      kotaKabupaten: shipment.kotaKabupaten,\n      kecamatan: shipment.kecamatan,\n      barang: updatedBarang,\n    );"""
-          if old in h:
-              h = h.replace(old, new, 1)
-          home.write_text(h, encoding='utf-8')
-          PY
-
-          grep -q 'noTelepon: shipment.noTelepon' lib/screens/home_screen.dart
-          grep -q 'kotaKabupaten: shipment.kotaKabupaten' lib/screens/home_screen.dart
-          grep -q 'kecamatan: shipment.kecamatan' lib/screens/home_screen.dart
-          grep -Fq "RegExp(r'0+$')" lib/services/export_service.dart
-          grep -Fq "RegExp(r'\\.$')" lib/services/export_service.dart
-
-          if git diff --quiet -- lib/services/export_service.dart lib/screens/home_screen.dart; then
-            echo 'No report/source changes needed.'
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add lib/services/export_service.dart lib/screens/home_screen.dart
-            git commit -m "fix: preserve shipment fields and number formatting"
-            git push
-          fi
 
       - name: Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: '17'
 
       - name: Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.35.7"
+          flutter-version: '3.35.7'
+          channel: stable
           cache: true
 
-      - name: Generate missing Flutter/Gradle scaffolding
+      - name: Ensure Android platform files
         run: flutter create --platforms=android --no-pub .
 
       - name: Normalize Android Gradle configuration
         shell: bash
         run: |
-          set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          import re
-          settings = Path("android/settings.gradle")
-          text = settings.read_text()
-          text, count = re.subn(r'(id\s+["\']com\.android\.application["\']\s+version\s+["\'])[^"\']+(["\'])', r'\g<1>8.11.1\2', text, count=1)
-          if count == 0: raise SystemExit("com.android.application version not found")
-          text, count = re.subn(r'(id\s+["\']org\.jetbrains\.kotlin\.android["\']\s+version\s+["\'])[^"\']+(["\'])', r'\g<1>2.2.20\2', text, count=1)
-          if count == 0: raise SystemExit("org.jetbrains.kotlin.android version not found")
-          settings.write_text(text)
-          for path in (Path("android/settings.gradle.kts"), Path("android/build.gradle.kts"), Path("android/app/build.gradle.kts")):
-              if path.exists(): path.unlink()
+          p = Path('android/settings.gradle')
+          s = p.read_text()
+          s = s.replace("com.android.application' version '8.11.1' apply false", "com.android.application' version '8.11.1' apply false")
+          s = s.replace("org.jetbrains.kotlin.android' version '2.2.20' apply false", "org.jetbrains.kotlin.android' version '2.2.20' apply false")
+          p.write_text(s)
           PY
-          grep -q "com.android.application.*8.11.1" android/settings.gradle
-          grep -q "org.jetbrains.kotlin.android.*2.2.20" android/settings.gradle
-          test ! -e android/settings.gradle.kts
-          test ! -e android/build.gradle.kts
-          test ! -e android/app/build.gradle.kts
 
-      - name: Pin Gradle wrapper to 8.14
+      - name: Pin Gradle 8.14
         shell: bash
         run: |
-          set -euo pipefail
-          test -f android/gradle/wrapper/gradle-wrapper.properties
           python3 - <<'PY'
           from pathlib import Path
+          p = Path('android/gradle/wrapper/gradle-wrapper.properties')
+          s = p.read_text()
           import re
-          p = Path("android/gradle/wrapper/gradle-wrapper.properties")
-          text = p.read_text()
-          url = r"distributionUrl=https\://services.gradle.org/distributions/gradle-8.14-bin.zip"
-          text = re.sub(r"^distributionUrl=.*$", url, text, flags=re.MULTILINE)
-          if "distributionUrl=" not in text: text += "\n" + url + "\n"
-          p.write_text(text)
+          s = re.sub(r'distributionUrl=.*', 'distributionUrl=https\\://services.gradle.org/distributions/gradle-8.14-all.zip', s)
+          p.write_text(s)
           PY
-          grep -q "gradle-8.14-bin.zip" android/gradle/wrapper/gradle-wrapper.properties
-          chmod +x android/gradlew
 
-      - name: Verify Nextcube application identity
+      - name: Verify Nextcube identity
         shell: bash
         run: |
-          set -euo pipefail
-          grep -q 'namespace "com.nextcube.kubikasi"' android/app/build.gradle
-          grep -q 'applicationId "com.nextcube.kubikasi"' android/app/build.gradle
-          grep -q 'android:label="Nextcube"' android/app/src/main/AndroidManifest.xml
+          grep -R "com.nextcube.kubikasi" -n android/app/src/main android/app/build.gradle android/settings.gradle
+          grep -R "Nextcube" -n android/app/src/main/AndroidManifest.xml
+          if grep -R "com.example.volume_calculator" -n android/app/src/main; then exit 1; fi
 
-      - name: Disable Gradle file system watching
-        shell: bash
-        run: |
-          set -euo pipefail
-          if grep -q '^org.gradle.vfs.watch=' android/gradle.properties 2>/dev/null; then sed -i 's/^org.gradle.vfs.watch=.*/org.gradle.vfs.watch=false/' android/gradle.properties; else printf '\norg.gradle.vfs.watch=false\n' >> android/gradle.properties; fi
-          grep -q "org.gradle.vfs.watch=false" android/gradle.properties
+      - name: Disable Gradle VFS watching
+        run: echo 'org.gradle.vfs.watch=false' >> android/gradle.properties
 
       - name: Verify Gradle version
-        working-directory: android
-        run: ./gradlew --version
+        run: cd android && ./gradlew --version
 
-      - name: Verify Android Gradle Plugin version
-        shell: bash
-        run: |
-          set -euo pipefail
-          grep -q "com.android.application.*8.11.1" android/settings.gradle
+      - name: Verify Android Gradle Plugin
+        run: grep -R "com.android.application.*8.11.1" -n android/settings.gradle
 
-      - name: Verify Kotlin version
-        shell: bash
-        run: |
-          set -euo pipefail
-          grep -q "org.jetbrains.kotlin.android.*2.2.20" android/settings.gradle
+      - name: Verify Kotlin
+        run: grep -R "org.jetbrains.kotlin.android.*2.2.20" -n android/settings.gradle
 
-      - name: Verify Android NDK version
-        shell: bash
-        run: |
-          set -euo pipefail
-          grep -q 'ndkVersion "28.2.13676358"' android/app/build.gradle
+      - name: Verify NDK
+        run: grep -R "ndkVersion" -n android/app/build.gradle
 
       - name: Dependencies
         run: flutter pub get
@@ -176,8 +89,8 @@ jobs:
         run: flutter test
 
       - name: Stop Gradle daemons
-        working-directory: android
-        run: ./gradlew --stop || true
+        if: always()
+        run: cd android && ./gradlew --stop || true
 
       - name: Build release APK
         run: flutter build apk --release
@@ -187,4 +100,5 @@ jobs:
         with:
           name: app-release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
           retention-days: 30
