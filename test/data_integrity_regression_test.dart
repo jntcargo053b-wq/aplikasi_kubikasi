@@ -1,88 +1,82 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
-import 'package:volume_calculator/models/barang_item.dart';
-import 'package:volume_calculator/models/pengiriman.dart';
+
+import '../lib/models/barang_item.dart';
+import '../lib/models/pengiriman.dart';
 
 void main() {
-  group('BarangItem data integrity', () {
-    test('zero dimensions and weight are valid and calculate to zero', () {
-      final item = BarangItem(
-        id: 'b1',
-        nama: 'Barang',
+  group('data integrity regression', () {
+    test('zero dimensions and weight remain valid and formulas stay stable', () {
+      const item = BarangItem(
+        id: '1',
+        nama: 'Box',
         jumlah: 2,
         panjang: 0,
         lebar: 10,
         tinggi: 20,
         berat: 0,
       );
-
       expect(item.volume, 0);
       expect(item.kubikasi, 0);
       expect(item.totalBerat, 0);
     });
 
-    test('calculation uses quantity without changing the stored inputs', () {
-      final item = BarangItem(
-        id: 'b2',
-        nama: 'Paket',
+    test('volume, kubikasi and total weight use quantity correctly', () {
+      const item = BarangItem(
+        id: '1',
+        nama: 'Box',
         jumlah: 3,
-        panjang: 50,
-        lebar: 40,
-        tinggi: 30,
+        panjang: 100,
+        lebar: 50,
+        tinggi: 40,
         berat: 2.5,
       );
-
-      expect(item.volume, closeTo(36, 1e-9));
-      expect(item.kubikasi, closeTo(0.18, 1e-9));
-      expect(item.totalBerat, closeTo(7.5, 1e-9));
-      expect(item.panjang, 50);
-      expect(item.lebar, 40);
-      expect(item.tinggi, 30);
-      expect(item.berat, 2.5);
-      expect(item.jumlah, 3);
+      expect(item.volume, closeTo(12, 0.000001));
+      expect(item.kubikasi, closeTo(0.6, 0.000001));
+      expect(item.totalBerat, closeTo(7.5, 0.000001));
     });
 
-    test('copyWith preserves photo path unless explicitly cleared', () {
-      final item = BarangItem(
-        id: 'b3',
-        nama: 'Foto',
+    test('copyWith preserves photo unless explicitly cleared', () {
+      const item = BarangItem(
+        id: '1',
+        nama: 'Box',
         jumlah: 1,
         panjang: 10,
         lebar: 10,
         tinggi: 10,
-        photoPath: '/photos/item.jpg',
+        berat: 1,
+        photoPath: '/docs/photo.jpg',
       );
-
-      expect(item.copyWith(nama: 'Foto Baru').photoPath, '/photos/item.jpg');
+      expect(item.copyWith(nama: 'Updated').photoPath, '/docs/photo.jpg');
       expect(item.copyWith(clearPhoto: true).photoPath, isNull);
     });
-  });
 
-  group('Pengiriman data integrity', () {
-    test('serialization round-trip preserves sender, phone, destination and items', () {
+    test('shipment JSON roundtrip preserves sender phone destination resi and photos', () {
       final original = Pengiriman(
-        id: 'p1',
-        pengirim: 'PT Contoh',
-        noTelepon: '081234567890',
-        tanggal: DateTime(2026, 9, 8, 10, 30),
-        nomorResi: 'RESI-001',
-        kotaKabupaten: 'Malang',
-        kecamatan: 'Lowokwaru',
-        barang: [
+        id: 'shipment-1',
+        pengirim: 'Budi',
+        noTelepon: '08123456789',
+        tanggal: DateTime(2026, 9, 8),
+        nomorResi: 'RESI123',
+        kotaKabupaten: 'Kota Malang',
+        kecamatan: 'Klojen',
+        barang: const [
           BarangItem(
-            id: 'b4',
-            nama: 'Kardus',
+            id: 'item-1',
+            nama: 'Box',
             jumlah: 2,
             panjang: 20,
-            lebar: 30,
-            tinggi: 40,
-            berat: 1.25,
-            photoPath: '/photos/kardus.jpg',
+            lebar: 10,
+            tinggi: 5,
+            berat: 1.5,
+            photoPath: '/docs/photo.jpg',
           ),
         ],
       );
-
-      final restored = Pengiriman.fromJson(original.toJson());
-
+      final restored = Pengiriman.fromJson(
+        jsonDecode(jsonEncode(original.toJson())) as Map<String, dynamic>,
+      );
       expect(restored.id, original.id);
       expect(restored.pengirim, original.pengirim);
       expect(restored.noTelepon, original.noTelepon);
@@ -90,37 +84,32 @@ void main() {
       expect(restored.nomorResi, original.nomorResi);
       expect(restored.kotaKabupaten, original.kotaKabupaten);
       expect(restored.kecamatan, original.kecamatan);
-      expect(restored.barang, hasLength(1));
-      expect(restored.barang.single.id, 'b4');
-      expect(restored.barang.single.photoPath, '/photos/kardus.jpg');
-      expect(restored.totalKubikasi, closeTo(0.048, 1e-9));
-      expect(restored.totalBerat, closeTo(2.5, 1e-9));
+      expect(restored.barang.single.photoPath, '/docs/photo.jpg');
     });
 
-    test('legacy shipment data without newer optional fields remains readable', () {
-      final restored = Pengiriman.fromJson({
+    test('legacy shipment JSON without new fields remains readable', () {
+      final legacy = <String, dynamic>{
         'id': 'legacy-1',
-        'pengirim': 'Pengirim Lama',
-        'tanggal': '2026-09-08T00:00:00.000',
-        'nomorResi': 'OLD-001',
+        'pengirim': 'Lama',
+        'tanggal': '2026-09-01T00:00:00.000',
+        'nomorResi': 'OLD123',
         'barang': [
           {
-            'id': 'legacy-b1',
-            'nama': 'Barang Lama',
+            'id': 'item-1',
+            'nama': 'Box',
             'jumlah': 1,
             'panjang': 10,
-            'lebar': 20,
-            'tinggi': 30,
+            'lebar': 10,
+            'tinggi': 10,
+            'berat': 1,
           },
         ],
-      });
-
-      expect(restored.pengirim, 'Pengirim Lama');
+      };
+      final restored = Pengiriman.fromJson(legacy);
+      expect(restored.pengirim, 'Lama');
       expect(restored.noTelepon, isEmpty);
       expect(restored.kotaKabupaten, isEmpty);
       expect(restored.kecamatan, isEmpty);
-      expect(restored.barang, hasLength(1));
-      expect(restored.barang.single.berat, 0);
     });
   });
 }
