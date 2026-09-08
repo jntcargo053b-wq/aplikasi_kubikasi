@@ -22,7 +22,7 @@ class ExportService {
 
   String _fmtNum(double value) {
     if (value == value.roundToDouble()) return value.toInt().toString();
-    return value.toStringAsFixed(2).replaceFirst(RegExp(r'0+\$'), '').replaceFirst(RegExp(r'\.\$'), '');
+    return value.toStringAsFixed(2).replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
   }
 
   String _sanitize(String value) {

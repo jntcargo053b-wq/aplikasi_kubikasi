@@ -169,8 +169,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final updatedShipment = Pengiriman(
       id: shipment.id,
       pengirim: shipment.pengirim,
+      noTelepon: shipment.noTelepon,
       tanggal: shipment.tanggal,
       nomorResi: shipment.nomorResi,
+      kotaKabupaten: shipment.kotaKabupaten,
+      kecamatan: shipment.kecamatan,
       barang: updatedBarang,
     );
     final next = List<Pengiriman>.of(_items);
