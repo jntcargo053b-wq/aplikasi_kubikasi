@@ -32,8 +32,11 @@ void main() {
         tinggi: 40,
         berat: 2.5,
       );
-      expect(item.volume, closeTo(12, 0.000001));
+      // 100 x 50 x 40 / 5000 x 3 = 120 kg volumetric weight.
+      expect(item.volume, closeTo(120, 0.000001));
+      // 100 x 50 x 40 / 1,000,000 x 3 = 0.6 m³.
       expect(item.kubikasi, closeTo(0.6, 0.000001));
+      // 2.5 x 3 = 7.5 kg.
       expect(item.totalBerat, closeTo(7.5, 0.000001));
     });
 
