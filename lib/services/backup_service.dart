@@ -165,6 +165,7 @@ class BackupService {
         Pengiriman(
           id: shipment.id,
           pengirim: shipment.pengirim,
+          noTelepon: shipment.noTelepon,
           tanggal: shipment.tanggal,
           nomorResi: shipment.nomorResi,
           kotaKabupaten: shipment.kotaKabupaten,
