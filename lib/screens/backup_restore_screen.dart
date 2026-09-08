@@ -161,7 +161,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                   ),
                   const SizedBox(height: 10),
                   const Text(
-                    'Backup menyimpan pengiriman, barang, foto, serta header laporan dalam satu file offline. Simpan file backup di tempat aman atau pindahkan ke perangkat lain.',
+                    'Backup menyimpan pengiriman, barang, foto, serta header laporan dalam satu file offline (.ncbak). Setelah dibuat, gunakan menu Bagikan untuk menyimpan file ke Google Drive, OneDrive, WhatsApp, atau penyimpanan lain.',
                     style: TextStyle(color: AppColors.muted, height: 1.4),
                   ),
                   const SizedBox(height: 18),
@@ -199,6 +199,12 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
           Card(
             child: Column(
               children: const [
+                ListTile(
+                  leading: Icon(Icons.cloud_upload_outlined),
+                  title: Text('Cara menyimpan ke cloud'),
+                  subtitle: Text('Buat backup → Bagikan → pilih Google Drive/OneDrive → pilih folder → Simpan/Upload.'),
+                ),
+                Divider(height: 1),
                 ListTile(
                   leading: Icon(Icons.photo_library_outlined),
                   title: Text('Foto ikut dibackup'),
