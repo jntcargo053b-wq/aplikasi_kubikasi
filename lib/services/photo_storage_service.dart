@@ -1,11 +1,13 @@
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
+import 'storage_service.dart';
 
 /// Owns photos copied by the app into its documents directory.
 ///
 /// Deletion is intentionally restricted to files inside the app's documents
-/// directory so a malformed/legacy path can never cause us to delete a file
-/// chosen from somewhere else on the device.
+/// directory and to files that are no longer referenced by persisted data.
+/// This makes cleanup safe even when legacy data contains the same photo path
+/// in more than one item.
 class PhotoStorageService {
   static Future<bool> delete(String? photoPath) async {
     if (photoPath == null || photoPath.trim().isEmpty) return false;
@@ -17,8 +19,19 @@ class PhotoStorageService {
       final target = _normalize(file.path);
 
       if (!(target == root || target.startsWith('$root/'))) return false;
-      if (!await file.exists()) return false;
 
+      // Never remove a photo that is still referenced by persisted shipments.
+      // This also protects shared/duplicated legacy photo paths.
+      final shipments = await StorageService().loadPengiriman();
+      final stillReferenced = shipments
+          .expand((shipment) => shipment.barang)
+          .map((item) => item.photoPath)
+          .whereType<String>()
+          .map(_normalize)
+          .contains(target);
+      if (stillReferenced) return false;
+
+      if (!await file.exists()) return false;
       await file.delete();
       return true;
     } catch (_) {
