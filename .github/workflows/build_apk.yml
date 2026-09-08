@@ -15,60 +15,39 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Apply source fixes
+      - name: Persist report location fix
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-
-          home = Path('lib/screens/home_screen.dart')
-          s = home.read_text(encoding='utf-8')
-          old = '''    final updatedShipment = Pengiriman(
-      id: shipment.id,
-      pengirim: shipment.pengirim,
-      tanggal: shipment.tanggal,
-      nomorResi: shipment.nomorResi,
-      barang: updatedBarang,
-    );'''
-          new = '''    final updatedShipment = Pengiriman(
-      id: shipment.id,
-      pengirim: shipment.pengirim,
-      noTelepon: shipment.noTelepon,
-      tanggal: shipment.tanggal,
-      nomorResi: shipment.nomorResi,
-      kotaKabupaten: shipment.kotaKabupaten,
-      kecamatan: shipment.kecamatan,
-      barang: updatedBarang,
-    );'''
+          p = Path('lib/services/export_service.dart')
+          s = p.read_text(encoding='utf-8')
+          old = "build: (context) => [_photoSection(photos: photos, title: 'DOKUMENTASI FOTO — RESI ${shipment.nomorResi}', resi: shipment.nomorResi, pengirim: shipment.pengirim, tanggal: shipment.tanggal)],"
+          new = "build: (context) => [_photoSection(photos: photos, title: 'DOKUMENTASI FOTO — RESI ${shipment.nomorResi}', resi: shipment.nomorResi, pengirim: shipment.pengirim, kotaKabupaten: shipment.kotaKabupaten, kecamatan: shipment.kecamatan, tanggal: shipment.tanggal)],"
           if old in s:
               s = s.replace(old, new, 1)
-          elif new not in s:
-              raise SystemExit('home_screen.dart: expected _editBarang constructor not found')
-          home.write_text(s, encoding='utf-8')
-
-          export = Path('lib/services/export_service.dart')
-          s = export.read_text(encoding='utf-8')
-          old = "replaceFirst(RegExp(r'0+\\$'), '').replaceFirst(RegExp(r'\\.\\$'), '')"
-          new = "replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\\.$'), '')"
+          old = "setCell(0, row0, 'Pengirim', 'Kota/Kabupaten', 'Kecamatan');\n    setCell(1, row0, p.pengirim, p.kotaKabupaten, p.kecamatan);"
+          new = "setCell(0, row0, 'Pengirim');\n    setCell(1, row0, p.pengirim);\n    row0++;\n    setCell(0, row0, 'Kota/Kabupaten');\n    setCell(1, row0, p.kotaKabupaten);\n    row0++;\n    setCell(0, row0, 'Kecamatan');\n    setCell(1, row0, p.kecamatan);"
           if old in s:
               s = s.replace(old, new, 1)
-          elif new not in s:
-              raise SystemExit('export_service.dart: expected _fmtNum regex not found')
-          export.write_text(s, encoding='utf-8')
+          old = "const headers = ['No', 'Tanggal', 'Nomor Resi', 'Pengirim', 'Nama Barang', 'Jumlah', 'Panjang (cm)', 'Lebar (cm)', 'Tinggi (cm)', 'Berat/pcs (kg)', 'Total Berat (kg)', 'Volume', 'Kubikasi (m³)', 'Foto'];"
+          new = "const headers = ['No', 'Tanggal', 'Nomor Resi', 'Pengirim', 'Kota/Kabupaten', 'Kecamatan', 'Nama Barang', 'Jumlah', 'Panjang (cm)', 'Lebar (cm)', 'Tinggi (cm)', 'Berat/pcs (kg)', 'Total Berat (kg)', 'Volume', 'Kubikasi (m³)', 'Foto'];"
+          if old in s:
+              s = s.replace(old, new, 1)
+          old = "setCell(3, row, shipment.pengirim);\n        setCell(4, row, b.nama);\n        setCell(5, row, b.jumlah);\n        setCell(6, row, b.panjang);\n        setCell(7, row, b.lebar);\n        setCell(8, row, b.tinggi);\n        setCell(9, row, b.berat);\n        setCell(10, row, b.totalBerat);\n        setCell(11, row, b.volume);\n        setCell(12, row, b.kubikasi);\n        setCell(13, row, b.photoPath != null && await File(b.photoPath!).exists() ? 'Ada' : 'Tidak ada');"
+          new = "setCell(3, row, shipment.pengirim);\n        setCell(4, row, shipment.kotaKabupaten);\n        setCell(5, row, shipment.kecamatan);\n        setCell(6, row, b.nama);\n        setCell(7, row, b.jumlah);\n        setCell(8, row, b.panjang);\n        setCell(9, row, b.lebar);\n        setCell(10, row, b.tinggi);\n        setCell(11, row, b.berat);\n        setCell(12, row, b.totalBerat);\n        setCell(13, row, b.volume);\n        setCell(14, row, b.kubikasi);\n        setCell(15, row, b.photoPath != null && await File(b.photoPath!).exists() ? 'Ada' : 'Tidak ada');"
+          if old in s:
+              s = s.replace(old, new, 1)
+          p.write_text(s, encoding='utf-8')
           PY
-
-          grep -q 'noTelepon: shipment.noTelepon' lib/screens/home_screen.dart
-          grep -q 'kotaKabupaten: shipment.kotaKabupaten' lib/screens/home_screen.dart
-          grep -q 'kecamatan: shipment.kecamatan' lib/screens/home_screen.dart
-
-          if git diff --quiet -- lib/screens/home_screen.dart lib/services/export_service.dart; then
-            echo 'Source fixes already present.'
+          if git diff --quiet -- lib/services/export_service.dart; then
+            echo 'No report source changes needed.'
           else
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add lib/screens/home_screen.dart lib/services/export_service.dart
-            git commit -m "fix: preserve shipment fields when editing item"
+            git add lib/services/export_service.dart
+            git commit -m "fix: include city and district in all reports"
             git push
           fi
 
