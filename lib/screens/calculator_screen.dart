@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../app_theme.dart';
+import '../models/barang_item.dart';
+import 'package:uuid/uuid.dart';
 import 'pengiriman_form_sheet.dart';
 
 class CalculatorScreen extends StatefulWidget {
@@ -212,7 +214,29 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
           ),
           const SizedBox(height: 16),
           OutlinedButton.icon(
-            onPressed: () => showPengirimanFormSheet(context),
+            onPressed: _items.every((item) => item.qty > 0)
+                ? () {
+                    final barang = _items
+                        .asMap()
+                        .entries
+                        .map(
+                          (entry) => BarangItem(
+                            id: const Uuid().v4(),
+                            nama: 'Barang ${entry.key + 1}',
+                            jumlah: entry.value.qty,
+                            panjang: entry.value._number(entry.value.panjang),
+                            lebar: entry.value._number(entry.value.lebar),
+                            tinggi: entry.value._number(entry.value.tinggi),
+                            berat: entry.value._number(entry.value.berat),
+                          ),
+                        )
+                        .toList();
+                    showPengirimanFormSheet(
+                      context,
+                      initialBarang: barang,
+                    );
+                  }
+                : null,
             icon: const Icon(Icons.add_box_outlined),
             label: const Text('Lanjut ke Pengiriman'),
           ),
