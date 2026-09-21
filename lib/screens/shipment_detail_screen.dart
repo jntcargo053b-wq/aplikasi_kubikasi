@@ -86,17 +86,42 @@ class ShipmentDetailScreen extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.all(14),
                   child: Row(children: [
-                    if (b.photoPath != null && File(b.photoPath!).existsSync())
+                    if (b.photoPath != null)
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: Image.file(File(b.photoPath!), width: 58, height: 58, fit: BoxFit.cover, cacheWidth: 174, cacheHeight: 174),
+                        child: Image.file(
+                          File(b.photoPath!),
+                          width: 58,
+                          height: 58,
+                          fit: BoxFit.cover,
+                          cacheWidth: 174,
+                          cacheHeight: 174,
+                          errorBuilder: (_, __, ___) => Container(
+                            width: 58,
+                            height: 58,
+                            decoration: BoxDecoration(
+                              color: AppColors.primarySoft,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.inventory_2_outlined,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
                       )
                     else
                       Container(
                         width: 58,
                         height: 58,
-                        decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(12)),
-                        child: const Icon(Icons.inventory_2_outlined, color: AppColors.primary),
+                        decoration: BoxDecoration(
+                          color: AppColors.primarySoft,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.inventory_2_outlined,
+                          color: AppColors.primary,
+                        ),
                       ),
                     const SizedBox(width: 12),
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
