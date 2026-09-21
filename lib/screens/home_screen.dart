@@ -444,23 +444,25 @@ class _HomeScreenState extends State<HomeScreen> {
                         title: Text('Urutkan Data'),
                         subtitle: Text('Pilih urutan daftar pengiriman'),
                       ),
-                      RadioListTile<_SortMode>(
-                        value: _SortMode.terbaru,
+                      RadioGroup<_SortMode>(
                         groupValue: _sort,
-                        title: const Text('Terbaru'),
                         onChanged: (v) => Navigator.pop(context, v),
-                      ),
-                      RadioListTile<_SortMode>(
-                        value: _SortMode.terlama,
-                        groupValue: _sort,
-                        title: const Text('Terlama'),
-                        onChanged: (v) => Navigator.pop(context, v),
-                      ),
-                      RadioListTile<_SortMode>(
-                        value: _SortMode.pengirim,
-                        groupValue: _sort,
-                        title: const Text('Pengirim A-Z'),
-                        onChanged: (v) => Navigator.pop(context, v),
+                        child: const Column(
+                          children: [
+                            RadioListTile<_SortMode>(
+                              value: _SortMode.terbaru,
+                              title: Text('Terbaru'),
+                            ),
+                            RadioListTile<_SortMode>(
+                              value: _SortMode.terlama,
+                              title: Text('Terlama'),
+                            ),
+                            RadioListTile<_SortMode>(
+                              value: _SortMode.pengirim,
+                              title: Text('Pengirim A-Z'),
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 10),
                     ],
