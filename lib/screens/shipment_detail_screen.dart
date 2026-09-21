@@ -160,9 +160,27 @@ class _Total extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(label, style: TextStyle(color: Colors.white70, fontSize: large ? 13 : 12)),
-          Text(value, style: TextStyle(color: Colors.white, fontSize: large ? 22 : 13, fontWeight: FontWeight.w800)),
-        ]),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: Colors.white70, fontSize: large ? 13 : 12),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Flexible(
+              child: Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.right,
+                style: TextStyle(color: Colors.white, fontSize: large ? 22 : 13, fontWeight: FontWeight.w800),
+              ),
+            ),
+          ],
+        ),
       );
 }
