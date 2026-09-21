@@ -573,8 +573,8 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                     onPressed: _busy ? null : _scanResi,
                     icon: const Icon(Icons.qr_code_scanner_outlined),
                   ),
-                  scrollPadding: const EdgeInsets.only(bottom: 180),
                 ),
+                scrollPadding: const EdgeInsets.only(bottom: 180),
               ),
               const SizedBox(height: 18),
               if (widget.existing == null && widget.initialBarang != null && widget.initialBarang!.isNotEmpty) ...[
