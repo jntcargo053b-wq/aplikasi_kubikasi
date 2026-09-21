@@ -9,18 +9,23 @@ import '../services/photo_storage_service.dart';
 import '../widgets/barang_form_sheet.dart';
 import 'barcode_scanner_screen.dart';
 
-Future<Pengiriman?> showPengirimanFormSheet(BuildContext context, {Pengiriman? existing}) =>
+Future<Pengiriman?> showPengirimanFormSheet(
+  BuildContext context, {
+  Pengiriman? existing,
+  List<BarangItem>? initialBarang,
+}) =>
     showModalBottomSheet<Pengiriman>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _PengirimanForm(existing: existing),
+      builder: (_) => _PengirimanForm(existing: existing, initialBarang: initialBarang),
     );
 
 class _PengirimanForm extends StatefulWidget {
   final Pengiriman? existing;
-  const _PengirimanForm({this.existing});
+  final List<BarangItem>? initialBarang;
+  const _PengirimanForm({this.existing, this.initialBarang});
 
   @override
   State<_PengirimanForm> createState() => _PengirimanFormState();
@@ -53,7 +58,9 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     _noTelepon = TextEditingController(text: e?.noTelepon ?? '');
     _resi = TextEditingController(text: e?.nomorResi ?? '');
     _tanggal = e?.tanggal ?? DateTime.now();
-    _barang = e?.barang.map((x) => x.copyWith()).toList() ?? [];
+    _barang = e?.barang.map((x) => x.copyWith()).toList() ??
+        widget.initialBarang?.map((x) => x.copyWith()).toList() ??
+        [];
     _originalPhotoPaths = _barang
         .map((b) => b.photoPath)
         .whereType<String>()
