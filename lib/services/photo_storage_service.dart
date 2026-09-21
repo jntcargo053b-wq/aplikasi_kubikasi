@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'storage_service.dart';
+import '../models/pengiriman.dart';
 
 /// Owns photos copied by the app into its documents directory.
 ///
@@ -60,12 +61,18 @@ class PhotoStorageService {
     }
   }
 
-  static Set<String> _referencedPaths(Iterable<Pengiriman> shipments) => shipments
-      .expand((shipment) => shipment.barang)
-      .map((item) => item.photoPath)
-      .whereType<String>()
-      .map(_normalize)
-      .toSet();
+  static Set<String> _referencedPaths(Iterable<Pengiriman> shipments) {
+    final paths = <String>{};
+    for (final shipment in shipments) {
+      for (final item in shipment.barang) {
+        final path = item.photoPath;
+        if (path != null && path.trim().isNotEmpty) {
+          paths.add(_normalize(path));
+        }
+      }
+    }
+    return paths;
+  }
 
   static Future<bool> _deleteIfUnreferenced({
     required String photoPath,
