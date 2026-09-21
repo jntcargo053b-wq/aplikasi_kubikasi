@@ -1,4 +1,6 @@
+import 'dart:isolate';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:image/image.dart' as img;
 import 'package:excel/excel.dart' as xls;
 import 'package:intl/intl.dart';
@@ -9,6 +11,45 @@ import 'package:share_plus/share_plus.dart';
 
 import '../models/pengiriman.dart';
 import '../models/report_settings.dart';
+
+Uint8List _prepareReportImageBytes(List<int> sourceBytes, int maxDimension, int quality) {
+  final decoded = img.decodeImage(sourceBytes);
+  if (decoded == null) return Uint8List(0);
+  final width = decoded.width;
+  final height = decoded.height;
+  final max = width > height ? width : height;
+  final processed = max <= maxDimension
+      ? decoded
+      : img.copyResize(
+          decoded,
+          width: (width * maxDimension / max).round(),
+          height: (height * maxDimension / max).round(),
+        );
+  return Uint8List.fromList(img.encodeJpg(processed, quality: quality));
+}
+
+Map<String, int> allocatePhotoQuotasRoundRobin(List<MapEntry<String, int>> counts, int maxTotal) {
+  final result = <String, int>{for (final entry in counts) entry.key: 0};
+  if (maxTotal <= 0) return result;
+  final remaining = <String, int>{
+    for (final entry in counts) entry.key: entry.value < 0 ? 0 : entry.value,
+  };
+  var left = maxTotal;
+  while (left > 0) {
+    var progress = false;
+    for (final entry in counts) {
+      if (left <= 0) break;
+      final id = entry.key;
+      if ((remaining[id] ?? 0) <= 0) continue;
+      result[id] = (result[id] ?? 0) + 1;
+      remaining[id] = remaining[id]! - 1;
+      left--;
+      progress = true;
+    }
+    if (!progress) break;
+  }
+  return result;
+}
 
 /// Layanan untuk membuat dan membagikan laporan pengiriman
 /// dalam format PDF maupun Excel (.xlsx), baik per-resi maupun gabungan.
@@ -471,10 +512,16 @@ class ExportService {
       try {
         final bytes = await file.readAsBytes();
         if (bytes.isEmpty) continue;
-        final decoded = img.decodeImage(bytes);
-        if (decoded == null) continue;
-        final processed = _prepareReportImage(decoded);
-        result.add(_PhotoData(image: pw.MemoryImage(img.encodeJpg(processed, quality: _reportPhotoJpegQuality)), itemName: item.nama));
+        final encoded = await Isolate.run(() => _prepareReportImageBytes(
+              bytes,
+              _reportPhotoMaxDimension,
+              _reportPhotoJpegQuality,
+            ));
+        if (encoded.isEmpty) continue;
+        result.add(_PhotoData(
+          image: pw.MemoryImage(encoded),
+          itemName: item.nama,
+        ));
       } catch (_) {}
     }
     var totalAvailable = 0;
@@ -494,27 +541,17 @@ class ExportService {
   }
 
   Future<Map<String, int>> _allocatePhotoQuotas(List<Pengiriman> items, int maxTotal) async {
-    final counts = <String, int>{};
-    var total = 0;
-    for (final item in items) {
-      var count = 0;
-      for (final barang in item.barang) {
-        if (barang.photoPath != null && barang.photoPath!.isNotEmpty) count++;
-      }
-      counts[item.id] = count;
-      total += count;
-    }
-    if (total <= maxTotal) return counts;
-    final result = <String, int>{for (final item in items) item.id: 0};
-    var remaining = maxTotal;
-    for (final item in items) {
-      if (remaining <= 0) break;
-      final quota = counts[item.id] ?? 0;
-      final assigned = quota > remaining ? remaining : quota;
-      result[item.id] = assigned;
-      remaining -= assigned;
-    }
-    return result;
+    return allocatePhotoQuotasRoundRobin(
+      items
+          .map((item) => MapEntry(
+                item.id,
+                item.barang
+                    .where((b) => b.photoPath?.trim().isNotEmpty == true)
+                    .length,
+              ))
+          .toList(),
+      maxTotal,
+    );
   }
 
   pw.Widget _infoRow(String label, String value) => pw.Padding(
