@@ -45,6 +45,45 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
   double get _totalActual => _items.fold(0, (sum, item) => sum + item.actualWeight);
   int get _totalPieces => _items.fold(0, (sum, item) => sum + item.qty);
 
+  bool _isReadyForShipment(_CalculatorItem item) =>
+      item.qty > 0 &&
+      item._number(item.panjang) > 0 &&
+      item._number(item.lebar) > 0 &&
+      item._number(item.tinggi) > 0 &&
+      item._number(item.berat) >= 0;
+
+  void _continueToShipment() {
+    final invalidIndex = _items.indexWhere((item) => !_isReadyForShipment(item));
+    if (invalidIndex != -1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Lengkapi ukuran, jumlah, dan berat Barang ${invalidIndex + 1} sebelum lanjut.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final barang = _items
+        .asMap()
+        .entries
+        .map(
+          (entry) => BarangItem(
+            id: const Uuid().v4(),
+            nama: 'Barang ${entry.key + 1}',
+            jumlah: entry.value.qty,
+            panjang: entry.value._number(entry.value.panjang),
+            lebar: entry.value._number(entry.value.lebar),
+            tinggi: entry.value._number(entry.value.tinggi),
+            berat: entry.value._number(entry.value.berat),
+          ),
+        )
+        .toList();
+
+    showPengirimanFormSheet(context, initialBarang: barang);
+  }
+
   @override
   void dispose() {
     for (final item in _items) {
@@ -213,32 +252,16 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: _items.every((item) => item.qty > 0)
-                ? () {
-                    final barang = _items
-                        .asMap()
-                        .entries
-                        .map(
-                          (entry) => BarangItem(
-                            id: const Uuid().v4(),
-                            nama: 'Barang ${entry.key + 1}',
-                            jumlah: entry.value.qty,
-                            panjang: entry.value._number(entry.value.panjang),
-                            lebar: entry.value._number(entry.value.lebar),
-                            tinggi: entry.value._number(entry.value.tinggi),
-                            berat: entry.value._number(entry.value.berat),
-                          ),
-                        )
-                        .toList();
-                    showPengirimanFormSheet(
-                      context,
-                      initialBarang: barang,
-                    );
-                  }
-                : null,
+          FilledButton.icon(
+            onPressed: _items.every(_isReadyForShipment) ? _continueToShipment : null,
             icon: const Icon(Icons.add_box_outlined),
             label: const Text('Lanjut ke Pengiriman'),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Data ukuran, jumlah, dan berat akan otomatis dibawa ke form pengiriman.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppColors.muted, fontSize: 12),
           ),
         ],
       ),
