@@ -224,7 +224,7 @@ class _BarangFormState extends State<_BarangForm> {
           child: Form(
             key: _key,
             child: ListView(
-              padding: EdgeInsets.fromLTRB(20, 12, 20, 24 + bottom),
+              padding: EdgeInsets.fromLTRB(20, 12, 20, 40 + bottom + 96),
               children: [
                 Center(
                   child: Container(
@@ -245,6 +245,7 @@ class _BarangFormState extends State<_BarangForm> {
                 TextFormField(
                   controller: _nama,
                   decoration: const InputDecoration(labelText: 'Nama Barang'),
+                  scrollPadding: const EdgeInsets.only(bottom: 180),
                   validator: (v) => v == null || v.trim().isEmpty
                       ? 'Nama barang wajib diisi'
                       : null,
@@ -254,6 +255,7 @@ class _BarangFormState extends State<_BarangForm> {
                   controller: _jumlah,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(labelText: 'Jumlah'),
+                  scrollPadding: const EdgeInsets.only(bottom: 180),
                   validator: (v) {
                     final x = int.tryParse(v ?? '');
                     return x == null || x <= 0
@@ -271,6 +273,7 @@ class _BarangFormState extends State<_BarangForm> {
                     labelText: 'Berat per unit',
                     suffixText: 'kg',
                   ),
+                  scrollPadding: const EdgeInsets.only(bottom: 180),
                   onChanged: (_) => _keepZero(_berat),
                   validator: (v) =>
                       _d(v ?? '') < 0 ? 'Berat tidak valid' : null,
@@ -369,6 +372,7 @@ class _BarangFormState extends State<_BarangForm> {
         controller: c,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         decoration: InputDecoration(labelText: label, suffixText: 'cm'),
+        scrollPadding: const EdgeInsets.only(bottom: 180),
         onChanged: (_) => _keepZero(c),
         validator: (v) => _d(v ?? '') < 0 ? '$label tidak valid' : null,
       );
