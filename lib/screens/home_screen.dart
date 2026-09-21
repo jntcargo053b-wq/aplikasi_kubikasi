@@ -274,7 +274,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     final list = _displayed;
-    final totalK = list.fold<double>(0, (s, e) => s + e.totalKubikasi);
     return Scaffold(
       appBar: AppBar(
         title: _brand(),
@@ -283,7 +282,7 @@ class _HomeScreenState extends State<HomeScreen> {
           IconButton(tooltip: 'Pengaturan laporan', onPressed: _openReportHeaderSettings, icon: const Icon(Icons.tune_rounded)),
         ],
       ),
-      body: Stack(children: [_body(list, totalK), if (_exporting) _exportOverlay()]),
+      body: Stack(children: [_body(list), if (_exporting) _exportOverlay()]),
       floatingActionButton: FloatingActionButton(onPressed: _newShipment, child: const Icon(Icons.add_rounded)),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _navIndex,
@@ -322,7 +321,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _brand() => RichText(text: const TextSpan(style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -1), children: [TextSpan(text: 'next', style: TextStyle(color: AppColors.text)), TextSpan(text: 'cube', style: TextStyle(color: AppColors.primary))]));
 
-  Widget _body(List<Pengiriman> list, double totalK) {
+  Widget _body(List<Pengiriman> list) {
     final today = DateTime.now();
     final todayCount = _items.where((e) => e.tanggal.year == today.year && e.tanggal.month == today.month && e.tanggal.day == today.day).length;
     return RefreshIndicator(
@@ -431,7 +430,46 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _showSettingsMenu() async {
     if (!mounted) return;
-    await showModalBottomSheet<void>(context: context, showDragHandle: true, builder: (_) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [ListTile(leading: const Icon(Icons.tune_outlined), title: const Text('Header Laporan'), onTap: () { Navigator.pop(context); _openReportHeaderSettings(); }), ListTile(leading: const Icon(Icons.shield_outlined), title: const Text('Backup & Restore'), onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const BackupRestoreScreen())); }), ListTile(leading: const Icon(Icons.sort_outlined), title: const Text('Urutkan Data'), subtitle: Text(_sort == _SortMode.terbaru ? 'Terbaru' : _sort == _SortMode.terlama ? 'Terlama' : 'Pengirim A-Z'), onTap: () { Navigator.pop(context); showMenu<_SortMode>(context: context, position: const RelativeRect.fromLTRB(100, 400, 20, 0), items: const [PopupMenuItem(value: _SortMode.terbaru, child: Text('Terbaru')), PopupMenuItem(value: _SortMode.terlama, child: Text('Terlama')), PopupMenuItem(value: _SortMode.pengirim, child: Text('Pengirim A-Z'))]).then((v) { if (v != null && mounted) setState(() => _sort = v); }); }), const SizedBox(height: 10)])));
+    await showModalBottomSheet<void>(context: context, showDragHandle: true, builder: (_) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [ListTile(leading: const Icon(Icons.tune_outlined), title: const Text('Header Laporan'), onTap: () { Navigator.pop(context); _openReportHeaderSettings(); }), ListTile(leading: const Icon(Icons.shield_outlined), title: const Text('Backup & Restore'), onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const BackupRestoreScreen())); }), ListTile(leading: const Icon(Icons.sort_outlined), title: const Text('Urutkan Data'), subtitle: Text(_sort == _SortMode.terbaru ? 'Terbaru' : _sort == _SortMode.terlama ? 'Terlama' : 'Pengirim A-Z'), onTap: () {
+              Navigator.pop(context);
+              showModalBottomSheet<_SortMode>(
+                context: context,
+                showDragHandle: true,
+                builder: (_) => SafeArea(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const ListTile(
+                        leading: Icon(Icons.sort_outlined),
+                        title: Text('Urutkan Data'),
+                        subtitle: Text('Pilih urutan daftar pengiriman'),
+                      ),
+                      RadioListTile<_SortMode>(
+                        value: _SortMode.terbaru,
+                        groupValue: _sort,
+                        title: const Text('Terbaru'),
+                        onChanged: (v) => Navigator.pop(context, v),
+                      ),
+                      RadioListTile<_SortMode>(
+                        value: _SortMode.terlama,
+                        groupValue: _sort,
+                        title: const Text('Terlama'),
+                        onChanged: (v) => Navigator.pop(context, v),
+                      ),
+                      RadioListTile<_SortMode>(
+                        value: _SortMode.pengirim,
+                        groupValue: _sort,
+                        title: const Text('Pengirim A-Z'),
+                        onChanged: (v) => Navigator.pop(context, v),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+                  ),
+                ),
+              ).then((v) {
+                if (v != null && mounted) setState(() => _sort = v);
+              });
+            }), const SizedBox(height: 10)])));
     if (mounted) setState(() => _navIndex = 0);
   }
 }
