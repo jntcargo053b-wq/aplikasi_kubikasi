@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:crypto/crypto.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import '../models/barang_item.dart';
@@ -26,6 +27,7 @@ class BackupService {
     final items = await _storage.loadPengiriman();
     final settings = await _settings.loadReportSettings();
     final files = <String, String>{};
+    final integrity = <String, String>{};
 
     final photoPaths = items
         .expand((e) => e.barang)
@@ -36,7 +38,9 @@ class BackupService {
     for (final path in photoPaths) {
       final file = File(path);
       if (await file.exists()) {
-        files[path] = base64Encode(await file.readAsBytes());
+        final bytes = await file.readAsBytes();
+        files[path] = base64Encode(bytes);
+        integrity['photo:$path'] = sha256.convert(bytes).toString();
       }
     }
 
@@ -44,7 +48,11 @@ class BackupService {
     final logoPath = settings.logoPath;
     if (logoPath != null && logoPath.trim().isNotEmpty) {
       final file = File(logoPath);
-      if (await file.exists()) logoData = base64Encode(await file.readAsBytes());
+      if (await file.exists()) {
+        final bytes = await file.readAsBytes();
+        logoData = base64Encode(bytes);
+        integrity['logo'] = sha256.convert(bytes).toString();
+      }
     }
 
     final payload = <String, dynamic>{
@@ -60,6 +68,7 @@ class BackupService {
       'reportSettings': settings.toJson(),
       'photos': files,
       'logoData': logoData,
+      'integrity': integrity,
     };
 
     final docs = await getApplicationDocumentsDirectory();
@@ -94,10 +103,24 @@ class BackupService {
     }
     final rawPhotos = decoded['photos'];
     final photoData = <String, String>{};
+    final integrity = decoded['integrity'];
     if (rawPhotos is Map) {
       for (final entry in rawPhotos.entries) {
         if (entry.key is String && entry.value is String) {
-          photoData[entry.key as String] = entry.value as String;
+          final path = entry.key as String;
+          final encoded = entry.value as String;
+          try {
+            final bytes = base64Decode(encoded);
+            final expected = integrity is Map ? integrity['photo:$path']?.toString() : null;
+            if (expected != null && expected != sha256.convert(bytes).toString()) {
+              throw const FormatException('Checksum foto tidak cocok. Backup mungkin rusak.');
+            }
+            photoData[path] = encoded;
+          } on FormatException {
+            rethrow;
+          } catch (_) {
+            throw const FormatException('Data foto pada backup tidak valid.');
+          }
         }
       }
     }
@@ -118,6 +141,19 @@ class BackupService {
       } catch (_) {}
     }
 
+    final logoData = decoded['logoData'] as String?;
+    if (logoData != null && logoData.isNotEmpty && integrity is Map && integrity['logo'] != null) {
+      try {
+        final actual = sha256.convert(base64Decode(logoData)).toString();
+        if (actual != integrity['logo'].toString()) {
+          throw const FormatException('Checksum logo tidak cocok. Backup mungkin rusak.');
+        }
+      } catch (e) {
+        if (e is FormatException) rethrow;
+        throw const FormatException('Data logo pada backup tidak valid.');
+      }
+    }
+
     final rawSettings = decoded['reportSettings'];
     final settings = rawSettings is Map
         ? ReportSettings.fromJson(Map<String, dynamic>.from(rawSettings))
@@ -127,7 +163,7 @@ class BackupService {
       shipments: shipments,
       settings: settings,
       photoData: photoData,
-      logoData: decoded['logoData'] as String?,
+      logoData: logoData,
       createdAt: DateTime.tryParse(decoded['createdAt'] as String? ?? ''),
     );
   }
