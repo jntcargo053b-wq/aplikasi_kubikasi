@@ -12,7 +12,7 @@ import 'package:share_plus/share_plus.dart';
 import '../models/pengiriman.dart';
 import '../models/report_settings.dart';
 
-Uint8List _prepareReportImageBytes(List<int> sourceBytes, int maxDimension, int quality) {
+Uint8List _prepareReportImageBytes(Uint8List sourceBytes, int maxDimension, int quality) {
   final decoded = img.decodeImage(sourceBytes);
   if (decoded == null) return Uint8List(0);
   final width = decoded.width;
