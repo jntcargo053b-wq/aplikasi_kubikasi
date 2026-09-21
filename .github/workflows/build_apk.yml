@@ -33,29 +33,14 @@ jobs:
       - name: Ensure Android platform files
         run: flutter create --platforms=android --no-pub .
 
-      - name: Normalize Android Gradle configuration
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path('android/settings.gradle')
-          s = p.read_text()
-          s = s.replace("com.android.application' version '8.11.1' apply false", "com.android.application' version '8.11.1' apply false")
-          s = s.replace("org.jetbrains.kotlin.android' version '2.2.20' apply false", "org.jetbrains.kotlin.android' version '2.2.20' apply false")
-          p.write_text(s)
-          PY
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
 
-      - name: Pin Gradle 8.14
+      - name: Pin Gradle wrapper
         shell: bash
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path('android/gradle/wrapper/gradle-wrapper.properties')
-          s = p.read_text()
-          import re
-          s = re.sub(r'distributionUrl=.*', 'distributionUrl=https\\://services.gradle.org/distributions/gradle-8.14-all.zip', s)
-          p.write_text(s)
-          PY
+          cd android
+          gradle wrapper --gradle-version 8.14 --distribution-type all
 
       - name: Verify Nextcube identity
         shell: bash
