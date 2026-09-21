@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:volume_calculator/models/barang_item.dart';
 import 'package:volume_calculator/models/pengiriman.dart';
+import 'package:volume_calculator/services/export_service.dart';
 
 void main() {
   group('data integrity regression', () {
@@ -113,6 +114,13 @@ void main() {
       expect(restored.noTelepon, isEmpty);
       expect(restored.kotaKabupaten, isEmpty);
       expect(restored.kecamatan, isEmpty);
+    });
+    test('combined report photo quota is distributed round-robin', () {
+      final quotas = allocatePhotoQuotasRoundRobin(
+        [const MapEntry('A', 50), const MapEntry('B', 10), const MapEntry('C', 10)],
+        6,
+      );
+      expect(quotas, {'A': 2, 'B': 2, 'C': 2});
     });
   });
 }
