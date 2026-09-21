@@ -186,6 +186,13 @@ class BackupService {
     // Snapshot the settings before restore so a later settings failure can
     // roll the complete restore back to the pre-restore state.
     final previousSettings = await _settings.loadReportSettings();
+    final previousPhotoPaths = existing
+        .expand((e) => e.barang)
+        .map((b) => b.photoPath)
+        .whereType<String>()
+        .where((p) => p.trim().isNotEmpty)
+        .toSet();
+    final previousLogoPath = previousSettings.logoPath;
 
     try {
       final restoredShipments = <Pengiriman>[];
@@ -242,6 +249,25 @@ class BackupService {
           logoPath: logoPath,
         );
         await _settings.saveReportSettings(settings);
+      }
+
+      // Replacing a full backup can orphan the previous shipment photos and
+      // report logo. Clean them only after the new state is committed.
+      if (!merge) {
+        final currentPhotoPaths = target
+            .expand((e) => e.barang)
+            .map((b) => b.photoPath)
+            .whereType<String>()
+            .where((p) => p.trim().isNotEmpty)
+            .toSet();
+        await PhotoStorageService.deleteAll(
+          previousPhotoPaths.difference(currentPhotoPaths),
+        );
+        if (previousLogoPath != null &&
+            previousLogoPath.trim().isNotEmpty &&
+            previousLogoPath != settings.logoPath) {
+          await PhotoStorageService.delete(previousLogoPath);
+        }
       }
 
       return RestoreResult(
