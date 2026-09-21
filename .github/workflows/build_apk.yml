@@ -33,14 +33,21 @@ jobs:
       - name: Ensure Android platform files
         run: flutter create --platforms=android --no-pub .
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-
       - name: Pin Gradle wrapper
         shell: bash
         run: |
-          cd android
-          gradle wrapper --gradle-version 8.14 --distribution-type all
+          test -f android/gradlew
+          test -f android/gradle/wrapper/gradle-wrapper.jar
+          cat > android/gradle/wrapper/gradle-wrapper.properties <<'EOF'
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https\\://services.gradle.org/distributions/gradle-8.14-all.zip
+          networkTimeout=10000
+          validateDistributionUrl=true
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          EOF
+          grep -q 'gradle-8.14-all.zip' android/gradle/wrapper/gradle-wrapper.properties
 
       - name: Verify Nextcube identity
         shell: bash
