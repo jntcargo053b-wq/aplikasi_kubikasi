@@ -341,7 +341,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Expanded(child: _quickAction(Icons.backup_outlined, 'Backup &\nRestore', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BackupRestoreScreen())))),
           ]),
           const SizedBox(height: 20),
-          _sectionTitle('Rekap Hari Ini', '${_items.length} data'),
+          _sectionTitle('Rekap Hari Ini', '\$todayCount data'),
           const SizedBox(height: 9),
           Row(children: [
             Expanded(child: _statCard(Icons.local_shipping_outlined, '${_items.length}', 'Total Pengiriman')),
