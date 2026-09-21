@@ -286,11 +286,28 @@ class _HomeScreenState extends State<HomeScreen> {
       floatingActionButton: FloatingActionButton(onPressed: _newShipment, child: const Icon(Icons.add_rounded)),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _navIndex,
-        onDestinationSelected: (index) {
-          setState(() => _navIndex = index);
-          if (index == 1) Navigator.push(context, MaterialPageRoute(builder: (_) => const CalculatorScreen()));
-          if (index == 2) _shareFilteredReport(list, pdf: true);
-          if (index == 3) _showSettingsMenu();
+        onDestinationSelected: (index) async {
+          if (index == 0) {
+            if (mounted) setState(() => _navIndex = 0);
+            return;
+          }
+          if (index == 1) {
+            if (mounted) setState(() => _navIndex = 1);
+            await Navigator.push(context, MaterialPageRoute(builder: (_) => const CalculatorScreen()));
+            if (mounted) setState(() => _navIndex = 0);
+            return;
+          }
+          if (index == 2) {
+            if (mounted) setState(() => _navIndex = 2);
+            await _showReportMenu(list);
+            if (mounted) setState(() => _navIndex = 0);
+            return;
+          }
+          if (index == 3) {
+            if (mounted) setState(() => _navIndex = 3);
+            await _showSettingsMenu();
+            if (mounted) setState(() => _navIndex = 0);
+          }
         },
         destinations: const [
           NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'Beranda'),
@@ -373,6 +390,43 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _emptyState() => Card(child: Padding(padding: const EdgeInsets.all(28), child: Column(children: [Container(width: 62, height: 62, decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(20)), child: const Icon(Icons.local_shipping_outlined, color: AppColors.primary, size: 30)), const SizedBox(height: 14), const Text('Belum ada pengiriman', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)), const SizedBox(height: 5), const Text('Tambahkan pengiriman pertama untuk mulai mencatat kubikasi.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.muted)), const SizedBox(height: 16), FilledButton.icon(onPressed: _newShipment, icon: const Icon(Icons.add), label: const Text('Tambah Pengiriman'))])));
 
   Widget _exportOverlay() => Container(color: Colors.black.withValues(alpha: .12), child: Center(child: Card(child: Padding(padding: const EdgeInsets.all(20), child: Row(mainAxisSize: MainAxisSize.min, children: [const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.5)), const SizedBox(width: 14), Text(_exportingLabel ?? 'Menyiapkan laporan...')])))));
+
+  Future<void> _showReportMenu(List<Pengiriman> items) async {
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ListTile(
+              leading: Icon(Icons.description_outlined),
+              title: Text('Laporan'),
+              subtitle: Text('Bagikan data yang sedang tampil setelah filter.'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.picture_as_pdf_outlined),
+              title: const Text('Bagikan PDF'),
+              onTap: () {
+                Navigator.pop(context);
+                _shareFilteredReport(items, pdf: true);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.table_chart_outlined),
+              title: const Text('Bagikan Excel'),
+              onTap: () {
+                Navigator.pop(context);
+                _shareFilteredReport(items, pdf: false);
+              },
+            ),
+            const SizedBox(height: 10),
+          ],
+        ),
+      ),
+    );
+  }
 
   Future<void> _showSettingsMenu() async {
     if (!mounted) return;
