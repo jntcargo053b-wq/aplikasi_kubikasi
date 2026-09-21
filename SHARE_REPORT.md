@@ -12,12 +12,12 @@ ExportService **tidak melakukan sort ulang**. Urutan `List<Pengiriman>` dipertah
 - Foto asli tidak pernah diubah.
 - Salinan report maksimal 1400 px pada sisi terpanjang.
 - JPEG quality 82.
-- Decode/resize/encode menggunakan `compute()` agar tidak memblokir UI isolate.
+- Decode/resize/encode menggunakan `Isolate.run()` agar tidak memblokir UI isolate.
 - PDF dan attachment Excel sama-sama menggunakan salinan foto terkompresi.
 
 ## Batas foto rekap
 - Maksimum 60 foto per laporan gabungan.
-- Budget dialokasikan round-robin antar-resi agar tidak greedy berdasarkan urutan tanggal.
+- Budget dialokasikan round-robin antar-resi agar tidak greedy berdasarkan urutan list.
 - Jika total foto melebihi batas, setiap resi mendapat kesempatan berdasarkan jumlah foto yang tersedia; catatan laporan menyebutkan bahwa sebagian foto dapat tidak disertakan.
 
 ## Catatan Excel
