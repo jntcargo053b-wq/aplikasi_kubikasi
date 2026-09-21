@@ -466,6 +466,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                 controller: _pengirim,
                 textInputAction: TextInputAction.next,
                 decoration: const InputDecoration(labelText: 'Nama Pengirim'),
+                scrollPadding: const EdgeInsets.only(bottom: 180),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -476,6 +477,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                   labelText: 'No. Telepon',
                   prefixIcon: Icon(Icons.phone_outlined),
                 ),
+                scrollPadding: const EdgeInsets.only(bottom: 180),
               ),
               const SizedBox(height: 12),
               InkWell(
@@ -571,6 +573,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                     onPressed: _busy ? null : _scanResi,
                     icon: const Icon(Icons.qr_code_scanner_outlined),
                   ),
+                  scrollPadding: const EdgeInsets.only(bottom: 180),
                 ),
               ),
               const SizedBox(height: 18),
