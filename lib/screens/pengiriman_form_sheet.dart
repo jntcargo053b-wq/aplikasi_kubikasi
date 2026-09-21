@@ -573,6 +573,29 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                 ),
               ),
               const SizedBox(height: 18),
+              if (widget.existing == null && widget.initialBarang != null && widget.initialBarang!.isNotEmpty) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.primarySoft,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.auto_awesome_outlined, size: 20, color: AppColors.primary),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Data barang dari kalkulator sudah diisi otomatis. Ketuk barang untuk mengubah nama, ukuran, berat, atau foto.',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
               Row(
                 children: [
                   const Expanded(
@@ -603,17 +626,53 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                   final b = entry.value;
                   return Card(
                     margin: const EdgeInsets.only(bottom: 8),
+                    clipBehavior: Clip.antiAlias,
                     child: ListTile(
                       onTap: _busy ? null : () => _editItem(i),
-                      leading: const Icon(Icons.inventory_2_outlined),
-                      title: Text(
-                        b.nama,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      leading: b.photoPath == null
+                          ? const CircleAvatar(
+                              child: Icon(Icons.inventory_2_outlined),
+                            )
+                          : GestureDetector(
+                              onTap: () => showPhotoPreview(context, b.photoPath!),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: Image.file(
+                                  File(b.photoPath!),
+                                  width: 48,
+                                  height: 48,
+                                  fit: BoxFit.cover,
+                                  cacheWidth: 144,
+                                  cacheHeight: 144,
+                                  errorBuilder: (_, __, ___) => const SizedBox(
+                                    width: 48,
+                                    height: 48,
+                                    child: Icon(Icons.broken_image_outlined),
+                                  ),
+                                ),
+                              ),
+                            ),
+                      title: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              b.nama,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Icon(Icons.edit_outlined, size: 16, color: AppColors.muted),
+                        ],
                       ),
-                      subtitle: Text(
-                        '${b.jumlah} × ${b.panjang} × ${b.lebar} × ${b.tinggi} cm • ${b.berat} kg',
+                      subtitle: Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          '${b.jumlah} pcs • ${b.panjang} × ${b.lebar} × ${b.tinggi} cm • ${b.berat} kg/unit\n${b.kubikasi.toStringAsFixed(3)} m³ • ${b.totalBerat.toStringAsFixed(2)} kg',
+                        ),
                       ),
+                      isThreeLine: true,
                       trailing: IconButton(
                         tooltip: 'Hapus Barang',
                         onPressed: _busy ? null : () => _removeItem(i),
