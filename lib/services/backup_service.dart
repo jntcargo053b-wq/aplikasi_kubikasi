@@ -127,26 +127,38 @@ class BackupService {
       );
     }
     final rawPhotos = decoded['photos'];
+    if (rawPhotos is! Map) {
+      throw const FormatException('Data foto pada backup tidak valid.');
+    }
     final photoData = <String, String>{};
     final integrity = decoded['integrity'];
-    if (rawPhotos is Map) {
-      for (final entry in rawPhotos.entries) {
-        if (entry.key is String && entry.value is String) {
-          final path = entry.key as String;
-          final encoded = entry.value as String;
-          try {
-            final bytes = base64Decode(encoded);
-            final expected = integrity is Map ? integrity['photo:$path']?.toString() : null;
-            if (expected != null && expected != sha256.convert(bytes).toString()) {
-              throw const FormatException('Checksum foto tidak cocok. Backup mungkin rusak.');
-            }
-            photoData[path] = encoded;
-          } on FormatException {
-            rethrow;
-          } catch (_) {
-            throw const FormatException('Data foto pada backup tidak valid.');
-          }
+    if (integrity is! Map) {
+      throw const FormatException('Metadata integritas backup tidak valid.');
+    }
+    for (final entry in rawPhotos.entries) {
+      if (entry.key is! String || entry.value is! String) {
+        throw const FormatException('Data foto pada backup tidak valid.');
+      }
+      final path = entry.key as String;
+      final encoded = entry.value as String;
+      try {
+        final bytes = base64Decode(encoded);
+        final expected = integrity['photo:$path']?.toString();
+        if (expected == null || expected.isEmpty) {
+          throw const FormatException(
+            'Checksum foto pada backup tidak ditemukan.',
+          );
         }
+        if (expected != sha256.convert(bytes).toString()) {
+          throw const FormatException(
+            'Checksum foto tidak cocok. Backup mungkin rusak.',
+          );
+        }
+        photoData[path] = encoded;
+      } on FormatException {
+        rethrow;
+      } catch (_) {
+        throw const FormatException('Data foto pada backup tidak valid.');
       }
     }
 
@@ -203,11 +215,19 @@ class BackupService {
     }
 
     final logoData = decoded['logoData'] as String?;
-    if (logoData != null && logoData.isNotEmpty && integrity is Map && integrity['logo'] != null) {
+    if (logoData != null && logoData.isNotEmpty) {
       try {
+        final expected = integrity['logo']?.toString();
+        if (expected == null || expected.isEmpty) {
+          throw const FormatException(
+            'Checksum logo pada backup tidak ditemukan.',
+          );
+        }
         final actual = sha256.convert(base64Decode(logoData)).toString();
-        if (actual != integrity['logo'].toString()) {
-          throw const FormatException('Checksum logo tidak cocok. Backup mungkin rusak.');
+        if (actual != expected) {
+          throw const FormatException(
+            'Checksum logo tidak cocok. Backup mungkin rusak.',
+          );
         }
       } catch (e) {
         if (e is FormatException) rethrow;
