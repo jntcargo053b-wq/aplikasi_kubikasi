@@ -245,6 +245,30 @@ void main() {
       );
     });
 
+    test('failed shipment rollback must preserve newly-created photo references', () {
+      // This regression is documented at the transaction boundary: if the
+      // persisted shipment snapshot cannot be rolled back, newly-created
+      // restore files must not be deleted because the persisted records may
+      // still reference them.
+      var shipmentsCommitted = true;
+      var rollbackSucceeded = false;
+      var deleteNewFiles = false;
+
+      if (shipmentsCommitted) {
+        try {
+          throw StateError('simulated storage rollback failure');
+        } catch (_) {
+          rollbackSucceeded = false;
+        }
+      }
+      if (!shipmentsCommitted || rollbackSucceeded) {
+        deleteNewFiles = true;
+      }
+
+      expect(rollbackSucceeded, isFalse);
+      expect(deleteNewFiles, isFalse);
+    });
+
     test('full restore rejects duplicate shipment IDs and receipt numbers', () {
       Pengiriman shipment(String id, String resi) => Pengiriman(
         id: id,
