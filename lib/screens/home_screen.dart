@@ -108,9 +108,33 @@ class _HomeScreenState extends State<HomeScreen> {
     return list;
   }
 
+  bool _hasDuplicateResi(
+    Pengiriman candidate, {
+    String? excludingId,
+  }) {
+    final normalized = candidate.nomorResi.trim().toLowerCase();
+    if (normalized.isEmpty) return false;
+    return _items.any(
+      (item) =>
+          item.id != excludingId &&
+          item.nomorResi.trim().toLowerCase() == normalized,
+    );
+  }
+
   Future<void> _newShipment() async {
     final result = await showPengirimanFormSheet(context);
     if (result == null || !mounted) return;
+    if (_hasDuplicateResi(result)) {
+      await _cleanupNewPhotosOnFailedSave(_items, result);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Nomor resi sudah digunakan. Gunakan nomor resi yang berbeda.'),
+          ),
+        );
+      }
+      return;
+    }
     final previous = List<Pengiriman>.of(_items);
     final next = [...previous, result];
     if (await _persistItems(next)) {
@@ -126,6 +150,17 @@ class _HomeScreenState extends State<HomeScreen> {
     if (result == null || !mounted) return;
     final i = _items.indexWhere((e) => e.id == item.id);
     if (i == -1) return;
+    if (_hasDuplicateResi(result, excludingId: item.id)) {
+      await _cleanupNewPhotosOnFailedSave(_items, result);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Nomor resi sudah digunakan oleh pengiriman lain.'),
+          ),
+        );
+      }
+      return;
+    }
     final previous = List<Pengiriman>.of(_items);
     final next = List<Pengiriman>.of(_items)..[i] = result;
     if (await _persistItems(next)) {
