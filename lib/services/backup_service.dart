@@ -35,7 +35,14 @@ class BackupService {
         .whereType<String>()
         .where((p) => p.trim().isNotEmpty)
         .toSet();
+    final docs = await getApplicationDocumentsDirectory();
+
     for (final path in photoPaths) {
+      if (!_isInsideDocuments(path, docs.path)) {
+        throw FormatException(
+          'Foto pengiriman berada di luar penyimpanan aplikasi dan tidak dapat dibackup: $path',
+        );
+      }
       final file = File(path);
       if (!await file.exists()) {
         throw FormatException(
@@ -77,7 +84,6 @@ class BackupService {
       'integrity': integrity,
     };
 
-    final docs = await getApplicationDocumentsDirectory();
     final stamp = DateTime.now();
     final name = 'nextcube_backup_${stamp.year.toString().padLeft(4, '0')}'
         '${stamp.month.toString().padLeft(2, '0')}'
@@ -444,6 +450,24 @@ class BackupService {
     );
     await target.writeAsBytes(base64Decode(encoded), flush: true);
     return target.path;
+  }
+
+  bool _isInsideDocuments(String path, String documentsPath) {
+    final normalizedPath = _normalizePath(path);
+    final normalizedDocuments = _normalizePath(documentsPath);
+    return normalizedPath == normalizedDocuments ||
+        normalizedPath.startsWith('$normalizedDocuments/');
+  }
+
+  String _normalizePath(String path) {
+    var value = path.trim().replaceAll('\\', '/');
+    while (value.contains('//')) {
+      value = value.replaceAll('//', '/');
+    }
+    if (value.length > 1 && value.endsWith('/')) {
+      value = value.substring(0, value.length - 1);
+    }
+    return value;
   }
 
   String _extension(String path) {
