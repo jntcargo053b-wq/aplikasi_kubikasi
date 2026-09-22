@@ -51,11 +51,14 @@ class BackupService {
     final logoPath = settings.logoPath;
     if (logoPath != null && logoPath.trim().isNotEmpty) {
       final file = File(logoPath);
-      if (await file.exists()) {
-        final bytes = await file.readAsBytes();
-        logoData = base64Encode(bytes);
-        integrity['logo'] = sha256.convert(bytes).toString();
+      if (!await file.exists()) {
+        throw FormatException(
+          'Logo header laporan yang direferensikan tidak ditemukan: $logoPath',
+        );
       }
+      final bytes = await file.readAsBytes();
+      logoData = base64Encode(bytes);
+      integrity['logo'] = sha256.convert(bytes).toString();
     }
 
     final payload = <String, dynamic>{
@@ -214,7 +217,11 @@ class BackupService {
       );
     }
 
-    final logoData = decoded['logoData'] as String?;
+    final rawLogoData = decoded['logoData'];
+    if (rawLogoData != null && rawLogoData is! String) {
+      throw const FormatException('Data logo pada backup tidak valid.');
+    }
+    final logoData = rawLogoData as String?;
     if (logoData != null && logoData.isNotEmpty) {
       try {
         final expected = integrity['logo']?.toString();
