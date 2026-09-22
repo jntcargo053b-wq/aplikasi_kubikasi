@@ -100,9 +100,31 @@ class BackupService {
       throw FormatException('Versi backup tidak didukung: ${decoded['version']}');
     }
 
+    final rawCounts = decoded['counts'];
+    if (rawCounts is! Map) {
+      throw const FormatException('Metadata jumlah data pada backup tidak valid.');
+    }
+
+    int readCount(String key) {
+      final value = rawCounts[key];
+      if (value is! num || value < 0 || value % 1 != 0) {
+        throw FormatException('Jumlah $key pada backup tidak valid.');
+      }
+      return value.toInt();
+    }
+
+    final expectedShipmentCount = readCount('shipments');
+    final expectedItemCount = readCount('items');
+    final expectedPhotoCount = readCount('photos');
+
     final rawShipments = decoded['shipments'];
     if (rawShipments is! List) {
       throw const FormatException('Data pengiriman pada backup tidak valid.');
+    }
+    if (rawShipments.length != expectedShipmentCount) {
+      throw const FormatException(
+        'Jumlah pengiriman pada backup tidak sesuai metadata.',
+      );
     }
     final rawPhotos = decoded['photos'];
     final photoData = <String, String>{};
@@ -158,6 +180,20 @@ class BackupService {
           );
         }
       }
+    }
+
+    if (photoData.length != expectedPhotoCount) {
+      throw const FormatException(
+        'Jumlah foto pada backup tidak sesuai metadata.',
+      );
+    }
+
+    final actualItemCount =
+        shipments.fold<int>(0, (sum, shipment) => sum + shipment.barang.length);
+    if (actualItemCount != expectedItemCount) {
+      throw const FormatException(
+        'Jumlah item pada backup tidak sesuai metadata.',
+      );
     }
 
     final logoData = decoded['logoData'] as String?;
