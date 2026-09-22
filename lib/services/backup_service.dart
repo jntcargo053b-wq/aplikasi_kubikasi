@@ -173,19 +173,8 @@ class BackupService {
     required bool merge,
   }) async {
     final existing = await _storage.loadPengiriman();
-    final existingIds = existing.map((e) => e.id).toSet();
-    final existingResi = existing
-        .map((e) => e.nomorResi.trim().toLowerCase())
-        .where((resi) => resi.isNotEmpty)
-        .toSet();
     final selected = merge
-        ? data.shipments
-            .where(
-              (e) =>
-                  !existingIds.contains(e.id) &&
-                  !existingResi.contains(e.nomorResi.trim().toLowerCase()),
-            )
-            .toList()
+        ? selectShipmentsForMerge(existing, data.shipments)
         : List<Pengiriman>.of(data.shipments);
 
     final pathMap = <String, String>{};
@@ -345,6 +334,37 @@ class BackupService {
     final ext = path.substring(dot).toLowerCase();
     return {'.jpg', '.jpeg', '.png', '.webp'}.contains(ext) ? ext : '.jpg';
   }
+}
+
+
+/// Selects incoming shipments that do not collide with IDs or receipt numbers
+/// already accepted during the merge. This also filters duplicate records
+/// inside the backup itself, preserving the same uniqueness invariant as the
+/// normal shipment form.
+List<Pengiriman> selectShipmentsForMerge(
+  List<Pengiriman> existing,
+  List<Pengiriman> incoming,
+) {
+  final usedIds = existing.map((e) => e.id).toSet();
+  final usedResi = existing
+      .map((e) => e.nomorResi.trim().toLowerCase())
+      .where((resi) => resi.isNotEmpty)
+      .toSet();
+  final selected = <Pengiriman>[];
+
+  for (final shipment in incoming) {
+    final id = shipment.id;
+    final resi = shipment.nomorResi.trim().toLowerCase();
+    if (usedIds.contains(id) ||
+        (resi.isNotEmpty && usedResi.contains(resi))) {
+      continue;
+    }
+    usedIds.add(id);
+    if (resi.isNotEmpty) usedResi.add(resi);
+    selected.add(shipment);
+  }
+
+  return selected;
 }
 
 class BackupData {
