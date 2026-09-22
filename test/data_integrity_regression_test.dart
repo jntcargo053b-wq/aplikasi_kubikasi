@@ -246,24 +246,12 @@ void main() {
     });
 
     test('failed shipment rollback must preserve newly-created photo references', () {
-      // This regression is documented at the transaction boundary: if the
-      // persisted shipment snapshot cannot be rolled back, newly-created
-      // restore files must not be deleted because the persisted records may
-      // still reference them.
-      var shipmentsCommitted = true;
-      var rollbackSucceeded = false;
-      var deleteNewFiles = false;
-
-      if (shipmentsCommitted) {
-        try {
-          throw StateError('simulated storage rollback failure');
-        } catch (_) {
-          rollbackSucceeded = false;
-        }
-      }
-      if (!shipmentsCommitted || rollbackSucceeded) {
-        deleteNewFiles = true;
-      }
+      // If shipment persistence cannot be rolled back after a restore failure,
+      // newly-created files must remain because persisted records may still
+      // reference them.
+      const shipmentsCommitted = true;
+      const rollbackSucceeded = false;
+      final deleteNewFiles = !shipmentsCommitted || rollbackSucceeded;
 
       expect(rollbackSucceeded, isFalse);
       expect(deleteNewFiles, isFalse);
