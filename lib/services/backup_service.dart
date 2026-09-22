@@ -166,6 +166,12 @@ class BackupService {
       } catch (_) {}
     }
 
+    if (shipments.length != expectedShipmentCount) {
+      throw const FormatException(
+        'Data pengiriman pada backup mengandung record yang tidak valid.',
+      );
+    }
+
     // Every persisted photo reference must have a corresponding payload.
     // Restoring a backup with silently missing photos would otherwise clear
     // valid photo references and make the restore appear successful.
@@ -228,6 +234,9 @@ class BackupService {
     required bool merge,
   }) async {
     final existing = await _storage.loadPengiriman();
+    if (!merge) {
+      validateFullRestoreShipments(data.shipments);
+    }
     final selected = merge
         ? selectShipmentsForMerge(existing, data.shipments)
         : List<Pengiriman>.of(data.shipments);
@@ -391,6 +400,29 @@ class BackupService {
   }
 }
 
+
+/// Validates that a full replacement restore does not silently lose records
+/// because the backup itself contains duplicate shipment IDs or receipt
+/// numbers. Merge restores intentionally use [selectShipmentsForMerge].
+void validateFullRestoreShipments(List<Pengiriman> shipments) {
+  final usedIds = <String>{};
+  final usedResi = <String>{};
+
+  for (final shipment in shipments) {
+    if (!usedIds.add(shipment.id)) {
+      throw FormatException(
+        'Backup mengandung ID pengiriman duplikat: ${shipment.id}',
+      );
+    }
+
+    final resi = shipment.nomorResi.trim().toLowerCase();
+    if (resi.isNotEmpty && !usedResi.add(resi)) {
+      throw FormatException(
+        'Backup mengandung nomor resi duplikat: ${shipment.nomorResi}',
+      );
+    }
+  }
+}
 
 /// Selects incoming shipments that do not collide with IDs or receipt numbers
 /// already accepted during the merge. This also filters duplicate records
