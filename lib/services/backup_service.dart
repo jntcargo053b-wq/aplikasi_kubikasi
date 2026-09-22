@@ -141,6 +141,22 @@ class BackupService {
       } catch (_) {}
     }
 
+    // Every persisted photo reference must have a corresponding payload.
+    // Restoring a backup with silently missing photos would otherwise clear
+    // valid photo references and make the restore appear successful.
+    for (final shipment in shipments) {
+      for (final item in shipment.barang) {
+        final path = item.photoPath;
+        if (path != null &&
+            path.trim().isNotEmpty &&
+            !photoData.containsKey(path)) {
+          throw FormatException(
+            'Foto pengiriman tidak ditemukan di dalam backup: $path',
+          );
+        }
+      }
+    }
+
     final logoData = decoded['logoData'] as String?;
     if (logoData != null && logoData.isNotEmpty && integrity is Map && integrity['logo'] != null) {
       try {
