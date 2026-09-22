@@ -249,9 +249,12 @@ class BackupService {
     }
 
     final rawSettings = decoded['reportSettings'];
-    final settings = rawSettings is Map
-        ? ReportSettings.fromJson(Map<String, dynamic>.from(rawSettings))
-        : const ReportSettings();
+    if (rawSettings is! Map) {
+      throw const FormatException('Pengaturan laporan pada backup tidak valid.');
+    }
+    final settings = ReportSettings.fromJson(
+      Map<String, dynamic>.from(rawSettings),
+    );
 
     return BackupData(
       shipments: shipments,
