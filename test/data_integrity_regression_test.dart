@@ -116,6 +116,39 @@ void main() {
       expect(restored.kotaKabupaten, isEmpty);
       expect(restored.kecamatan, isEmpty);
     });
+    test('backup merge duplicate protection preserves first valid record', () {
+      Pengiriman shipment(String id, String resi) => Pengiriman(
+        id: id,
+        pengirim: 'Sender',
+        tanggal: DateTime(2026, 9, 22),
+        nomorResi: resi,
+        barang: [
+          BarangItem(
+            id: 'item-$id',
+            nama: 'Box',
+            jumlah: 1,
+            panjang: 10,
+            lebar: 10,
+            tinggi: 10,
+            berat: 1,
+          ),
+        ],
+      );
+
+      final selected = selectShipmentsForMerge(
+        [shipment('existing', 'OLD')],
+        [
+          shipment('a', 'NEW'),
+          shipment('b', 'new'),
+          shipment('c', 'OTHER'),
+          shipment('c', 'OTHER2'),
+        ],
+      );
+
+      expect(selected.map((e) => e.id), ['a', 'c']);
+      expect(selected.map((e) => e.nomorResi), ['NEW', 'OTHER']);
+    });
+
     test('backup merge rejects duplicate IDs and receipt numbers within incoming data', () {
       Pengiriman shipment(String id, String resi) => Pengiriman(
         id: id,
