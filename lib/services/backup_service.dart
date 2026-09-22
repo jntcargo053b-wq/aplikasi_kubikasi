@@ -405,18 +405,29 @@ class BackupService {
       // Restore is treated as one logical transaction. If shipment data was
       // already persisted but report settings later failed, restore the
       // original shipment snapshot before removing newly-created files.
+      //
+      // If the shipment rollback itself fails, do NOT delete the newly-created
+      // photos: the persisted shipment data may still reference them. Keeping
+      // those files is safer than leaving persisted records pointing at files
+      // that no longer exist.
+      var shipmentRollbackSucceeded = !shipmentsCommitted;
       if (shipmentsCommitted) {
         try {
           await _storage.savePengiriman(existing);
+          shipmentRollbackSucceeded = true;
         } catch (_) {
-          // Preserve the original error; the persisted state is best-effort
-          // rollback if the storage layer itself is unavailable.
+          // Preserve the original error. The persisted state may still be the
+          // restored state, so its newly-created photos must remain intact.
         }
       }
-      await PhotoStorageService.deleteAll(createdPhotoPaths);
-      if (createdLogoPath != null) {
-        await PhotoStorageService.delete(createdLogoPath);
+
+      if (shipmentRollbackSucceeded) {
+        await PhotoStorageService.deleteAll(createdPhotoPaths);
+        if (createdLogoPath != null) {
+          await PhotoStorageService.delete(createdLogoPath);
+        }
       }
+
       try {
         await _settings.saveReportSettings(previousSettings);
       } catch (_) {
