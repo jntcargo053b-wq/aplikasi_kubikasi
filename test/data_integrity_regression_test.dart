@@ -183,6 +183,46 @@ void main() {
       expect(selected.map((e) => e.nomorResi), ['NEW001', 'NEW004']);
     });
 
+    test('merge with all incoming records duplicated becomes a no-op selection', () {
+      Pengiriman shipment(String id, String resi) => Pengiriman(
+        id: id,
+        pengirim: 'Sender',
+        tanggal: DateTime(2026, 9, 22),
+        nomorResi: resi,
+        barang: [
+          BarangItem(
+            id: 'item-$id',
+            nama: 'Box',
+            jumlah: 1,
+            panjang: 10,
+            lebar: 10,
+            tinggi: 10,
+            berat: 1,
+          ),
+        ],
+      );
+
+      final existing = [
+        shipment('id-1', 'RESI001'),
+        shipment('id-2', 'RESI002'),
+      ];
+      final incoming = [
+        shipment('id-1', 'NEW001'),
+        shipment('new-2', 'resi002'),
+      ];
+
+      final selected = selectShipmentsForMerge(existing, incoming);
+
+      expect(selected, isEmpty);
+    });
+
+    test('empty full backup is accepted by duplicate validation', () {
+      expect(
+        () => validateFullRestoreShipments(const <Pengiriman>[]),
+        returnsNormally,
+      );
+    });
+
     test('full restore rejects duplicate shipment IDs and receipt numbers', () {
       Pengiriman shipment(String id, String resi) => Pengiriman(
         id: id,
