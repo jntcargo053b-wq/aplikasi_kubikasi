@@ -122,5 +122,19 @@ void main() {
       );
       expect(quotas, {'A': 2, 'B': 2, 'C': 2});
     });
+
+    test('combined report photo cap distinguishes exact limit from truncation', () {
+      final exact = allocatePhotoQuotasRoundRobin(
+        [const MapEntry('A', 30), const MapEntry('B', 30)],
+        60,
+      );
+      final over = allocatePhotoQuotasRoundRobin(
+        [const MapEntry('A', 31), const MapEntry('B', 30)],
+        60,
+      );
+      expect(exact, {'A': 30, 'B': 30});
+      expect(over.values.fold<int>(0, (sum, value) => sum + value), 60);
+      expect(over['A']! < 31 || over['B']! < 30, isTrue);
+    });
   });
 }
