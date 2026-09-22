@@ -249,12 +249,7 @@ class BackupService {
     }
 
     final rawSettings = decoded['reportSettings'];
-    if (rawSettings is! Map) {
-      throw const FormatException('Pengaturan laporan pada backup tidak valid.');
-    }
-    final settings = ReportSettings.fromJson(
-      Map<String, dynamic>.from(rawSettings),
-    );
+    final settings = parseBackupReportSettings(rawSettings);
 
     return BackupData(
       shipments: shipments,
@@ -479,6 +474,25 @@ class BackupService {
     final ext = path.substring(dot).toLowerCase();
     return {'.jpg', '.jpeg', '.png', '.webp'}.contains(ext) ? ext : '.jpg';
   }
+}
+
+/// Parses and validates report settings from a backup payload.
+///
+/// The backup format is versioned, so silently replacing malformed settings
+/// with defaults could make a restore appear successful while losing the
+/// user's report configuration.
+ReportSettings parseBackupReportSettings(Object? rawSettings) {
+  if (rawSettings is! Map) {
+    throw const FormatException('Pengaturan laporan pada backup tidak valid.');
+  }
+  final json = Map<String, dynamic>.from(rawSettings);
+  for (final key in const ['companyName', 'headerNote', 'logoPath', 'reportTitle']) {
+    final value = json[key];
+    if (value != null && value is! String) {
+      throw FormatException('Nilai pengaturan laporan tidak valid: $key');
+    }
+  }
+  return ReportSettings.fromJson(json);
 }
 
 
