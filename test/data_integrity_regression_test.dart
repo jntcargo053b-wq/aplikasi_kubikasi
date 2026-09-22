@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:volume_calculator/models/barang_item.dart';
 import 'package:volume_calculator/models/pengiriman.dart';
 import 'package:volume_calculator/services/export_service.dart';
+import 'package:volume_calculator/services/backup_service.dart';
 
 void main() {
   group('data integrity regression', () {
@@ -115,6 +116,40 @@ void main() {
       expect(restored.kotaKabupaten, isEmpty);
       expect(restored.kecamatan, isEmpty);
     });
+    test('backup merge rejects duplicate IDs and receipt numbers within incoming data', () {
+      Pengiriman shipment(String id, String resi) => Pengiriman(
+        id: id,
+        pengirim: 'Sender',
+        tanggal: DateTime(2026, 9, 22),
+        nomorResi: resi,
+        barang: [
+          BarangItem(
+            id: 'item-$id',
+            nama: 'Box',
+            jumlah: 1,
+            panjang: 10,
+            lebar: 10,
+            tinggi: 10,
+            berat: 1,
+          ),
+        ],
+      );
+
+      final existing = [shipment('existing-id', 'EXISTING')];
+      final incoming = [
+        shipment('new-1', 'NEW001'),
+        shipment('new-2', 'NEW001'),
+        shipment('existing-id', 'NEW002'),
+        shipment('new-3', 'EXISTING'),
+        shipment('new-4', 'NEW004'),
+      ];
+
+      final selected = selectShipmentsForMerge(existing, incoming);
+
+      expect(selected.map((e) => e.id), ['new-1', 'new-4']);
+      expect(selected.map((e) => e.nomorResi), ['NEW001', 'NEW004']);
+    });
+
     test('combined report photo quota is distributed round-robin', () {
       final quotas = allocatePhotoQuotasRoundRobin(
         [const MapEntry('A', 50), const MapEntry('B', 10), const MapEntry('C', 10)],
