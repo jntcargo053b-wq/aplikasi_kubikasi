@@ -37,11 +37,14 @@ class BackupService {
         .toSet();
     for (final path in photoPaths) {
       final file = File(path);
-      if (await file.exists()) {
-        final bytes = await file.readAsBytes();
-        files[path] = base64Encode(bytes);
-        integrity['photo:$path'] = sha256.convert(bytes).toString();
+      if (!await file.exists()) {
+        throw FormatException(
+          'Foto yang direferensikan pengiriman tidak ditemukan: $path',
+        );
       }
+      final bytes = await file.readAsBytes();
+      files[path] = base64Encode(bytes);
+      integrity['photo:$path'] = sha256.convert(bytes).toString();
     }
 
     String? logoData;
