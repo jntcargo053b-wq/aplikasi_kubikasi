@@ -29,7 +29,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      _message('Gagal membuat backup: $e', error: true);
+      _message(_friendlyError(e, action: 'backup'), error: true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -62,7 +62,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
             '${result.restoredShipments} pengiriman\n'
             '${result.restoredItems} barang\n'
             '${result.restoredPhotos} foto dipulihkan'
-            '${result.skippedDuplicates > 0 ? '\n${result.skippedDuplicates} pengiriman duplikat dilewati' : ''}',
+            '${result.skippedDuplicates > 0 ? '\n${result.skippedDuplicates} pengiriman dilewati karena ID/resi sudah digunakan' : ''}',
           ),
           actions: [
             FilledButton(
@@ -75,10 +75,16 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      _message('Restore gagal: $e', error: true);
+      _message(_friendlyError(e, action: 'restore'), error: true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  String _friendlyError(Object error, {required String action}) {
+    final message = error.toString().replaceFirst('FormatException: ', '').trim();
+    final label = action == 'backup' ? 'Backup' : 'Restore';
+    return message.isEmpty ? '$label gagal. Periksa kembali file dan data Anda.' : '$label gagal: $message';
   }
 
   Future<bool?> _chooseRestoreMode(BackupData backup) {
@@ -97,7 +103,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
           'Backup: $dateText\n\n'
           '${backup.shipments.length} pengiriman dan '
           '${backup.shipments.fold<int>(0, (s, e) => s + e.barang.length)} barang.\n\n'
-          'Ganti semua akan mengganti data saat ini. Gabungkan akan mempertahankan data saat ini dan melewati ID pengiriman yang sama.',
+          'Gabungkan: data saat ini tetap dipertahankan. Pengiriman dengan ID atau nomor resi yang sudah digunakan akan dilewati.\n\nGanti Semua: data pengiriman saat ini akan diganti dengan isi backup. Gunakan hanya jika memang ingin mengganti data yang ada.',
         ),
         actions: [
           TextButton(
