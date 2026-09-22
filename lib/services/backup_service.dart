@@ -174,8 +174,18 @@ class BackupService {
   }) async {
     final existing = await _storage.loadPengiriman();
     final existingIds = existing.map((e) => e.id).toSet();
+    final existingResi = existing
+        .map((e) => e.nomorResi.trim().toLowerCase())
+        .where((resi) => resi.isNotEmpty)
+        .toSet();
     final selected = merge
-        ? data.shipments.where((e) => !existingIds.contains(e.id)).toList()
+        ? data.shipments
+            .where(
+              (e) =>
+                  !existingIds.contains(e.id) &&
+                  !existingResi.contains(e.nomorResi.trim().toLowerCase()),
+            )
+            .toList()
         : List<Pengiriman>.of(data.shipments);
 
     final pathMap = <String, String>{};
