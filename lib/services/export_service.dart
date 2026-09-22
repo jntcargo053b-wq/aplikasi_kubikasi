@@ -299,10 +299,14 @@ class ExportService {
     var anyTruncated = false;
     var totalEmbedded = 0;
     for (final shipment in sorted) {
-      final loaded = await _loadPhotos(shipment, limit: photoQuotas[shipment.id] ?? 0);
+      final quota = photoQuotas[shipment.id] ?? 0;
+      final available = shipment.barang
+          .where((b) => b.photoPath?.trim().isNotEmpty == true)
+          .length;
+      final loaded = await _loadPhotos(shipment, limit: quota);
       combinedPhotos[shipment.id] = loaded.photos;
       totalEmbedded += loaded.photos.length;
-      if (loaded.truncated) anyTruncated = true;
+      if (loaded.truncated || quota < available) anyTruncated = true;
     }
 
     doc.addPage(pw.MultiPage(
@@ -347,7 +351,7 @@ class ExportService {
       ));
     }
 
-    if (anyTruncated || totalEmbedded >= _maxEmbeddedPhotos) {
+    if (anyTruncated) {
       doc.addPage(pw.Page(
         pageFormat: PdfPageFormat.a4, margin: const pw.EdgeInsets.all(28),
         build: (context) => pw.Text('Catatan: dokumentasi foto dibatasi maksimal $_maxEmbeddedPhotos foto pada laporan gabungan.', style: const pw.TextStyle(fontSize: 9)),
