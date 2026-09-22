@@ -183,6 +183,50 @@ void main() {
       expect(selected.map((e) => e.nomorResi), ['NEW001', 'NEW004']);
     });
 
+    test('full restore rejects duplicate shipment IDs and receipt numbers', () {
+      Pengiriman shipment(String id, String resi) => Pengiriman(
+        id: id,
+        pengirim: 'Sender',
+        tanggal: DateTime(2026, 9, 22),
+        nomorResi: resi,
+        barang: [
+          BarangItem(
+            id: 'item-$id',
+            nama: 'Box',
+            jumlah: 1,
+            panjang: 10,
+            lebar: 10,
+            tinggi: 10,
+            berat: 1,
+          ),
+        ],
+      );
+
+      expect(
+        () => validateFullRestoreShipments([
+          shipment('same-id', 'RESI001'),
+          shipment('same-id', 'RESI002'),
+        ]),
+        throwsA(isA<FormatException>()),
+      );
+
+      expect(
+        () => validateFullRestoreShipments([
+          shipment('id-1', 'RESI001'),
+          shipment('id-2', 'resi001'),
+        ]),
+        throwsA(isA<FormatException>()),
+      );
+
+      expect(
+        () => validateFullRestoreShipments([
+          shipment('id-1', 'RESI001'),
+          shipment('id-2', 'RESI002'),
+        ]),
+        returnsNormally,
+      );
+    });
+
     test('combined report photo quota is distributed round-robin', () {
       final quotas = allocatePhotoQuotasRoundRobin(
         [const MapEntry('A', 50), const MapEntry('B', 10), const MapEntry('C', 10)],
