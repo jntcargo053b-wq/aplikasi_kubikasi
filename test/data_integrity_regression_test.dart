@@ -223,15 +223,26 @@ void main() {
       );
     });
 
-    test('backup report settings validation remains explicit', () {
-      final settings = const <String, dynamic>{
+    test('backup report settings validation rejects malformed values', () {
+      final settings = parseBackupReportSettings({
         'companyName': 'Nextcube',
         'headerNote': 'Malang',
         'logoPath': null,
         'reportTitle': 'LAPORAN',
-      };
-      expect(settings['companyName'], 'Nextcube');
-      expect(settings['reportTitle'], 'LAPORAN');
+      });
+      expect(settings.companyName, 'Nextcube');
+      expect(settings.reportTitle, 'LAPORAN');
+
+      expect(
+        () => parseBackupReportSettings({
+          'companyName': 123,
+        }),
+        throwsA(isA<FormatException>()),
+      );
+      expect(
+        () => parseBackupReportSettings('invalid'),
+        throwsA(isA<FormatException>()),
+      );
     });
 
     test('full restore rejects duplicate shipment IDs and receipt numbers', () {
