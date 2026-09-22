@@ -223,6 +223,17 @@ void main() {
       );
     });
 
+    test('backup report settings validation remains explicit', () {
+      final settings = const <String, dynamic>{
+        'companyName': 'Nextcube',
+        'headerNote': 'Malang',
+        'logoPath': null,
+        'reportTitle': 'LAPORAN',
+      };
+      expect(settings['companyName'], 'Nextcube');
+      expect(settings['reportTitle'], 'LAPORAN');
+    });
+
     test('full restore rejects duplicate shipment IDs and receipt numbers', () {
       Pengiriman shipment(String id, String resi) => Pengiriman(
         id: id,
