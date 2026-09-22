@@ -531,15 +531,6 @@ class ExportService {
     return _LoadedPhotos(photos: result, truncated: totalAvailable > result.length);
   }
 
-  img.Image _prepareReportImage(img.Image source) {
-    final width = source.width;
-    final height = source.height;
-    final maxDimension = width > height ? width : height;
-    if (maxDimension <= _reportPhotoMaxDimension) return source;
-    final scale = _reportPhotoMaxDimension / maxDimension;
-    return img.copyResize(source, width: (width * scale).round(), height: (height * scale).round());
-  }
-
   Future<Map<String, int>> _allocatePhotoQuotas(List<Pengiriman> items, int maxTotal) async {
     return allocatePhotoQuotasRoundRobin(
       items
