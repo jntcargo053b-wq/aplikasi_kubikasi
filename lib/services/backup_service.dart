@@ -268,6 +268,33 @@ class BackupService {
         ? selectShipmentsForMerge(existing, data.shipments)
         : List<Pengiriman>.of(data.shipments);
 
+    // An empty backup is valid, but a restore must never turn it into an
+    // implicit "delete everything" operation. Treat it as a safe no-op.
+    if (!merge && data.shipments.isEmpty) {
+      final settings = await _settings.loadReportSettings();
+      return RestoreResult(
+        restoredShipments: 0,
+        restoredItems: 0,
+        restoredPhotos: 0,
+        skippedDuplicates: 0,
+        settings: settings,
+      );
+    }
+
+    // A merge whose incoming records all collide with existing ID/resi values
+    // is also a no-op. Avoid rewriting storage or report settings when nothing
+    // will actually be added.
+    if (merge && selected.isEmpty) {
+      final settings = await _settings.loadReportSettings();
+      return RestoreResult(
+        restoredShipments: 0,
+        restoredItems: 0,
+        restoredPhotos: 0,
+        skippedDuplicates: data.shipments.length,
+        settings: settings,
+      );
+    }
+
     final pathMap = <String, String>{};
     final createdPhotoPaths = <String>[];
     String? createdLogoPath;
