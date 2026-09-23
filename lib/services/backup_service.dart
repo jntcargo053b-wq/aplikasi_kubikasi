@@ -57,6 +57,13 @@ class BackupService {
     String? logoData;
     final logoPath = settings.logoPath;
     if (logoPath != null && logoPath.trim().isNotEmpty) {
+      // Report logos are app-owned files too. Never read an arbitrary path
+      // outside the app documents directory while creating a backup.
+      if (!_isInsideDocuments(logoPath, docs.path)) {
+        throw FormatException(
+          'Logo header laporan berada di luar penyimpanan aplikasi dan tidak dapat dibackup: $logoPath',
+        );
+      }
       final file = File(logoPath);
       if (!await file.exists()) {
         throw FormatException(
