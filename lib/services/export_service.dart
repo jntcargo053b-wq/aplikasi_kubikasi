@@ -98,7 +98,7 @@ class ExportService {
       final normalizedFile = _normalizePath(resolvedFile);
       final normalizedRoot = _normalizePath(resolvedRoot);
       final owned = normalizedFile == normalizedRoot ||
-          normalizedFile.startsWith('${normalizedRoot}/');
+          normalizedFile.startsWith('$normalizedRoot/');
       if (!owned) return null;
       final bytes = await file.readAsBytes();
       if (bytes.isEmpty) return null;
