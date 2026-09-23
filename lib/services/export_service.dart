@@ -91,12 +91,32 @@ class ExportService {
     try {
       final file = File(path);
       if (!await file.exists()) return null;
+      final docs = await getApplicationDocumentsDirectory();
+      final resolvedFile = await file.resolveSymbolicLinks();
+      final resolvedRoot =
+          await Directory('${docs.path}/report_header').resolveSymbolicLinks();
+      final normalizedFile = _normalizePath(resolvedFile);
+      final normalizedRoot = _normalizePath(resolvedRoot);
+      final owned = normalizedFile == normalizedRoot ||
+          normalizedFile.startsWith('${normalizedRoot}/');
+      if (!owned) return null;
       final bytes = await file.readAsBytes();
       if (bytes.isEmpty) return null;
       return pw.MemoryImage(bytes);
     } catch (_) {
       return null;
     }
+  }
+
+  String _normalizePath(String path) {
+    var value = path.trim().replaceAll('\\\\', '/');
+    while (value.contains('//')) {
+      value = value.replaceAll('//', '/');
+    }
+    if (value.length > 1 && value.endsWith('/')) {
+      value = value.substring(0, value.length - 1);
+    }
+    return value;
   }
 
   List<pw.Widget> _headerLines(ReportSettings settings, String defaultTitle, pw.MemoryImage? logo) {
