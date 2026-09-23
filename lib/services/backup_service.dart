@@ -9,6 +9,7 @@ import '../models/report_settings.dart';
 import 'settings_service.dart';
 import 'storage_service.dart';
 import 'photo_storage_service.dart';
+import 'report_logo_storage_service.dart';
 
 /// Portable, offline backup for shipment data, report settings, and app-owned
 /// photos. The backup is a single UTF-8 JSON file with a .ncbak extension.
@@ -394,7 +395,7 @@ class BackupService {
         if (previousLogoPath != null &&
             previousLogoPath.trim().isNotEmpty &&
             previousLogoPath != settings.logoPath) {
-          await PhotoStorageService.delete(previousLogoPath);
+          await ReportLogoStorageService.delete(previousLogoPath);
         }
       }
 
@@ -431,7 +432,7 @@ class BackupService {
       if (shipmentRollbackSucceeded) {
         await PhotoStorageService.deleteAll(createdPhotoPaths);
         if (createdLogoPath != null) {
-          await PhotoStorageService.delete(createdLogoPath);
+          await ReportLogoStorageService.delete(createdLogoPath);
         }
       }
 
