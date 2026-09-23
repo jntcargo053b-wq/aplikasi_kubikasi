@@ -30,11 +30,19 @@ class ReportLogoStorageService {
     if (path == null || path.trim().isEmpty) return false;
     try {
       final file = File(path);
-      final docs = await getApplicationDocumentsDirectory();
-      final root = _normalize('${docs.path}/report_header');
-      final target = _normalize(file.path);
-      if (!(target == root || target.startsWith('$root/'))) return false;
       if (!await file.exists()) return false;
+
+      final docs = await getApplicationDocumentsDirectory();
+      final rootDirectory = Directory('${docs.path}/report_header');
+      final resolvedFile = await file.resolveSymbolicLinks();
+      final resolvedRoot = await rootDirectory.resolveSymbolicLinks();
+      final target = _normalize(resolvedFile);
+      final root = _normalize(resolvedRoot);
+
+      // Never follow a logo symlink outside the app-owned report_header
+      // directory. Cleanup must not be able to delete arbitrary external files.
+      if (!(target == root || target.startsWith('$root/'))) return false;
+
       await file.delete();
       return true;
     } catch (_) {
