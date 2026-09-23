@@ -38,7 +38,7 @@ class BackupService {
     final docs = await getApplicationDocumentsDirectory();
 
     for (final path in photoPaths) {
-      if (!_isInsideDocuments(path, docs.path)) {
+      if (!await _isOwnedFile(File(path), docs.path)) {
         throw FormatException(
           'Foto pengiriman berada di luar penyimpanan aplikasi dan tidak dapat dibackup: $path',
         );
@@ -59,7 +59,7 @@ class BackupService {
     if (logoPath != null && logoPath.trim().isNotEmpty) {
       // Report logos are app-owned files too. Never read an arbitrary path
       // outside the app documents directory while creating a backup.
-      if (!_isInsideDocuments(logoPath, docs.path)) {
+      if (!await _isOwnedFile(File(logoPath), docs.path)) {
         throw FormatException(
           'Logo header laporan berada di luar penyimpanan aplikasi dan tidak dapat dibackup: $logoPath',
         );
@@ -468,11 +468,21 @@ class BackupService {
     return target.path;
   }
 
-  bool _isInsideDocuments(String path, String documentsPath) {
-    final normalizedPath = _normalizePath(path);
-    final normalizedDocuments = _normalizePath(documentsPath);
-    return normalizedPath == normalizedDocuments ||
-        normalizedPath.startsWith('$normalizedDocuments/');
+  Future<bool> _isOwnedFile(File file, String documentsPath) async {
+    if (!await file.exists()) return false;
+
+    try {
+      final resolvedFile = await file.resolveSymbolicLinks();
+      final resolvedRoot =
+          await Directory(documentsPath).resolveSymbolicLinks();
+      final normalizedFile = _normalizePath(resolvedFile);
+      final normalizedRoot = _normalizePath(resolvedRoot);
+      return normalizedFile == normalizedRoot ||
+          normalizedFile.startsWith('$normalizedRoot/');
+    } catch (_) {
+      // A file that cannot be resolved must not be treated as app-owned.
+      return false;
+    }
   }
 
   String _normalizePath(String path) {
