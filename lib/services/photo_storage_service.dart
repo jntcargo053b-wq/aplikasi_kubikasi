@@ -16,7 +16,10 @@ class PhotoStorageService {
       final root = _normalize(docs.path);
       final target = _normalize(photoPath);
 
-      if (!_isInsideDocuments(target, root)) return false;
+      if (!_isInsideDocuments(target, root) ||
+          !await _isOwnedFile(File(photoPath), docs.path)) {
+        return false;
+      }
 
       final shipments = await StorageService().loadPengiriman();
       final referenced = _referencedPaths(shipments);
@@ -48,7 +51,10 @@ class PhotoStorageService {
 
       for (final path in unique) {
         final normalized = _normalize(path);
-        if (!_isInsideDocuments(normalized, root)) continue;
+        if (!_isInsideDocuments(normalized, root) ||
+            !await _isOwnedFile(File(path), docs.path)) {
+          continue;
+        }
         await _deleteIfUnreferenced(
           photoPath: path,
           normalizedPath: normalized,
@@ -95,8 +101,23 @@ class PhotoStorageService {
     }
   }
 
-  static bool _isInsideDocuments(String target, String root) =>
-      target == root || target.startsWith('$root/');
+  static Future<bool> _isOwnedFile(
+    File file,
+    String documentsPath,
+  ) async {
+    if (!await file.exists()) return false;
+    try {
+      final resolvedFile = await file.resolveSymbolicLinks();
+      final resolvedRoot =
+          await Directory(documentsPath).resolveSymbolicLinks();
+      final normalizedFile = _normalize(resolvedFile);
+      final normalizedRoot = _normalize(resolvedRoot);
+      return normalizedFile == normalizedRoot ||
+          normalizedFile.startsWith('$normalizedRoot/');
+    } catch (_) {
+      return false;
+    }
+  }
 
   static String _normalize(String path) {
     var value = path.replaceAll('\\', '/');
