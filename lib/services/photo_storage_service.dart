@@ -101,6 +101,9 @@ class PhotoStorageService {
     }
   }
 
+  static bool _isInsideDocuments(String target, String root) =>
+      target == root || target.startsWith('$root/');
+
   static Future<bool> _isOwnedFile(
     File file,
     String documentsPath,
