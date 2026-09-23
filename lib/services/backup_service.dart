@@ -97,7 +97,9 @@ class BackupService {
         '${stamp.month.toString().padLeft(2, '0')}'
         '${stamp.day.toString().padLeft(2, '0')}_'
         '${stamp.hour.toString().padLeft(2, '0')}'
-        '${stamp.minute.toString().padLeft(2, '0')}.ncbak';
+        '${stamp.minute.toString().padLeft(2, '0')}'
+        '${stamp.second.toString().padLeft(2, '0')}_'
+        '${stamp.microsecond.toString().padLeft(6, '0')}.ncbak';
     final file = File('${docs.path}/$name');
     await file.writeAsString(jsonEncode(payload), flush: true);
     return file;
