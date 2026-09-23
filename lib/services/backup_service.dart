@@ -259,19 +259,7 @@ class BackupService {
     final rawSettings = decoded['reportSettings'];
     final settings = parseBackupReportSettings(rawSettings);
 
-    final rawCreatedAt = decoded['createdAt'];
-    if (rawCreatedAt != null && rawCreatedAt is! String) {
-      throw const FormatException('Tanggal pembuatan backup tidak valid.');
-    }
-    final createdAtText = rawCreatedAt as String?;
-    final createdAt = createdAtText == null || createdAtText.trim().isEmpty
-        ? null
-        : DateTime.tryParse(createdAtText);
-    if (createdAtText != null &&
-        createdAtText.trim().isNotEmpty &&
-        createdAt == null) {
-      throw const FormatException('Tanggal pembuatan backup tidak valid.');
-    }
+    final createdAt = parseBackupCreatedAt(decoded['createdAt']);
 
     return BackupData(
       shipments: shipments,
@@ -517,6 +505,22 @@ class BackupService {
     final ext = path.substring(dot).toLowerCase();
     return {'.jpg', '.jpeg', '.png', '.webp'}.contains(ext) ? ext : '.jpg';
   }
+}
+
+
+/// Parses the optional backup creation timestamp without silently accepting
+/// malformed values. Missing/blank timestamps remain backward-compatible.
+DateTime? parseBackupCreatedAt(Object? rawCreatedAt) {
+  if (rawCreatedAt == null) return null;
+  if (rawCreatedAt is! String) {
+    throw const FormatException('Tanggal pembuatan backup tidak valid.');
+  }
+  if (rawCreatedAt.trim().isEmpty) return null;
+  final parsed = DateTime.tryParse(rawCreatedAt);
+  if (parsed == null) {
+    throw const FormatException('Tanggal pembuatan backup tidak valid.');
+  }
+  return parsed;
 }
 
 /// Parses and validates report settings from a backup payload.
