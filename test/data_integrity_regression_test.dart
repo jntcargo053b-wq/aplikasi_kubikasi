@@ -223,6 +223,25 @@ void main() {
       );
     });
 
+    test('backup creation timestamp validation accepts valid and legacy values', () {
+      final parsed = parseBackupCreatedAt('2026-09-23T11:44:18.000Z');
+      expect(parsed, isNotNull);
+      expect(parsed!.toUtc().year, 2026);
+
+      expect(parseBackupCreatedAt(null), isNull);
+      expect(parseBackupCreatedAt(''), isNull);
+      expect(parseBackupCreatedAt('   '), isNull);
+
+      expect(
+        () => parseBackupCreatedAt('not-a-date'),
+        throwsA(isA<FormatException>()),
+      );
+      expect(
+        () => parseBackupCreatedAt(12345),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
     test('backup report settings validation rejects malformed values', () {
       final settings = parseBackupReportSettings({
         'companyName': 'Nextcube',
