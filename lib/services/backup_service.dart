@@ -259,12 +259,26 @@ class BackupService {
     final rawSettings = decoded['reportSettings'];
     final settings = parseBackupReportSettings(rawSettings);
 
+    final rawCreatedAt = decoded['createdAt'];
+    if (rawCreatedAt != null && rawCreatedAt is! String) {
+      throw const FormatException('Tanggal pembuatan backup tidak valid.');
+    }
+    final createdAtText = rawCreatedAt as String?;
+    final createdAt = createdAtText == null || createdAtText.trim().isEmpty
+        ? null
+        : DateTime.tryParse(createdAtText);
+    if (createdAtText != null &&
+        createdAtText.trim().isNotEmpty &&
+        createdAt == null) {
+      throw const FormatException('Tanggal pembuatan backup tidak valid.');
+    }
+
     return BackupData(
       shipments: shipments,
       settings: settings,
       photoData: photoData,
       logoData: logoData,
-      createdAt: DateTime.tryParse(decoded['createdAt'] as String? ?? ''),
+      createdAt: createdAt,
     );
   }
 
