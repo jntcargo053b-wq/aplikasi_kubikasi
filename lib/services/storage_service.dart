@@ -40,10 +40,11 @@ class StorageService {
 
   Future<void> savePengiriman(List<Pengiriman> items) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-      _shipmentKey,
-      jsonEncode(items.map((e) => e.toJson()).toList()),
-    );
+    final encoded = jsonEncode(items.map((e) => e.toJson()).toList());
+    final saved = await prefs.setString(_shipmentKey, encoded);
+    if (!saved) {
+      throw StateError('Gagal menyimpan data pengiriman ke penyimpanan aplikasi.');
+    }
   }
 
   Future<List<BarangItem>> loadLegacyItems() async {
