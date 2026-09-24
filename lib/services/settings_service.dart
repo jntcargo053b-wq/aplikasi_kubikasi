@@ -20,6 +20,12 @@ class SettingsService {
 
   Future<void> saveReportSettings(ReportSettings settings) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_reportSettingsKey, jsonEncode(settings.toJson()));
+    final saved = await prefs.setString(
+      _reportSettingsKey,
+      jsonEncode(settings.toJson()),
+    );
+    if (!saved) {
+      throw StateError('Gagal menyimpan pengaturan laporan ke penyimpanan aplikasi.');
+    }
   }
 }
