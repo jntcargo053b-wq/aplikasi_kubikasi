@@ -92,14 +92,7 @@ class BackupService {
       'integrity': integrity,
     };
 
-    final stamp = DateTime.now();
-    final name = 'nextcube_backup_${stamp.year.toString().padLeft(4, '0')}'
-        '${stamp.month.toString().padLeft(2, '0')}'
-        '${stamp.day.toString().padLeft(2, '0')}_'
-        '${stamp.hour.toString().padLeft(2, '0')}'
-        '${stamp.minute.toString().padLeft(2, '0')}'
-        '${stamp.second.toString().padLeft(2, '0')}_'
-        '${(stamp.millisecond * Duration.microsecondsPerMillisecond + stamp.microsecond).toString().padLeft(6, '0')}.ncbak';
+    final name = formatBackupFilename(DateTime.now());
     final file = File('${docs.path}/$name');
     await file.writeAsString(jsonEncode(payload), flush: true);
     return file;
@@ -509,6 +502,19 @@ class BackupService {
   }
 }
 
+
+String formatBackupFilename(DateTime stamp) {
+  final microsecondsWithinSecond =
+      stamp.millisecond * Duration.microsecondsPerMillisecond +
+      stamp.microsecond;
+  return 'nextcube_backup_${stamp.year.toString().padLeft(4, '0')}'
+      '${stamp.month.toString().padLeft(2, '0')}'
+      '${stamp.day.toString().padLeft(2, '0')}_'
+      '${stamp.hour.toString().padLeft(2, '0')}'
+      '${stamp.minute.toString().padLeft(2, '0')}'
+      '${stamp.second.toString().padLeft(2, '0')}_'
+      '${microsecondsWithinSecond.toString().padLeft(6, '0')}.ncbak';
+}
 
 /// Parses the optional backup creation timestamp without silently accepting
 /// malformed values. Missing/blank timestamps remain backward-compatible.
