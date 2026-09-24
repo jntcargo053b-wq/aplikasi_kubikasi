@@ -99,7 +99,7 @@ class BackupService {
         '${stamp.hour.toString().padLeft(2, '0')}'
         '${stamp.minute.toString().padLeft(2, '0')}'
         '${stamp.second.toString().padLeft(2, '0')}_'
-        '${stamp.microsecond.toString().padLeft(6, '0')}.ncbak';
+        '${(stamp.millisecond * Duration.microsecondsPerMillisecond + stamp.microsecond).toString().padLeft(6, '0')}.ncbak';
     final file = File('${docs.path}/$name');
     await file.writeAsString(jsonEncode(payload), flush: true);
     return file;
