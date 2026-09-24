@@ -225,13 +225,7 @@ void main() {
 
     test('backup filename timestamp precision includes sub-minute uniqueness', () {
       final stamp = DateTime(2026, 9, 24, 2, 31, 45, 123, 456);
-      final name = 'nextcube_backup_${stamp.year.toString().padLeft(4, '0')}'
-          '${stamp.month.toString().padLeft(2, '0')}'
-          '${stamp.day.toString().padLeft(2, '0')}_'
-          '${stamp.hour.toString().padLeft(2, '0')}'
-          '${stamp.minute.toString().padLeft(2, '0')}'
-          '${stamp.second.toString().padLeft(2, '0')}_'
-          '${stamp.microsecond.toString().padLeft(6, '0')}.ncbak';
+      final name = formatBackupFilename(stamp);
       expect(name, endsWith('_45_123456.ncbak'));
       expect(name, isNot(endsWith('_31.ncbak')));
     });
