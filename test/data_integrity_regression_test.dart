@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -228,6 +229,110 @@ void main() {
       final name = formatBackupFilename(stamp);
       expect(name, endsWith('_023145_123456.ncbak'));
       expect(name, isNot(endsWith('_31.ncbak')));
+    });
+
+    test('backup read rejects corrupted photo payload and checksum mismatch', () async {
+      final shipment = Pengiriman(
+        id: 'backup-test-1',
+        pengirim: 'Sender',
+        tanggal: DateTime(2026, 9, 24),
+        nomorResi: 'RESI-BACKUP-1',
+        barang: [
+          BarangItem(
+            id: 'item-1',
+            nama: 'Box',
+            jumlah: 1,
+            panjang: 10,
+            lebar: 10,
+            tinggi: 10,
+            berat: 1,
+            photoPath: '/app/photo.jpg',
+          ),
+        ],
+      );
+      final photoBytes = utf8.encode('photo-data');
+      final encodedPhoto = base64Encode(photoBytes);
+      final payload = <String, dynamic>{
+        'format': BackupService.format,
+        'version': BackupService.version,
+        'createdAt': '2026-09-24T00:00:00.000Z',
+        'counts': {'shipments': 1, 'items': 1, 'photos': 1},
+        'shipments': [shipment.toJson()],
+        'reportSettings': {
+          'companyName': '',
+          'headerNote': '',
+          'logoPath': null,
+          'reportTitle': '',
+        },
+        'photos': {'/app/photo.jpg': encodedPhoto},
+        'logoData': null,
+        'integrity': {'photo:/app/photo.jpg': 'invalid-checksum'},
+      };
+      final file = File(
+        '${Directory.systemTemp.path}/nextcube-backup-corrupt-test.ncbak',
+      );
+      await file.writeAsString(jsonEncode(payload), flush: true);
+      try {
+        await expectLater(
+          BackupService().readBackup(file),
+          throwsA(isA<FormatException>()),
+        );
+      } finally {
+        if (await file.exists()) {
+          await file.delete();
+        }
+      }
+    });
+
+    test('backup read rejects shipment photo reference missing from payload', () async {
+      final shipment = Pengiriman(
+        id: 'backup-test-2',
+        pengirim: 'Sender',
+        tanggal: DateTime(2026, 9, 24),
+        nomorResi: 'RESI-BACKUP-2',
+        barang: [
+          BarangItem(
+            id: 'item-2',
+            nama: 'Box',
+            jumlah: 1,
+            panjang: 10,
+            lebar: 10,
+            tinggi: 10,
+            berat: 1,
+            photoPath: '/app/missing.jpg',
+          ),
+        ],
+      );
+      final payload = <String, dynamic>{
+        'format': BackupService.format,
+        'version': BackupService.version,
+        'createdAt': '2026-09-24T00:00:00.000Z',
+        'counts': {'shipments': 1, 'items': 1, 'photos': 0},
+        'shipments': [shipment.toJson()],
+        'reportSettings': {
+          'companyName': '',
+          'headerNote': '',
+          'logoPath': null,
+          'reportTitle': '',
+        },
+        'photos': <String, String>{},
+        'logoData': null,
+        'integrity': <String, String>{},
+      };
+      final file = File(
+        '${Directory.systemTemp.path}/nextcube-backup-missing-photo-test.ncbak',
+      );
+      await file.writeAsString(jsonEncode(payload), flush: true);
+      try {
+        await expectLater(
+          BackupService().readBackup(file),
+          throwsA(isA<FormatException>()),
+        );
+      } finally {
+        if (await file.exists()) {
+          await file.delete();
+        }
+      }
     });
 
     test('backup creation timestamp validation accepts valid and legacy values', () {
