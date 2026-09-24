@@ -226,7 +226,7 @@ void main() {
     test('backup filename timestamp precision includes sub-minute uniqueness', () {
       final stamp = DateTime(2026, 9, 24, 2, 31, 45, 123, 456);
       final name = formatBackupFilename(stamp);
-      expect(name, endsWith('_45_123456.ncbak'));
+      expect(name, endsWith('_023145_123456.ncbak'));
       expect(name, isNot(endsWith('_31.ncbak')));
     });
 
