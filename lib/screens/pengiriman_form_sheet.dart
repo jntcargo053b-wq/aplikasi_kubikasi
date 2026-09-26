@@ -7,6 +7,7 @@ import '../models/barang_item.dart';
 import '../models/pengiriman.dart';
 import '../services/indonesia_region_service.dart';
 import '../services/photo_storage_service.dart';
+import '../services/storage_service.dart';
 import '../widgets/barang_form_sheet.dart';
 import 'barcode_scanner_screen.dart';
 
@@ -40,6 +41,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
   late List<BarangItem> _barang;
   late final Set<String> _originalPhotoPaths;
   final Set<String> _sessionPhotoPaths = {};
+  List<String> _savedSenders = const [];
 
   List<IndonesiaRegion> _kotaKabupaten = const [];
   List<IndonesiaRegion> _kecamatan = const [];
@@ -68,9 +70,29 @@ class _PengirimanFormState extends State<_PengirimanForm> {
         .where((p) => p.isNotEmpty)
         .toSet();
     _loadWilayah();
+    _loadSavedSenders();
   }
 
   String _date(DateTime d) => DateFormat('dd/MM/yyyy').format(d);
+
+  Future<void> _loadSavedSenders() async {
+    try {
+      final items = await StorageService().loadPengiriman();
+      final names = <String>{};
+      for (final item in items) {
+        final name = item.pengirim.trim();
+        if (name.isNotEmpty) names.add(name);
+      }
+      if (!mounted) return;
+      setState(() {
+        _savedSenders = names.toList()
+          ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+      });
+    } catch (_) {
+      // Daftar pengirim hanya fitur bantu; kegagalan memuatnya tidak
+      // mengganggu input pengirim manual maupun penyimpanan pengiriman.
+    }
+  }
 
   Future<void> _loadWilayah() async {
     try {
@@ -462,11 +484,105 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                 ),
               ),
               const SizedBox(height: 16),
-              TextField(
-                controller: _pengirim,
-                textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(labelText: 'Nama Pengirim'),
-                scrollPadding: const EdgeInsets.only(bottom: 180),
+              Autocomplete<String>(
+                initialValue: TextEditingValue(text: _pengirim.text),
+                optionsBuilder: (value) {
+                  final query = value.text.trim().toLowerCase();
+                  final matches = _savedSenders
+                      .where(
+                        (name) =>
+                            query.isEmpty ||
+                            name.toLowerCase().contains(query),
+                      )
+                      .toList();
+
+                  // Tetap izinkan nama baru diketik meskipun belum ada di
+                  // daftar pengirim yang tersimpan.
+                  if (value.text.trim().isNotEmpty &&
+                      !matches.any(
+                        (name) =>
+                            name.toLowerCase() ==
+                            value.text.trim().toLowerCase(),
+                      )) {
+                    return [value.text.trim(), ...matches];
+                  }
+                  return matches;
+                },
+                onSelected: (value) {
+                  _pengirim.text = value;
+                  _pengirim.selection = TextSelection.collapsed(
+                    offset: _pengirim.text.length,
+                  );
+                },
+                displayStringForOption: (value) => value,
+                fieldViewBuilder:
+                    (context, controller, focusNode, onFieldSubmitted) {
+                  controller.text = _pengirim.text;
+                  controller.selection = TextSelection.collapsed(
+                    offset: controller.text.length,
+                  );
+                  return TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    textInputAction: TextInputAction.next,
+                    onChanged: (value) => _pengirim.text = value,
+                    onSubmitted: (_) => onFieldSubmitted(),
+                    decoration: InputDecoration(
+                      labelText: 'Nama Pengirim',
+                      hintText: _savedSenders.isEmpty
+                          ? 'Ketik nama pengirim'
+                          : 'Ketik atau pilih pengirim',
+                      prefixIcon: const Icon(Icons.person_outline),
+                      suffixIcon: _savedSenders.isEmpty
+                          ? null
+                          : const Icon(Icons.arrow_drop_down),
+                    ),
+                    scrollPadding: const EdgeInsets.only(bottom: 180),
+                  );
+                },
+                optionsViewBuilder: (context, onSelected, options) {
+                  return Align(
+                    alignment: Alignment.topLeft,
+                    child: Material(
+                      elevation: 8,
+                      borderRadius: BorderRadius.circular(14),
+                      clipBehavior: Clip.antiAlias,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 260),
+                        child: ListView.separated(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          shrinkWrap: true,
+                          itemCount: options.length,
+                          separatorBuilder: (_, __) =>
+                              const Divider(height: 1),
+                          itemBuilder: (context, index) {
+                            final name = options.elementAt(index);
+                            final isNew = !_savedSenders.any(
+                              (saved) =>
+                                  saved.toLowerCase() == name.toLowerCase(),
+                            );
+                            return ListTile(
+                              leading: Icon(
+                                isNew
+                                    ? Icons.add_circle_outline
+                                    : Icons.person_outline,
+                              ),
+                              title: Text(
+                                isNew ? 'Gunakan "$name"' : name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: isNew
+                                  ? const Text('Pengirim baru')
+                                  : null,
+                              onTap: () => onSelected(name),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
               const SizedBox(height: 12),
               TextField(
