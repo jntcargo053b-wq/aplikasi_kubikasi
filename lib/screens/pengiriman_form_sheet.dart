@@ -169,8 +169,9 @@ class _PengirimanFormState extends State<_PengirimanForm> {
       final data = await IndonesiaRegionService.loadAllKabupatenKota();
       if (!mounted) return;
       IndonesiaRegion? selected;
-      if (widget.existing?.kotaKabupaten.isNotEmpty == true) {
-        final target = widget.existing!.kotaKabupaten.trim().toLowerCase();
+      final source = widget.existing ?? widget.duplicateFrom;
+      if (source?.kotaKabupaten.isNotEmpty == true) {
+        final target = source!.kotaKabupaten.trim().toLowerCase();
         for (final item in data) {
           if (item.name.trim().toLowerCase() == target) {
             selected = item;
@@ -205,8 +206,9 @@ class _PengirimanFormState extends State<_PengirimanForm> {
       final data = await IndonesiaRegionService.loadKecamatan(kota.code);
       if (!mounted) return;
       IndonesiaRegion? selected;
-      if (widget.existing?.kecamatan.isNotEmpty == true) {
-        final target = widget.existing!.kecamatan.trim().toLowerCase();
+      final source = widget.existing ?? widget.duplicateFrom;
+      if (source?.kecamatan.isNotEmpty == true) {
+        final target = source!.kecamatan.trim().toLowerCase();
         for (final item in data) {
           if (item.name.trim().toLowerCase() == target) {
             selected = item;
