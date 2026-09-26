@@ -131,9 +131,21 @@ class ShipmentDetailScreen extends StatelessWidget {
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(b.nama, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
                       const SizedBox(height: 4),
-                      Text('${b.jumlah} pcs • ${b.panjang} × ${b.lebar} × ${b.tinggi} cm', style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+                      Text(
+                        '${b.jumlah} pcs • ${b.panjang} × ${b.lebar} × ${b.tinggi} cm',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        softWrap: false,
+                        style: const TextStyle(color: AppColors.muted, fontSize: 12),
+                      ),
                       const SizedBox(height: 4),
-                      Text('${b.kubikasi.toStringAsFixed(3)} m³ • ${b.totalBerat.toStringAsFixed(2)} kg', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+                      Text(
+                        '${b.kubikasi.toStringAsFixed(3)} m³ • ${b.totalBerat.toStringAsFixed(2)} kg',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        softWrap: false,
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                      ),
                     ])),
                     const Icon(Icons.chevron_right, color: AppColors.muted),
                   ]),
