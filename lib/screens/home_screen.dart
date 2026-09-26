@@ -282,11 +282,68 @@ class _HomeScreenState extends State<HomeScreen> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tidak ada data untuk dibagikan.')));
       return;
     }
+    final proceed = await _showReportPreview(items, pdf: pdf);
+    if (!proceed || !mounted) return;
     await _runExport(
       label: 'Menyiapkan rekap ${pdf ? 'PDF' : 'Excel'}...',
       action: () => pdf ? _exportService.shareCombinedPdf(items, settings: _reportSettings) : _exportService.shareCombinedExcel(items, settings: _reportSettings),
     );
   }
+
+  Future<bool> _showReportPreview(List<Pengiriman> items, {required bool pdf}) async {
+    final totalJumlah = items.fold<int>(0, (s, e) => s + e.totalJumlah);
+    final totalKubikasi = items.fold<double>(0, (s, e) => s + e.totalKubikasi);
+    final totalBerat = items.fold<double>(0, (s, e) => s + e.totalBerat);
+    final senders = items.map((e) => e.pengirim.trim()).where((e) => e.isNotEmpty).toSet();
+    final dates = items.map((e) => e.tanggal).toList()..sort();
+    final range = dates.length == 1
+        ? _date(dates.first)
+        : '${_date(dates.first)} - ${_date(dates.last)}';
+    return await showModalBottomSheet<bool>(
+          context: context,
+          showDragHandle: true,
+          useSafeArea: true,
+          builder: (_) => SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text('Preview ${pdf ? 'PDF' : 'Excel'}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 6),
+                  const Text('Pastikan data hasil filter sudah sesuai sebelum laporan dibuat.', style: TextStyle(color: AppColors.muted)),
+                  const SizedBox(height: 16),
+                  _reportPreviewRow('Pengiriman', '${items.length} data'),
+                  _reportPreviewRow('Pengirim', senders.isEmpty ? '—' : '${senders.length} pengirim'),
+                  _reportPreviewRow('Periode', range),
+                  _reportPreviewRow('Total Barang', '$totalJumlah'),
+                  _reportPreviewRow('Total Berat', '${totalBerat.toStringAsFixed(2)} kg'),
+                  _reportPreviewRow('Total Kubikasi', '${totalKubikasi.toStringAsFixed(3)} m³'),
+                  const SizedBox(height: 18),
+                  FilledButton.icon(
+                    onPressed: () => Navigator.pop(context, true),
+                    icon: Icon(pdf ? Icons.picture_as_pdf_outlined : Icons.table_chart_outlined),
+                    label: Text('Buat ${pdf ? 'PDF' : 'Excel'}'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ) ??
+        false;
+  }
+
+  Widget _reportPreviewRow(String label, String value) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            SizedBox(width: 110, child: Text(label, style: const TextStyle(color: AppColors.muted))),
+            const Text('•  '),
+            Expanded(child: Text(value, textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.w700))),
+          ],
+        ),
+      );
 
   Future<void> _runExport({required String label, required Future<void> Function() action}) async {
     if (_exporting) return;
