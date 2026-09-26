@@ -793,22 +793,29 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                 ),
                 const SizedBox(height: 12),
               ],
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  const Expanded(
-                    child: Text(
-                      'Daftar Barang',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
+                  const Text(
+                    'Daftar Barang',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
-                  Row(mainAxisSize: MainAxisSize.min, children: [
-                    if (_savedBarangTemplates.isNotEmpty) OutlinedButton.icon(onPressed: _busy ? null : _quickAddBarang, icon: const Icon(Icons.history), label: const Text('Barang Lama')),
-                    if (_savedBarangTemplates.isNotEmpty) const SizedBox(width: 8),
-                    OutlinedButton.icon(onPressed: _busy ? null : _addItem, icon: const Icon(Icons.add), label: const Text('Tambah Barang')),
-                  ]),
+                  if (_savedBarangTemplates.isNotEmpty)
+                    OutlinedButton.icon(
+                      onPressed: _busy ? null : _quickAddBarang,
+                      icon: const Icon(Icons.history, size: 18),
+                      label: const Text('Barang Lama', maxLines: 1, softWrap: false),
+                    ),
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : _addItem,
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Tambah Barang', maxLines: 1, softWrap: false),
+                  ),
                 ],
               ),
               const SizedBox(height: 8),
