@@ -145,6 +145,31 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _duplicate(Pengiriman item) async {
+    final result = await showPengirimanFormSheet(
+      context,
+      duplicateFrom: item,
+    );
+    if (result == null || !mounted) return;
+    if (_hasDuplicateResi(result)) {
+      await _cleanupNewPhotosOnFailedSave(_items, result);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Nomor resi sudah digunakan. Gunakan nomor resi yang berbeda.')),
+        );
+      }
+      return;
+    }
+    final previous = List<Pengiriman>.of(_items);
+    final next = [...previous, result];
+    if (await _persistItems(next)) {
+      setState(() => _items = next);
+      await _cleanupAfterSuccessfulSave(previous, next);
+    } else {
+      await _cleanupNewPhotosOnFailedSave(previous, result);
+    }
+  }
+
   Future<void> _edit(Pengiriman item) async {
     final result = await showPengirimanFormSheet(context, existing: item);
     if (result == null || !mounted) return;
@@ -299,6 +324,7 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => ShipmentDetailScreen(
       shipment: item,
       onEdit: () async { Navigator.pop(context); await _edit(item); },
+      onDuplicate: () async { Navigator.pop(context); await _duplicate(item); },
       onSharePdf: () => _shareReport(item, pdf: true),
       onShareExcel: () => _shareReport(item, pdf: false),
       onEditItem: (index) async { Navigator.pop(context); await _editBarang(item, index); },
