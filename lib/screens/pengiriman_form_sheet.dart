@@ -536,9 +536,11 @@ class _PengirimanFormState extends State<_PengirimanForm> {
               ),
               const SizedBox(height: 16),
               Text(
-                widget.existing == null
-                    ? 'Tambah Pengiriman'
-                    : 'Edit Pengiriman',
+                widget.duplicateFrom != null
+                    ? 'Duplikat Pengiriman'
+                    : widget.existing == null
+                        ? 'Tambah Pengiriman'
+                        : 'Edit Pengiriman',
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
