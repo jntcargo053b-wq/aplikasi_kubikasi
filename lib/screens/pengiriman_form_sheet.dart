@@ -123,10 +123,18 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     IndonesiaRegion? selectedCity;
     for (final item in _kotaKabupaten) { if (item.name.trim().toLowerCase() == city) { selectedCity = item; break; } }
     if (selectedCity != null) {
+      // Select the city before loading its districts so the form reflects
+      // the copied region and the district picker uses the correct parent.
+      setState(() => _selectedKotaKabupaten = selectedCity);
       await _loadKecamatan(selectedCity);
       if (!mounted) return;
       IndonesiaRegion? selectedKec;
-      for (final item in _kecamatan) { if (item.name.trim().toLowerCase() == kec) { selectedKec = item; break; } }
+      for (final item in _kecamatan) {
+        if (item.name.trim().toLowerCase() == kec) {
+          selectedKec = item;
+          break;
+        }
+      }
       setState(() => _selectedKecamatan = selectedKec);
     }
   }
