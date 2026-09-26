@@ -21,13 +21,14 @@ Future<Pengiriman?> showPengirimanFormSheet(
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _PengirimanForm(existing: existing, initialBarang: initialBarang),
+      builder: (_) => _PengirimanForm(existing: existing, initialBarang: initialBarang, duplicateFrom: duplicateFrom),
     );
 
 class _PengirimanForm extends StatefulWidget {
   final Pengiriman? existing;
   final List<BarangItem>? initialBarang;
-  const _PengirimanForm({this.existing, this.initialBarang});
+  final Pengiriman? duplicateFrom;
+  const _PengirimanForm({this.existing, this.initialBarang, this.duplicateFrom});
 
   @override
   State<_PengirimanForm> createState() => _PengirimanFormState();
@@ -42,6 +43,9 @@ class _PengirimanFormState extends State<_PengirimanForm> {
   late final Set<String> _originalPhotoPaths;
   final Set<String> _sessionPhotoPaths = {};
   List<String> _savedSenders = const [];
+  Map<String, String> _senderPhones = const {};
+  List<Pengiriman> _savedShipments = const [];
+  List<BarangItem> _savedBarangTemplates = const [];
 
   List<IndonesiaRegion> _kotaKabupaten = const [];
   List<IndonesiaRegion> _kecamatan = const [];
@@ -56,12 +60,12 @@ class _PengirimanFormState extends State<_PengirimanForm> {
   @override
   void initState() {
     super.initState();
-    final e = widget.existing;
+    final e = widget.existing ?? widget.duplicateFrom;
     _pengirim = TextEditingController(text: e?.pengirim ?? '');
     _noTelepon = TextEditingController(text: e?.noTelepon ?? '');
-    _resi = TextEditingController(text: e?.nomorResi ?? '');
-    _tanggal = e?.tanggal ?? DateTime.now();
-    _barang = e?.barang.map((x) => x.copyWith()).toList() ??
+    _resi = TextEditingController(text: widget.duplicateFrom != null ? '' : (e?.nomorResi ?? ''));
+    _tanggal = widget.duplicateFrom != null ? DateTime.now() : (e?.tanggal ?? DateTime.now());
+    _barang = e?.barang.map((x) => x.copyWith(clearPhoto: widget.duplicateFrom != null)).toList() ??
         widget.initialBarang?.map((x) => x.copyWith()).toList() ??
         [];
     _originalPhotoPaths = _barang
@@ -79,21 +83,78 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     try {
       final items = await StorageService().loadPengiriman();
       final names = <String>{};
+      final phones = <String, String>{};
+      final templates = <String, BarangItem>{};
       for (final item in items) {
         final name = item.pengirim.trim();
-        if (name.isNotEmpty) names.add(name);
+        if (name.isNotEmpty) {
+          names.add(name);
+          final phone = item.noTelepon.trim();
+          if (phone.isNotEmpty) phones[name.toLowerCase()] = phone;
+        }
+        for (final itemBarang in item.barang) {
+          final key = '${itemBarang.nama.trim().toLowerCase()}|${itemBarang.panjang}|${itemBarang.lebar}|${itemBarang.tinggi}|${itemBarang.berat}';
+          if (itemBarang.nama.trim().isNotEmpty) templates.putIfAbsent(key, () => itemBarang.copyWith(clearPhoto: true));
+        }
       }
       if (!mounted) return;
       setState(() {
-        _savedSenders = names.toList()
-          ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+        _savedShipments = items;
+        _senderPhones = phones;
+        _savedSenders = names.toList()..sort((a,b) => a.toLowerCase().compareTo(b.toLowerCase()));
+        _savedBarangTemplates = templates.values.toList()..sort((a,b) => a.nama.toLowerCase().compareTo(b.nama.toLowerCase()));
       });
-    } catch (_) {
-      // Daftar pengirim hanya fitur bantu; kegagalan memuatnya tidak
-      // mengganggu input pengirim manual maupun penyimpanan pengiriman.
+    } catch (_) {}
+  }
+
+  void _applySender(String value) {
+    final phone = _senderPhones[value.trim().toLowerCase()];
+    if (phone != null && _noTelepon.text.trim().isEmpty) _noTelepon.text = phone;
+  }
+
+  Future<void> _useLastShipment() async {
+    if (_busy || widget.existing != null || _savedShipments.isEmpty) return;
+    final last = _savedShipments.reduce((a,b) => a.tanggal.isAfter(b.tanggal) ? a : b);
+    if (!mounted) return;
+    setState(() { _pengirim.text = last.pengirim; _noTelepon.text = last.noTelepon; });
+    final city = last.kotaKabupaten.trim().toLowerCase();
+    final kec = last.kecamatan.trim().toLowerCase();
+    IndonesiaRegion? selectedCity;
+    for (final item in _kotaKabupaten) { if (item.name.trim().toLowerCase() == city) { selectedCity = item; break; } }
+    if (selectedCity != null) {
+      await _loadKecamatan(selectedCity);
+      if (!mounted) return;
+      IndonesiaRegion? selectedKec;
+      for (final item in _kecamatan) { if (item.name.trim().toLowerCase() == kec) { selectedKec = item; break; } }
+      setState(() => _selectedKecamatan = selectedKec);
     }
   }
 
+  Future<void> _quickAddBarang() async {
+    if (_busy || _savedBarangTemplates.isEmpty) return;
+    final picked = await showModalBottomSheet<BarangItem>(
+      context: context, showDragHandle: true, useSafeArea: true,
+      builder: (sheetContext) => SafeArea(
+        child: ListView.separated(
+          shrinkWrap: true, padding: const EdgeInsets.fromLTRB(12,0,12,20),
+          itemCount: _savedBarangTemplates.length,
+          separatorBuilder: (_,__) => const Divider(height: 1),
+          itemBuilder: (_, index) {
+            final item = _savedBarangTemplates[index];
+            return ListTile(
+              leading: const Icon(Icons.inventory_2_outlined),
+              title: Text(item.nama),
+              subtitle: Text('${item.panjang} × ${item.lebar} × ${item.tinggi} cm • ${item.berat} kg/unit'),
+              onTap: () => Navigator.pop(sheetContext, item),
+            );
+          },
+        ),
+      ),
+    );
+    if (picked != null && mounted) {
+      setState(() => _barang.add(BarangItem(id: const Uuid().v4(), nama: picked.nama, jumlah: picked.jumlah, panjang: picked.panjang, lebar: picked.lebar, tinggi: picked.tinggi, berat: picked.berat)));
+    }
+  }
   Future<void> _loadWilayah() async {
     try {
       final data = await IndonesiaRegionService.loadAllKabupatenKota();
@@ -484,6 +545,9 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                 ),
               ),
               const SizedBox(height: 16),
+              if (widget.existing == null && widget.duplicateFrom == null && _savedShipments.isNotEmpty) ...[
+                Align(alignment: Alignment.centerLeft, child: TextButton.icon(onPressed: _busy ? null : _useLastShipment, icon: const Icon(Icons.history, size: 18), label: const Text('Gunakan data pengiriman terakhir'))),
+              ],
               Autocomplete<String>(
                 initialValue: TextEditingValue(text: _pengirim.text),
                 optionsBuilder: (value) {
@@ -510,6 +574,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                 },
                 onSelected: (value) {
                   _pengirim.text = value;
+                  _applySender(value);
                   _pengirim.selection = TextSelection.collapsed(
                     offset: _pengirim.text.length,
                   );
@@ -517,15 +582,14 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                 displayStringForOption: (value) => value,
                 fieldViewBuilder:
                     (context, controller, focusNode, onFieldSubmitted) {
-                  controller.text = _pengirim.text;
-                  controller.selection = TextSelection.collapsed(
-                    offset: controller.text.length,
-                  );
+                  if (controller.text != _pengirim.text) {
+                    controller.value = TextEditingValue(text: _pengirim.text, selection: TextSelection.collapsed(offset: _pengirim.text.length));
+                  }
                   return TextField(
                     controller: controller,
                     focusNode: focusNode,
                     textInputAction: TextInputAction.next,
-                    onChanged: (value) => _pengirim.text = value,
+                    onChanged: (value) { _pengirim.text = value; _applySender(value); },
                     onSubmitted: (_) => onFieldSubmitted(),
                     decoration: InputDecoration(
                       labelText: 'Nama Pengirim',
@@ -727,11 +791,11 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                       ),
                     ),
                   ),
-                  OutlinedButton.icon(
-                    onPressed: _busy ? null : _addItem,
-                    icon: const Icon(Icons.add),
-                    label: const Text('Tambah Barang'),
-                  ),
+                  Row(mainAxisSize: MainAxisSize.min, children: [
+                    if (_savedBarangTemplates.isNotEmpty) OutlinedButton.icon(onPressed: _busy ? null : _quickAddBarang, icon: const Icon(Icons.history), label: const Text('Barang Lama')),
+                    if (_savedBarangTemplates.isNotEmpty) const SizedBox(width: 8),
+                    OutlinedButton.icon(onPressed: _busy ? null : _addItem, icon: const Icon(Icons.add), label: const Text('Tambah Barang')),
+                  ]),
                 ],
               ),
               const SizedBox(height: 8),
