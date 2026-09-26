@@ -7,6 +7,7 @@ import '../models/pengiriman.dart';
 class ShipmentDetailScreen extends StatelessWidget {
   final Pengiriman shipment;
   final VoidCallback onEdit;
+  final VoidCallback onDuplicate;
   final VoidCallback onSharePdf;
   final VoidCallback onShareExcel;
   final void Function(int index) onEditItem;
@@ -15,6 +16,7 @@ class ShipmentDetailScreen extends StatelessWidget {
     super.key,
     required this.shipment,
     required this.onEdit,
+    required this.onDuplicate,
     required this.onSharePdf,
     required this.onShareExcel,
     required this.onEditItem,
@@ -32,10 +34,12 @@ class ShipmentDetailScreen extends StatelessWidget {
             onSelected: (v) {
               if (v == 'pdf') onSharePdf();
               if (v == 'excel') onShareExcel();
+              if (v == 'duplicate') onDuplicate();
             },
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'pdf', child: Text('Bagikan PDF')),
               PopupMenuItem(value: 'excel', child: Text('Bagikan Excel')),
+              PopupMenuItem(value: 'duplicate', child: Text('Duplikat Pengiriman')),
             ],
           ),
         ],
