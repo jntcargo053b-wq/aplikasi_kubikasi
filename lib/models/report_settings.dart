@@ -1,8 +1,10 @@
 /// Pengaturan header kustom yang ditampilkan pada laporan (PDF & Excel).
 ///
-/// [headerNote] tetap dipertahankan sebagai field alamat agar kompatibel
+/// [headerNote] tetap dipertahankan come as field alamat agar kompatibel
 /// dengan data/pengaturan versi sebelumnya.
 class ReportSettings {
+  static const String defaultTitle = 'LAPORAN KUBIKASI PENGIRIMAN';
+
   final String companyName;
   final String headerNote;
   final String? logoPath;
@@ -12,14 +14,18 @@ class ReportSettings {
     this.companyName = '',
     this.headerNote = '',
     this.logoPath,
-    this.reportTitle = 'LAPORAN KUBIKASI PENGIRIMAN',
+    this.reportTitle = defaultTitle,
   });
 
+  /// Dianggap "kosong" (belum dikustom user) jika perusahaan, alamat, dan
+  /// logo belum diisi, dan judul laporan masih judul bawaan atau kosong.
+  /// Judul bawaan tidak dihitung sebagai kustomisasi karena field ini selalu
+  /// terisi otomatis dengan [defaultTitle] saat belum pernah diubah.
   bool get isEmpty =>
       companyName.trim().isEmpty &&
       headerNote.trim().isEmpty &&
       (logoPath == null || logoPath!.trim().isEmpty) &&
-      reportTitle.trim().isEmpty;
+      (reportTitle.trim().isEmpty || reportTitle.trim() == defaultTitle);
 
   ReportSettings copyWith({
     String? companyName,
@@ -46,6 +52,6 @@ class ReportSettings {
         logoPath: json['logoPath'] as String?,
         reportTitle: (json['reportTitle'] as String?)?.trim().isNotEmpty == true
             ? json['reportTitle'] as String
-            : 'LAPORAN KUBIKASI PENGIRIMAN',
+            : defaultTitle,
       );
 }
