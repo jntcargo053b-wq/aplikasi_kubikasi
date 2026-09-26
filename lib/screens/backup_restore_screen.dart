@@ -37,18 +37,33 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
 
   Future<void> _restore() async {
     if (_busy) return;
-    final picked = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['ncbak'],
-      withData: false,
-    );
-    if (picked == null || picked.files.single.path == null || !mounted) return;
 
+    // Guard the system picker too: some Android devices can throw before a
+    // file is returned. Keep that failure visible instead of silently failing.
     setState(() => _busy = true);
     try {
-      final backup = await _backupService.readBackup(
-        File(picked.files.single.path!),
+      final picked = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['ncbak'],
+        allowMultiple: false,
+        withData: false,
       );
+      if (!mounted || picked == null) return;
+      if (picked.files.isEmpty) {
+        _message('Tidak ada file backup yang dipilih.', error: true);
+        return;
+      }
+
+      final path = picked.files.single.path;
+      if (path == null || path.trim().isEmpty) {
+        _message(
+          'File tidak dapat diakses. Simpan backup ke penyimpanan perangkat, lalu pilih kembali.',
+          error: true,
+        );
+        return;
+      }
+
+      final backup = await _backupService.readBackup(File(path));
       if (!mounted) return;
       final mode = await _chooseRestoreMode(backup);
       if (mode == null || !mounted) return;
@@ -59,10 +74,10 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         builder: (_) => AlertDialog(
           title: const Text('Restore berhasil'),
           content: Text(
-            '${result.restoredShipments} pengiriman\n'
-            '${result.restoredItems} barang\n'
+            '${result.restoredShipments} pengiriman\\n'
+            '${result.restoredItems} barang\\n'
             '${result.restoredPhotos} foto dipulihkan'
-            '${result.skippedDuplicates > 0 ? '\n${result.skippedDuplicates} pengiriman dilewati karena ID/resi sudah digunakan' : ''}',
+            '${result.skippedDuplicates > 0 ? '\\n${result.skippedDuplicates} pengiriman dilewati karena ID/resi sudah digunakan' : ''}',
           ),
           actions: [
             FilledButton(
