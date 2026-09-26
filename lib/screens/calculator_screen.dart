@@ -222,13 +222,22 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                   style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  '${_totalKubikasi.toStringAsFixed(3)} m³',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 32,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -1,
+                SizedBox(
+                  width: double.infinity,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      '${_totalKubikasi.toStringAsFixed(3)} m³',
+                      maxLines: 1,
+                      softWrap: false,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 32,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -1,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -415,6 +424,9 @@ class _Result extends StatelessWidget {
           const SizedBox(height: 3),
           Text(
             value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            softWrap: false,
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w700,
