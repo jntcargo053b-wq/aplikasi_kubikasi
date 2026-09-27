@@ -71,6 +71,24 @@ class StorageService {
     return result;
   }
 
+  /// Captures the exact persisted value so a failed restore can roll back
+  /// even when the current shipment JSON is unreadable.
+  Future<String?> readRawShipmentData() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_shipmentKey);
+  }
+
+  /// Restores the exact previous value after a failed transactional restore.
+  Future<void> restoreRawShipmentData(String? raw) async {
+    final prefs = await SharedPreferences.getInstance();
+    final restored = raw == null
+        ? await prefs.remove(_shipmentKey)
+        : await prefs.setString(_shipmentKey, raw);
+    if (!restored) {
+      throw StateError('Gagal memulihkan data pengiriman sebelumnya.');
+    }
+  }
+
   Future<void> savePengiriman(List<Pengiriman> items) async {
     final prefs = await SharedPreferences.getInstance();
     final encoded = jsonEncode(items.map((e) => e.toJson()).toList());
