@@ -90,6 +90,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
     );
     if (shipment == null || !mounted) return;
 
+    var shipmentPersisted = false;
     try {
       final storage = StorageService();
       final existing = await storage.loadPengiriman();
@@ -115,12 +116,16 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
       }
 
       await storage.savePengiriman([...existing, shipment]);
+      shipmentPersisted = true;
       if (!mounted) return;
       Navigator.of(context).pop(true);
     } catch (error) {
-      await PhotoStorageService.deleteAll(
-        shipment.barang.map((item) => item.photoPath),
-      );
+      // Once persisted, keep referenced photos even if route navigation fails.
+      if (!shipmentPersisted) {
+        await PhotoStorageService.deleteAll(
+          shipment.barang.map((item) => item.photoPath),
+        );
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
