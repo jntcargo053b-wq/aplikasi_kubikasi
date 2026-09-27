@@ -2,14 +2,51 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:volume_calculator/models/barang_item.dart';
 import 'package:volume_calculator/models/pengiriman.dart';
 import 'package:volume_calculator/services/export_service.dart';
 import 'package:volume_calculator/services/backup_service.dart';
+import 'package:volume_calculator/services/storage_service.dart';
 
 void main() {
   group('data integrity regression', () {
+    test('shipment storage rejects malformed JSON instead of returning empty data', () async {
+      SharedPreferences.setMockInitialValues({
+        'daftar_pengiriman_v2': '{broken-json',
+      });
+
+      await expectLater(
+        StorageService().loadPengiriman(),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('shipment storage rejects invalid records instead of silently dropping them', () async {
+      SharedPreferences.setMockInitialValues({
+        'daftar_pengiriman_v2': jsonEncode([
+          {
+            'id': 'valid-looking-but-incomplete',
+            'pengirim': 'Sender',
+            'nomorResi': '',
+            'tanggal': '2026-09-24T00:00:00.000',
+            'barang': [],
+          },
+        ]),
+      });
+
+      await expectLater(
+        StorageService().loadPengiriman(),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('shipment storage returns empty list only when no current data exists', () async {
+      SharedPreferences.setMockInitialValues({});
+
+      expect(await StorageService().loadPengiriman(), isEmpty);
+    });
     test('zero dimensions and weight remain valid and formulas stay stable', () {
       final item = BarangItem(
         id: '1',
