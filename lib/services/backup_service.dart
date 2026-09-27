@@ -277,7 +277,7 @@ class BackupService {
     late final List<Pengiriman> existing;
     try {
       existing = await _storage.loadPengiriman();
-    } catch (_) {
+    } on FormatException {
       if (merge) rethrow;
       existingReadable = false;
       existing = <Pengiriman>[];
