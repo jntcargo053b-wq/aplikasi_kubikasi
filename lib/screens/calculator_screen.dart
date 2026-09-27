@@ -3,6 +3,7 @@ import '../app_theme.dart';
 import '../models/barang_item.dart';
 import '../models/pengiriman.dart';
 import '../services/storage_service.dart';
+import '../services/photo_storage_service.dart';
 import 'package:uuid/uuid.dart';
 import 'pengiriman_form_sheet.dart';
 
@@ -99,6 +100,10 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
             (item) => item.nomorResi.trim().toLowerCase() == resi,
           );
       if (duplicateResi) {
+        await PhotoStorageService.deleteAll(
+          shipment.barang.map((item) => item.photoPath),
+        );
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
@@ -113,6 +118,9 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
       if (!mounted) return;
       Navigator.of(context).pop(true);
     } catch (error) {
+      await PhotoStorageService.deleteAll(
+        shipment.barang.map((item) => item.photoPath),
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
