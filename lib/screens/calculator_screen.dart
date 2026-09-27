@@ -96,41 +96,42 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
 
       var shipmentPersisted = false;
       try {
-      final storage = StorageService();
-      final existing = await storage.loadPengiriman();
-      if (!mounted) return;
-      final resi = shipment.nomorResi.trim().toLowerCase();
-      final duplicateResi = resi.isNotEmpty &&
-          existing.any(
-            (item) => item.nomorResi.trim().toLowerCase() == resi,
-          );
-      if (duplicateResi) {
-        await PhotoStorageService.deleteAll(
-          shipment.barang.map((item) => item.photoPath),
-        );
+        final storage = StorageService();
+        final existing = await storage.loadPengiriman();
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Nomor resi sudah digunakan. Gunakan nomor resi yang berbeda.',
-            ),
-          ),
-        );
-        return;
-      }
 
-      await storage.savePengiriman([...existing, shipment]);
-      shipmentPersisted = true;
-      if (!mounted) return;
-      Navigator.of(context).pop(true);
-    } catch (error) {
-      // Once persisted, keep referenced photos even if route navigation fails.
-      if (!shipmentPersisted) {
-        await PhotoStorageService.deleteAll(
-          shipment.barang.map((item) => item.photoPath),
-        );
-      }
-      if (!mounted) return;
+        final resi = shipment.nomorResi.trim().toLowerCase();
+        final duplicateResi = resi.isNotEmpty &&
+            existing.any(
+              (item) => item.nomorResi.trim().toLowerCase() == resi,
+            );
+        if (duplicateResi) {
+          await PhotoStorageService.deleteAll(
+            shipment.barang.map((item) => item.photoPath),
+          );
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Nomor resi sudah digunakan. Gunakan nomor resi yang berbeda.',
+              ),
+            ),
+          );
+          return;
+        }
+
+        await storage.savePengiriman([...existing, shipment]);
+        shipmentPersisted = true;
+        if (!mounted) return;
+        Navigator.of(context).pop(true);
+      } catch (error) {
+        // Once persisted, keep referenced photos even if route navigation fails.
+        if (!shipmentPersisted) {
+          await PhotoStorageService.deleteAll(
+            shipment.barang.map((item) => item.photoPath),
+          );
+        }
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Gagal menyimpan pengiriman: $error'),
