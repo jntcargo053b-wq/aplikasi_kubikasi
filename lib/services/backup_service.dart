@@ -269,7 +269,19 @@ class BackupService {
     BackupData data, {
     required bool merge,
   }) async {
-    final existing = await _storage.loadPengiriman();
+    // A full restore is also the recovery path for unreadable local storage.
+    // Merge still requires a readable current dataset to avoid overwriting or
+    // silently ignoring existing shipments.
+    final previousRawShipments = await _storage.readRawShipmentData();
+    var existingReadable = true;
+    late final List<Pengiriman> existing;
+    try {
+      existing = await _storage.loadPengiriman();
+    } catch (_) {
+      if (merge) rethrow;
+      existingReadable = false;
+      existing = <Pengiriman>[];
+    }
     if (!merge) {
       validateFullRestoreShipments(data.shipments);
     }
@@ -312,12 +324,17 @@ class BackupService {
     // Snapshot the settings before restore so a later settings failure can
     // roll the complete restore back to the pre-restore state.
     final previousSettings = await _settings.loadReportSettings();
-    final previousPhotoPaths = existing
-        .expand((e) => e.barang)
-        .map((b) => b.photoPath)
-        .whereType<String>()
-        .where((p) => p.trim().isNotEmpty)
-        .toSet();
+    // If the previous JSON was unreadable, its photo references are
+    // unknowable. Preserve those files rather than risk deleting photos still
+    // referenced by the recoverable raw data.
+    final previousPhotoPaths = existingReadable
+        ? existing
+            .expand((e) => e.barang)
+            .map((b) => b.photoPath)
+            .whereType<String>()
+            .where((p) => p.trim().isNotEmpty)
+            .toSet()
+        : <String>{};
     final previousLogoPath = previousSettings.logoPath;
 
     try {
@@ -379,7 +396,7 @@ class BackupService {
 
       // Replacing a full backup can orphan the previous shipment photos and
       // report logo. Clean them only after the new state is committed.
-      if (!merge) {
+      if (!merge && existingReadable) {
         final currentPhotoPaths = target
             .expand((e) => e.barang)
             .map((b) => b.photoPath)
@@ -418,7 +435,11 @@ class BackupService {
       var shipmentRollbackSucceeded = !shipmentsCommitted;
       if (shipmentsCommitted) {
         try {
-          await _storage.savePengiriman(existing);
+          if (existingReadable) {
+            await _storage.savePengiriman(existing);
+          } else {
+            await _storage.restoreRawShipmentData(previousRawShipments);
+          }
           shipmentRollbackSucceeded = true;
         } catch (_) {
           // Preserve the original error. The persisted state may still be the
