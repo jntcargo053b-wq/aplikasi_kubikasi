@@ -37,6 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Pengiriman> _items = [];
   ReportSettings _reportSettings = const ReportSettings();
   bool _loading = true;
+  String? _loadError;
   _SortMode _sort = _SortMode.terbaru;
   String _pengirim = 'Semua';
   DateTime? _mulai;
@@ -57,16 +58,31 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _load() async {
-    final results = await Future.wait<dynamic>([
-      _storage.loadPengiriman(),
-      _settingsService.loadReportSettings(),
-    ]);
-    if (!mounted) return;
-    setState(() {
-      _items = results[0] as List<Pengiriman>;
-      _reportSettings = results[1] as ReportSettings;
-      _loading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _loadError = null;
+      });
+    }
+    try {
+      final results = await Future.wait<dynamic>([
+        _storage.loadPengiriman(),
+        _settingsService.loadReportSettings(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _items = results[0] as List<Pengiriman>;
+        _reportSettings = results[1] as ReportSettings;
+        _loading = false;
+        _loadError = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadError = error.toString().replaceFirst('FormatException: ', '');
+      });
+    }
   }
 
   String get _search => _searchText;
@@ -391,6 +407,51 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (_loadError != null) {
+      return Scaffold(
+        appBar: AppBar(title: _brand()),
+        body: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.warning_amber_rounded, size: 52, color: Colors.orange),
+                const SizedBox(height: 12),
+                const Text(
+                  'Data pengiriman tidak dapat dibaca',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 8),
+                Text(_loadError!, textAlign: TextAlign.center),
+                const SizedBox(height: 12),
+                const Text(
+                  'Untuk mencegah kehilangan data, fitur perubahan data dinonaktifkan. '
+                  'Pulihkan data dari backup yang valid atau coba muat ulang.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                FilledButton.icon(
+                  onPressed: _load,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Coba lagi'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const BackupRestoreScreen()),
+                  ),
+                  icon: const Icon(Icons.restore),
+                  label: const Text('Buka Backup & Restore'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     final list = _displayed;
     return Scaffold(
       appBar: AppBar(
