@@ -74,10 +74,10 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
         builder: (_) => AlertDialog(
           title: const Text('Restore berhasil'),
           content: Text(
-            '${result.restoredShipments} pengiriman\\n'
-            '${result.restoredItems} barang\\n'
+            '${result.restoredShipments} pengiriman\n'
+            '${result.restoredItems} barang\n'
             '${result.restoredPhotos} foto dipulihkan'
-            '${result.skippedDuplicates > 0 ? '\\n${result.skippedDuplicates} pengiriman dilewati karena ID/resi sudah digunakan' : ''}',
+            '${result.skippedDuplicates > 0 ? '\n${result.skippedDuplicates} pengiriman dilewati karena ID/resi sudah digunakan' : ''}',
           ),
           actions: [
             FilledButton(
