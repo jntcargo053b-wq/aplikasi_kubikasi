@@ -411,7 +411,12 @@ class _HomeScreenState extends State<HomeScreen> {
           }
           if (index == 1) {
             if (mounted) setState(() => _navIndex = 1);
-            await Navigator.push(context, MaterialPageRoute(builder: (_) => const CalculatorScreen()));
+            final saved = await Navigator.push<bool>(
+              context,
+              MaterialPageRoute(builder: (_) => const CalculatorScreen()),
+            );
+            if (!mounted) return;
+            if (saved == true) await _load();
             if (mounted) setState(() => _navIndex = 0);
             return;
           }
