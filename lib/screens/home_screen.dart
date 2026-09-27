@@ -457,7 +457,21 @@ class _HomeScreenState extends State<HomeScreen> {
           const Text('Kelola pengiriman Anda dengan lebih mudah.', style: TextStyle(color: AppColors.muted)),
           const SizedBox(height: 18),
           Row(children: [
-            Expanded(child: _quickAction(Icons.view_in_ar_outlined, 'Hitung\nKubikasi', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CalculatorScreen())))),
+            Expanded(
+              child: _quickAction(
+                Icons.view_in_ar_outlined,
+                'Hitung\nKubikasi',
+                () async {
+                  final saved = await Navigator.push<bool>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const CalculatorScreen(),
+                    ),
+                  );
+                  if (saved == true && mounted) await _load();
+                },
+              ),
+            ),
             const SizedBox(width: 10),
             Expanded(child: _quickAction(Icons.add_box_outlined, 'Tambah\nPengiriman', _newShipment)),
             const SizedBox(width: 10),
