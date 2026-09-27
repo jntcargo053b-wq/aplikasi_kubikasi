@@ -92,6 +92,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
     try {
       final storage = StorageService();
       final existing = await storage.loadPengiriman();
+      if (!mounted) return;
       final resi = shipment.nomorResi.trim().toLowerCase();
       final duplicateResi = resi.isNotEmpty &&
           existing.any(
