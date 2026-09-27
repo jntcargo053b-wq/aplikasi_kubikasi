@@ -21,8 +21,10 @@ class _CalculatorItem {
   final TextEditingController jumlah = TextEditingController(text: '1');
   final TextEditingController berat = TextEditingController();
 
-  double _number(TextEditingController controller) =>
-      double.tryParse(controller.text.replaceAll(',', '.')) ?? 0;
+  double _number(TextEditingController controller) {
+    final value = double.tryParse(controller.text.replaceAll(',', '.'));
+    return value != null && value.isFinite ? value : 0;
+  }
 
   int get qty => int.tryParse(jumlah.text) ?? 0;
   double get singleM3 => _number(panjang) * _number(lebar) * _number(tinggi) / 1000000;
@@ -54,7 +56,10 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
       item._number(item.panjang) > 0 &&
       item._number(item.lebar) > 0 &&
       item._number(item.tinggi) > 0 &&
-      item._number(item.berat) >= 0;
+      item._number(item.berat) >= 0 &&
+      item.kubikasi.isFinite &&
+      item.volumetricWeight.isFinite &&
+      item.actualWeight.isFinite;
 
   Future<void> _continueToShipment() async {
     if (_savingShipment) return;
