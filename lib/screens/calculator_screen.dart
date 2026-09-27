@@ -42,6 +42,7 @@ class _CalculatorItem {
 
 class _CalculatorScreenState extends State<CalculatorScreen> {
   final List<_CalculatorItem> _items = [_CalculatorItem()];
+  bool _savingShipment = false;
 
   double get _totalKubikasi => _items.fold(0, (sum, item) => sum + item.kubikasi);
   double get _totalVolumetric => _items.fold(0, (sum, item) => sum + item.volumetricWeight);
@@ -56,6 +57,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
       item._number(item.berat) >= 0;
 
   Future<void> _continueToShipment() async {
+    if (_savingShipment) return;
     final invalidIndex = _items.indexWhere((item) => !_isReadyForShipment(item));
     if (invalidIndex != -1) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -84,14 +86,16 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
         )
         .toList();
 
-    final shipment = await showPengirimanFormSheet(
-      context,
-      initialBarang: barang,
-    );
-    if (shipment == null || !mounted) return;
-
-    var shipmentPersisted = false;
+    setState(() => _savingShipment = true);
     try {
+      final shipment = await showPengirimanFormSheet(
+        context,
+        initialBarang: barang,
+      );
+      if (shipment == null || !mounted) return;
+
+      var shipmentPersisted = false;
+      try {
       final storage = StorageService();
       final existing = await storage.loadPengiriman();
       if (!mounted) return;
@@ -127,12 +131,15 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
         );
       }
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Gagal menyimpan pengiriman: $error'),
-          duration: const Duration(seconds: 5),
-        ),
-      );
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal menyimpan pengiriman: $error'),
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _savingShipment = false);
     }
   }
 
@@ -314,9 +321,22 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
           ),
           const SizedBox(height: 16),
           FilledButton.icon(
-            onPressed: _items.every(_isReadyForShipment) ? _continueToShipment : null,
-            icon: const Icon(Icons.add_box_outlined),
-            label: const Text('Lanjut ke Pengiriman'),
+            onPressed: !_savingShipment && _items.every(_isReadyForShipment)
+                ? _continueToShipment
+                : null,
+            icon: _savingShipment
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.add_box_outlined),
+            label: Text(
+              _savingShipment ? 'Menyimpan...' : 'Lanjut ke Pengiriman',
+            ),
           ),
           const SizedBox(height: 8),
           const Text(
