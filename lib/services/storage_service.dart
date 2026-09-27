@@ -10,32 +10,65 @@ class StorageService {
   Future<List<Pengiriman>> loadPengiriman() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_shipmentKey);
-    if (raw != null && raw.isNotEmpty) {
-      try {
-        final decoded = jsonDecode(raw);
-        if (decoded is List) {
-          final result = <Pengiriman>[];
-          for (final rawItem in decoded) {
-            if (rawItem is! Map) continue;
-            try {
-              final item = Pengiriman.fromJson(
-                Map<String, dynamic>.from(rawItem),
-              );
-              if (item.pengirim.trim().isNotEmpty &&
-                  item.nomorResi.trim().isNotEmpty &&
-                  item.barang.isNotEmpty) {
-                result.add(item);
-              }
-            } catch (_) {}
-          }
-          return result;
-        }
-      } catch (_) {}
+    if (raw == null) {
+      // Legacy data has no receipt number and is not a completed shipment.
+      return [];
     }
 
-    // Migrasi aman dari data lama. Data lama belum punya resi, jadi
-    // tidak dianggap transaksi selesai dan tidak dipaksakan menjadi resi.
-    return [];
+    if (raw.trim().isEmpty) {
+      throw const FormatException(
+        'Data pengiriman tersimpan kosong dan tidak dapat dibaca. '
+        'Data tidak diubah untuk mencegah kehilangan data.',
+      );
+    }
+
+    final dynamic decoded;
+    try {
+      decoded = jsonDecode(raw);
+    } on FormatException {
+      throw const FormatException(
+        'Data pengiriman tersimpan rusak (JSON tidak valid). '
+        'Data tidak diubah. Pulihkan dari backup sebelum melanjutkan.',
+      );
+    }
+
+    if (decoded is! List) {
+      throw const FormatException(
+        'Format data pengiriman tidak valid. Pulihkan dari backup sebelum melanjutkan.',
+      );
+    }
+
+    final result = <Pengiriman>[];
+    for (var index = 0; index < decoded.length; index++) {
+      final rawItem = decoded[index];
+      if (rawItem is! Map) {
+        throw FormatException(
+          'Record pengiriman ke-${index + 1} tidak valid. '
+          'Data tidak diubah untuk mencegah kehilangan data.',
+        );
+      }
+
+      final Pengiriman item;
+      try {
+        item = Pengiriman.fromJson(Map<String, dynamic>.from(rawItem));
+      } catch (_) {
+        throw FormatException(
+          'Record pengiriman ke-${index + 1} tidak dapat dibaca. '
+          'Pulihkan dari backup sebelum melanjutkan.',
+        );
+      }
+
+      if (item.pengirim.trim().isEmpty ||
+          item.nomorResi.trim().isEmpty ||
+          item.barang.isEmpty) {
+        throw FormatException(
+          'Record pengiriman ke-${index + 1} tidak lengkap. '
+          'Data tidak diubah untuk mencegah kehilangan data.',
+        );
+      }
+      result.add(item);
+    }
+    return result;
   }
 
   Future<void> savePengiriman(List<Pengiriman> items) async {
