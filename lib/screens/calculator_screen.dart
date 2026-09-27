@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../app_theme.dart';
 import '../models/barang_item.dart';
+import '../models/pengiriman.dart';
+import '../services/storage_service.dart';
 import 'package:uuid/uuid.dart';
 import 'pengiriman_form_sheet.dart';
 
@@ -52,7 +54,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
       item._number(item.tinggi) > 0 &&
       item._number(item.berat) >= 0;
 
-  void _continueToShipment() {
+  Future<void> _continueToShipment() async {
     final invalidIndex = _items.indexWhere((item) => !_isReadyForShipment(item));
     if (invalidIndex != -1) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -81,7 +83,43 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
         )
         .toList();
 
-    showPengirimanFormSheet(context, initialBarang: barang);
+    final shipment = await showPengirimanFormSheet(
+      context,
+      initialBarang: barang,
+    );
+    if (shipment == null || !mounted) return;
+
+    try {
+      final storage = StorageService();
+      final existing = await storage.loadPengiriman();
+      final resi = shipment.nomorResi.trim().toLowerCase();
+      final duplicateResi = resi.isNotEmpty &&
+          existing.any(
+            (item) => item.nomorResi.trim().toLowerCase() == resi,
+          );
+      if (duplicateResi) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Nomor resi sudah digunakan. Gunakan nomor resi yang berbeda.',
+            ),
+          ),
+        );
+        return;
+      }
+
+      await storage.savePengiriman([...existing, shipment]);
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal menyimpan pengiriman: $error'),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    }
   }
 
   @override
