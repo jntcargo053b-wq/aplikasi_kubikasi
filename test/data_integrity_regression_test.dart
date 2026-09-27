@@ -47,6 +47,68 @@ void main() {
 
       expect(await StorageService().loadPengiriman(), isEmpty);
     });
+    test('full backup restore recovers when current shipment JSON is corrupted', () async {
+      SharedPreferences.setMockInitialValues({
+        'daftar_pengiriman_v2': '{broken-json',
+      });
+      final shipment = Pengiriman(
+        id: 'restore-recovery-1',
+        pengirim: 'Sender',
+        tanggal: DateTime(2026, 9, 27),
+        nomorResi: 'RECOVER001',
+        barang: [
+          BarangItem(
+            id: 'restore-item-1',
+            nama: 'Box',
+            jumlah: 1,
+            panjang: 10,
+            lebar: 10,
+            tinggi: 10,
+            berat: 1,
+          ),
+        ],
+      );
+      const backup = BackupData(
+        shipments: [],
+        settings: ReportSettings(),
+        photoData: {},
+        logoData: null,
+        createdAt: null,
+      );
+      final data = BackupData(
+        shipments: [shipment],
+        settings: backup.settings,
+        photoData: backup.photoData,
+        logoData: backup.logoData,
+        createdAt: backup.createdAt,
+      );
+
+      final result = await BackupService().restore(data, merge: false);
+
+      expect(result.restoredShipments, 1);
+      expect((await StorageService().loadPengiriman()).single.nomorResi, 'RECOVER001');
+    });
+
+    test('merge refuses corrupted shipment storage and preserves raw data', () async {
+      const corrupted = '{broken-json';
+      SharedPreferences.setMockInitialValues({
+        'daftar_pengiriman_v2': corrupted,
+      });
+      const data = BackupData(
+        shipments: [],
+        settings: ReportSettings(),
+        photoData: {},
+        logoData: null,
+        createdAt: null,
+      );
+
+      await expectLater(
+        BackupService().restore(data, merge: true),
+        throwsA(isA<FormatException>()),
+      );
+      expect(await StorageService().readRawShipmentData(), corrupted);
+    });
+
     test('zero dimensions and weight remain valid and formulas stay stable', () {
       final item = BarangItem(
         id: '1',
