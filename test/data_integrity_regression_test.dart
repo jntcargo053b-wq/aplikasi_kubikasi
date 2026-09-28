@@ -43,6 +43,89 @@ void main() {
       );
     });
 
+    test('backup import rejects invalid shipment dates', () async {
+      final file = File(
+        '${Directory.systemTemp.path}/backup-invalid-shipment-date-test.json',
+      );
+      await file.writeAsString(jsonEncode({
+        'format': BackupService.format,
+        'version': BackupService.version,
+        'createdAt': null,
+        'counts': {'shipments': 1, 'items': 1, 'photos': 0},
+        'shipments': [
+          {
+            'id': 'backup-invalid-date',
+            'pengirim': 'Sender',
+            'nomorResi': 'INVALID-DATE',
+            'tanggal': 'not-a-date',
+            'barang': [
+              {
+                'id': 'item-1',
+                'nama': 'Box',
+                'jumlah': 1,
+                'panjang': 10,
+                'lebar': 10,
+                'tinggi': 10,
+                'berat': 1,
+              },
+            ],
+          },
+        ],
+        'reportSettings': const ReportSettings().toJson(),
+        'photos': <String, String>{},
+        'logoData': null,
+        'integrity': <String, String>{},
+      }));
+
+      await expectLater(
+        BackupService().readBackup(file),
+        throwsA(isA<FormatException>()),
+      );
+      await file.delete();
+    });
+
+    test('backup import rejects malformed items instead of silently dropping them', () async {
+      final file = File(
+        '${Directory.systemTemp.path}/backup-malformed-item-test.json',
+      );
+      await file.writeAsString(jsonEncode({
+        'format': BackupService.format,
+        'version': BackupService.version,
+        'createdAt': null,
+        'counts': {'shipments': 1, 'items': 2, 'photos': 0},
+        'shipments': [
+          {
+            'id': 'backup-malformed-item',
+            'pengirim': 'Sender',
+            'nomorResi': 'DAMAGED-ITEM',
+            'tanggal': '2026-09-24T00:00:00.000',
+            'barang': [
+              {
+                'id': 'item-1',
+                'nama': 'Box',
+                'jumlah': 1,
+                'panjang': 10,
+                'lebar': 10,
+                'tinggi': 10,
+                'berat': 1,
+              },
+              {'id': 'item-2', 'nama': 'Damaged box', 'jumlah': 'invalid'},
+            ],
+          },
+        ],
+        'reportSettings': const ReportSettings().toJson(),
+        'photos': <String, String>{},
+        'logoData': null,
+        'integrity': <String, String>{},
+      }));
+
+      await expectLater(
+        BackupService().readBackup(file),
+        throwsA(isA<FormatException>()),
+      );
+      await file.delete();
+    });
+
     test('shipment storage rejects an invalid date instead of substituting the current date', () async {
       SharedPreferences.setMockInitialValues({
         'daftar_pengiriman_v2': jsonEncode([
