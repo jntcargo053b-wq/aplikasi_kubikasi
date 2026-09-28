@@ -43,6 +43,63 @@ void main() {
       );
     });
 
+    test('shipment storage rejects an invalid date instead of substituting the current date', () async {
+      SharedPreferences.setMockInitialValues({
+        'daftar_pengiriman_v2': jsonEncode([
+          {
+            'id': 'shipment-with-invalid-date',
+            'pengirim': 'Sender',
+            'nomorResi': 'INVALID-DATE',
+            'tanggal': 'not-a-date',
+            'barang': [
+              {
+                'id': 'item-1',
+                'nama': 'Box',
+                'jumlah': 1,
+                'panjang': 10,
+                'lebar': 10,
+                'tinggi': 10,
+                'berat': 1,
+              },
+            ],
+          },
+        ]),
+      });
+
+      await expectLater(
+        StorageService().loadPengiriman(),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('shipment storage rejects a missing date instead of substituting the current date', () async {
+      SharedPreferences.setMockInitialValues({
+        'daftar_pengiriman_v2': jsonEncode([
+          {
+            'id': 'shipment-without-date',
+            'pengirim': 'Sender',
+            'nomorResi': 'MISSING-DATE',
+            'barang': [
+              {
+                'id': 'item-1',
+                'nama': 'Box',
+                'jumlah': 1,
+                'panjang': 10,
+                'lebar': 10,
+                'tinggi': 10,
+                'berat': 1,
+              },
+            ],
+          },
+        ]),
+      });
+
+      await expectLater(
+        StorageService().loadPengiriman(),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
     test('shipment storage rejects a shipment when one malformed item would be dropped', () async {
       SharedPreferences.setMockInitialValues({
         'daftar_pengiriman_v2': jsonEncode([
