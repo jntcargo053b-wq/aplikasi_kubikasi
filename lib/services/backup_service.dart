@@ -175,19 +175,49 @@ class BackupService {
     }
 
     final shipments = <Pengiriman>[];
-    for (final rawShipment in rawShipments) {
-      if (rawShipment is! Map) continue;
+    for (var index = 0; index < rawShipments.length; index++) {
+      final rawShipment = rawShipments[index];
+      if (rawShipment is! Map) {
+        throw FormatException(
+          'Record pengiriman ke-${index + 1} pada backup tidak valid.',
+        );
+      }
+      final rawDate = rawShipment['tanggal'];
+      if (rawDate is! String || DateTime.tryParse(rawDate) == null) {
+        throw FormatException(
+          'Tanggal pengiriman ke-${index + 1} pada backup tidak valid.',
+        );
+      }
+      final rawItems = rawShipment['barang'];
+      if (rawItems is! List) {
+        throw FormatException(
+          'Daftar barang pada pengiriman ke-${index + 1} di backup tidak valid.',
+        );
+      }
+
+      final Pengiriman shipment;
       try {
-        final shipment = Pengiriman.fromJson(
+        shipment = Pengiriman.fromJson(
           Map<String, dynamic>.from(rawShipment),
         );
-        if (shipment.pengirim.trim().isEmpty ||
-            shipment.nomorResi.trim().isEmpty ||
-            shipment.barang.isEmpty) {
-          continue;
-        }
-        shipments.add(shipment);
-      } catch (_) {}
+      } catch (_) {
+        throw FormatException(
+          'Record pengiriman ke-${index + 1} pada backup tidak dapat dibaca.',
+        );
+      }
+      if (shipment.barang.length != rawItems.length) {
+        throw FormatException(
+          'Daftar barang pada pengiriman ke-${index + 1} di backup tidak utuh.',
+        );
+      }
+      if (shipment.pengirim.trim().isEmpty ||
+          shipment.nomorResi.trim().isEmpty ||
+          shipment.barang.isEmpty) {
+        throw FormatException(
+          'Record pengiriman ke-${index + 1} pada backup tidak lengkap.',
+        );
+      }
+      shipments.add(shipment);
     }
 
     if (shipments.length != expectedShipmentCount) {
