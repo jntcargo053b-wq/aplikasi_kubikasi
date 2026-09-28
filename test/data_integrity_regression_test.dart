@@ -43,6 +43,40 @@ void main() {
       );
     });
 
+    test('shipment storage rejects a shipment when one malformed item would be dropped', () async {
+      SharedPreferences.setMockInitialValues({
+        'daftar_pengiriman_v2': jsonEncode([
+          {
+            'id': 'shipment-with-damaged-item',
+            'pengirim': 'Sender',
+            'nomorResi': 'RESI-DAMAGED-ITEM',
+            'tanggal': '2026-09-24T00:00:00.000',
+            'barang': [
+              {
+                'id': 'valid-item',
+                'nama': 'Box',
+                'jumlah': 1,
+                'panjang': 10,
+                'lebar': 10,
+                'tinggi': 10,
+                'berat': 1,
+              },
+              {
+                'id': 'damaged-item',
+                'nama': 'Damaged box',
+                'jumlah': 'not-a-number',
+              },
+            ],
+          },
+        ]),
+      });
+
+      await expectLater(
+        StorageService().loadPengiriman(),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
     test('shipment storage returns empty list only when no current data exists', () async {
       SharedPreferences.setMockInitialValues({});
 
