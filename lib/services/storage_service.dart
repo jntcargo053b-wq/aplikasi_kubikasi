@@ -48,6 +48,17 @@ class StorageService {
         );
       }
 
+      // The model parser falls back to DateTime.now() when a stored date
+      // is missing or invalid. That fallback is useful for some direct model
+      // callers, but must not silently rewrite the meaning of persisted data.
+      final rawTanggal = rawItem['tanggal'];
+      if (rawTanggal is! String || DateTime.tryParse(rawTanggal) == null) {
+        throw FormatException(
+          'Tanggal pada pengiriman ke-${index + 1} tidak valid. '
+          'Data tidak diubah untuk mencegah perubahan tanggal secara diam-diam.',
+        );
+      }
+
       final Pengiriman item;
       try {
         item = Pengiriman.fromJson(Map<String, dynamic>.from(rawItem));
