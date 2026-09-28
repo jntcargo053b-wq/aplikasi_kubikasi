@@ -58,6 +58,17 @@ class StorageService {
         );
       }
 
+      // Pengiriman.fromJson historically skipped malformed barang entries.
+      // Compare raw and parsed counts so a damaged item cannot disappear
+      // silently while the rest of the shipment is accepted.
+      final rawBarang = rawItem['barang'];
+      if (rawBarang is! List || item.barang.length != rawBarang.length) {
+        throw FormatException(
+          'Daftar barang pada pengiriman ke-\${index + 1} tidak utuh. '
+          'Data tidak diubah untuk mencegah kehilangan data.',
+        );
+      }
+
       if (item.pengirim.trim().isEmpty ||
           item.nomorResi.trim().isEmpty ||
           item.barang.isEmpty) {
