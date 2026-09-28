@@ -64,7 +64,7 @@ class StorageService {
       final rawBarang = rawItem['barang'];
       if (rawBarang is! List || item.barang.length != rawBarang.length) {
         throw FormatException(
-          'Daftar barang pada pengiriman ke-\${index + 1} tidak utuh. '
+          'Daftar barang pada pengiriman ke-${index + 1} tidak utuh. '
           'Data tidak diubah untuk mencegah kehilangan data.',
         );
       }
