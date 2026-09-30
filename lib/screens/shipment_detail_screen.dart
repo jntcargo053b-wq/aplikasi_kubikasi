@@ -44,7 +44,16 @@ class ShipmentDetailScreen extends StatelessWidget {
               PopupMenuItem(value: 'excel', child: Text('Bagikan Excel')),
               PopupMenuItem(value: 'duplicate', child: Text('Duplikat Pengiriman')),
               PopupMenuDivider(),
-              PopupMenuItem(value: 'delete', child: Text('Hapus Pengiriman')),
+              PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_outline, color: Colors.red),
+                    SizedBox(width: 12),
+                    Text('Hapus Pengiriman', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
             ],
           ),
         ],
