@@ -10,6 +10,7 @@ class ShipmentDetailScreen extends StatelessWidget {
   final VoidCallback onDuplicate;
   final VoidCallback onSharePdf;
   final VoidCallback onShareExcel;
+  final VoidCallback onDelete;
   final void Function(int index) onEditItem;
 
   const ShipmentDetailScreen({
@@ -19,6 +20,7 @@ class ShipmentDetailScreen extends StatelessWidget {
     required this.onDuplicate,
     required this.onSharePdf,
     required this.onShareExcel,
+    required this.onDelete,
     required this.onEditItem,
   });
 
@@ -35,11 +37,14 @@ class ShipmentDetailScreen extends StatelessWidget {
               if (v == 'pdf') onSharePdf();
               if (v == 'excel') onShareExcel();
               if (v == 'duplicate') onDuplicate();
+              if (v == 'delete') onDelete();
             },
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'pdf', child: Text('Bagikan PDF')),
               PopupMenuItem(value: 'excel', child: Text('Bagikan Excel')),
               PopupMenuItem(value: 'duplicate', child: Text('Duplikat Pengiriman')),
+              PopupMenuDivider(),
+              PopupMenuItem(value: 'delete', child: Text('Hapus Pengiriman')),
             ],
           ),
         ],
