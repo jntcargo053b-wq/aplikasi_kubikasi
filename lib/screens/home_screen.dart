@@ -400,6 +400,7 @@ class _HomeScreenState extends State<HomeScreen> {
       onDuplicate: () async { Navigator.pop(context); await _duplicate(item); },
       onSharePdf: () => _shareReport(item, pdf: true),
       onShareExcel: () => _shareReport(item, pdf: false),
+      onDelete: () async { Navigator.pop(context); await _delete(item); },
       onEditItem: (index) async { Navigator.pop(context); await _editBarang(item, index); },
     )));
   }
