@@ -57,6 +57,8 @@ class _PengirimanFormState extends State<_PengirimanForm> {
   bool _saved = false;
   bool _busy = false;
   String? _wilayahError;
+  String? _resiError;
+  late final FocusNode _resiFocus;
 
   @override
   void initState() {
@@ -65,6 +67,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     _pengirim = TextEditingController(text: e?.pengirim ?? '');
     _noTelepon = TextEditingController(text: e?.noTelepon ?? '');
     _resi = TextEditingController(text: widget.duplicateFrom != null ? '' : (e?.nomorResi ?? ''));
+    _resiFocus = FocusNode();
     _tanggal = widget.duplicateFrom != null ? DateTime.now() : (e?.tanggal ?? DateTime.now());
     _barang = e?.barang.map((x) => x.copyWith(clearPhoto: widget.duplicateFrom != null)).toList() ??
         widget.initialBarang?.map((x) => x.copyWith()).toList() ??
@@ -79,6 +82,44 @@ class _PengirimanFormState extends State<_PengirimanForm> {
   }
 
   String _date(DateTime d) => DateFormat('dd/MM/yyyy').format(d);
+
+  bool get _hasChanges => widget.existing != null
+      ? _resi.text.trim() != (widget.existing!.nomorResi.trim()) ||
+          _pengirim.text.trim() != widget.existing!.pengirim.trim() ||
+          _noTelepon.text.trim() != widget.existing!.noTelepon.trim() ||
+          _barang.length != widget.existing!.barang.length ||
+          _selectedKotaKabupaten?.name != widget.existing!.kotaKabupaten ||
+          _selectedKecamatan?.name != widget.existing!.kecamatan
+      : _resi.text.trim().isNotEmpty || _pengirim.text.trim().isNotEmpty ||
+          _noTelepon.text.trim().isNotEmpty || _barang.isNotEmpty ||
+          _selectedKotaKabupaten != null || _selectedKecamatan != null;
+
+  Future<void> _confirmDiscard() async {
+    if (!_hasChanges || !mounted) { Navigator.pop(context); return; }
+    final discard = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Buang perubahan?'),
+        content: const Text('Isian pengiriman yang belum disimpan akan hilang.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Tetap di sini')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Buang')),
+        ],
+      ),
+    );
+    if (discard == true && mounted) Navigator.pop(context);
+  }
+
+  void _validateResi(String value) {
+    final resi = value.trim().toLowerCase();
+    if (resi.isEmpty) {
+      setState(() => _resiError = null);
+      return;
+    }
+    final duplicate = _savedShipments.any((item) =>
+        item.id != widget.existing?.id && item.nomorResi.trim().toLowerCase() == resi);
+    setState(() => _resiError = duplicate ? 'Nomor resi sudah digunakan.' : null);
+  }
 
   Future<void> _loadSavedSenders() async {
     try {
@@ -448,10 +489,12 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     final result = await Navigator.of(context).push<String>(
       MaterialPageRoute(builder: (_) => const BarcodeScannerScreen()),
     );
-    if (result != null && mounted) setState(() => _resi.text = result);
+    if (result != null && mounted) { setState(() => _resi.text = result); _validateResi(result); }
   }
 
   void _save() {
+    _validateResi(_resi.text);
+    if (_resiError != null) { _resiFocus.requestFocus(); return; }
     if (_pengirim.text.trim().isEmpty ||
         _resi.text.trim().isEmpty ||
         _barang.isEmpty ||
@@ -499,6 +542,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     _pengirim.dispose();
     _noTelepon.dispose();
     _resi.dispose();
+    _resiFocus.dispose();
     super.dispose();
   }
 
@@ -531,7 +575,10 @@ class _PengirimanFormState extends State<_PengirimanForm> {
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.of(context).viewInsets.bottom;
-    return Material(
+    return PopScope(
+      canPop: !_busy && !_hasChanges,
+      onPopInvokedWithResult: (didPop, _) { if (!didPop && !_busy) _confirmDiscard(); },
+      child: Material(
       color: Colors.white,
       borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       clipBehavior: Clip.antiAlias,
@@ -758,9 +805,12 @@ class _PengirimanFormState extends State<_PengirimanForm> {
               const SizedBox(height: 12),
               TextField(
                 controller: _resi,
-                textInputAction: TextInputAction.done,
+                focusNode: _resiFocus,
+                textInputAction: TextInputAction.next,
+                onChanged: _validateResi,
                 decoration: InputDecoration(
                   labelText: 'Nomor Resi',
+                  errorText: _resiError,
                   suffixIcon: IconButton(
                     tooltip: 'Scan Resi',
                     onPressed: _busy ? null : _scanResi,
