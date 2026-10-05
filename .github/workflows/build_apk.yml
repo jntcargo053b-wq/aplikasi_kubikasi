@@ -30,8 +30,8 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Ensure Android platform files
-        run: flutter create --platforms=android --no-pub .
+      # Android platform files are versioned in the repository. Do not run
+      # flutter create here: it can regenerate Gradle files and signing config.
 
       - name: Pin Gradle wrapper
         shell: bash
@@ -71,6 +71,29 @@ jobs:
       - name: Verify NDK
         run: grep -R "ndkVersion" -n android/app/build.gradle
 
+      - name: Configure production signing
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$ANDROID_KEYSTORE_BASE64" || { echo "::error::ANDROID_KEYSTORE_BASE64 is not configured"; exit 1; }
+          test -n "$ANDROID_KEY_ALIAS" || { echo "::error::ANDROID_KEY_ALIAS is not configured"; exit 1; }
+          test -n "$ANDROID_KEY_PASSWORD" || { echo "::error::ANDROID_KEY_PASSWORD is not configured"; exit 1; }
+          test -n "$ANDROID_STORE_PASSWORD" || { echo "::error::ANDROID_STORE_PASSWORD is not configured"; exit 1; }
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/nextcube-release.jks
+          cat > android/key.properties <<EOF
+          storePassword=$ANDROID_STORE_PASSWORD
+          keyPassword=$ANDROID_KEY_PASSWORD
+          keyAlias=$ANDROID_KEY_ALIAS
+          storeFile=nextcube-release.jks
+          EOF
+          chmod 600 android/nextcube-release.jks android/key.properties
+
       - name: Dependencies
         run: flutter pub get
 
@@ -96,6 +119,20 @@ jobs:
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 7
+
+      - name: Verify production signing
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f android/nextcube-release.jks
+          test -f android/key.properties
+
+      - name: Clean signing files
+        if: always()
+        shell: bash
+        run: |
+          rm -f android/key.properties android/nextcube-release.jks
 
       - name: Publish APK to GitHub Releases
         if: github.event_name == 'workflow_dispatch'
