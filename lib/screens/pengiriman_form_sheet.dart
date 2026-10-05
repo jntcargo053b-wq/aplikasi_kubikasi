@@ -127,6 +127,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
       final names = <String>{};
       final phones = <String, String>{};
       final templates = <String, BarangItem>{};
+      final templateUsage = <String, int>{};
       for (final item in items) {
         final name = item.pengirim.trim();
         if (name.isNotEmpty) {
@@ -136,7 +137,10 @@ class _PengirimanFormState extends State<_PengirimanForm> {
         }
         for (final itemBarang in item.barang) {
           final key = '${itemBarang.nama.trim().toLowerCase()}|${itemBarang.panjang}|${itemBarang.lebar}|${itemBarang.tinggi}|${itemBarang.berat}';
-          if (itemBarang.nama.trim().isNotEmpty) templates.putIfAbsent(key, () => itemBarang.copyWith(clearPhoto: true));
+          if (itemBarang.nama.trim().isNotEmpty) {
+            templates.putIfAbsent(key, () => itemBarang.copyWith(clearPhoto: true));
+            templateUsage[key] = (templateUsage[key] ?? 0) + 1;
+          }
         }
       }
       if (!mounted) return;
@@ -144,7 +148,15 @@ class _PengirimanFormState extends State<_PengirimanForm> {
         _savedShipments = items;
         _senderPhones = phones;
         _savedSenders = names.toList()..sort((a,b) => a.toLowerCase().compareTo(b.toLowerCase()));
-        _savedBarangTemplates = templates.values.toList()..sort((a,b) => a.nama.toLowerCase().compareTo(b.nama.toLowerCase()));
+        _savedBarangTemplates = templates.entries.map((entry) => entry.value).toList()
+          ..sort((a, b) {
+            int usage(BarangItem item) {
+              final key = '\${item.nama.trim().toLowerCase()}|\${item.panjang}|\${item.lebar}|\${item.tinggi}|\${item.berat}';
+              return templateUsage[key] ?? 0;
+            }
+            final byUsage = usage(b).compareTo(usage(a));
+            return byUsage != 0 ? byUsage : a.nama.toLowerCase().compareTo(b.nama.toLowerCase());
+          });
       });
     } catch (_) {}
   }
