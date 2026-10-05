@@ -502,7 +502,12 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     try {
       final item = await showBarangFormSheet(
         context,
-        initialName: 'Item${_barang.length + 1}',
+        initialName: 'Barang ${_barang.length + 1}',
+        onSaveAndAddAnother: (item) async {
+          if (!mounted) return;
+          if (item.photoPath != null) _sessionPhotoPaths.add(item.photoPath!);
+          setState(() => _barang.add(item));
+        },
       );
       if (item != null && mounted) {
         if (item.photoPath != null &&
