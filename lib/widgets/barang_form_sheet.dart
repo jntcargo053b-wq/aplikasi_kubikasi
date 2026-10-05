@@ -15,6 +15,7 @@ Future<BarangItem?> showBarangFormSheet(
   BarangItem? existing,
   String? initialName,
   bool focusQuantity = false,
+  FutureOr<void> Function(BarangItem item)? onSaveAndAddAnother,
 }) {
   return showModalBottomSheet<BarangItem>(
     context: context,
@@ -25,6 +26,7 @@ Future<BarangItem?> showBarangFormSheet(
       existing: existing,
       initialName: initialName,
       focusQuantity: focusQuantity,
+      onSaveAndAddAnother: onSaveAndAddAnother,
     ),
   );
 }
@@ -33,10 +35,12 @@ class _BarangForm extends StatefulWidget {
   final BarangItem? existing;
   final String? initialName;
   final bool focusQuantity;
+  final FutureOr<void> Function(BarangItem item)? onSaveAndAddAnother;
   const _BarangForm({
     this.existing,
     this.initialName,
     this.focusQuantity = false,
+    this.onSaveAndAddAnother,
   });
 
   @override
@@ -244,7 +248,7 @@ class _BarangFormState extends State<_BarangForm> {
     if (source != null) await _pickPhoto(source);
   }
 
-  void _save() {
+  Future<void> _save({bool addAnother = false}) async {
     if (!_key.currentState!.validate()) return;
     final item = BarangItem(
       id: widget.existing?.id ?? const Uuid().v4(),
@@ -256,6 +260,26 @@ class _BarangFormState extends State<_BarangForm> {
       berat: _d(_berat.text),
       photoPath: _photo,
     );
+    if (addAnother && widget.onSaveAndAddAnother != null) {
+      await widget.onSaveAndAddAnother!(item);
+      if (!mounted) return;
+      final handedOffPhoto = item.photoPath;
+      if (handedOffPhoto != null) _createdPhotos.remove(handedOffPhoto);
+      _saved = false;
+      setState(() {
+        _nama.clear();
+        _jumlah.text = '1';
+        _berat.clear();
+        _p.clear();
+        _l.clear();
+        _t.clear();
+        _photo = null;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _pFocus.requestFocus();
+      });
+      return;
+    }
     _saved = true;
     Navigator.pop(context, item);
   }
@@ -405,8 +429,17 @@ class _BarangFormState extends State<_BarangForm> {
                   ),
                 ),
                 const SizedBox(height: 20),
+                if (widget.existing == null &&
+                    widget.onSaveAndAddAnother != null) ...[
+                  FilledButton.icon(
+                    onPressed: _busy ? null : () => _save(addAnother: true),
+                    icon: const Icon(Icons.add_circle_outline),
+                    label: const Text('Simpan & Tambah Lagi'),
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 FilledButton(
-                  onPressed: _save,
+                  onPressed: _busy ? null : _save,
                   child: Text(
                     widget.existing == null
                         ? 'Tambah Barang'
