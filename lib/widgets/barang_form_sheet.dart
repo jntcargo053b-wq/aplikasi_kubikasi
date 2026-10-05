@@ -378,7 +378,12 @@ class _BarangFormState extends State<_BarangForm> {
         decoration: InputDecoration(labelText: label, suffixText: 'cm'),
         scrollPadding: const EdgeInsets.only(bottom: 180),
         onChanged: (_) => _keepZero(c),
-        validator: (v) => _d(v ?? '') < 0 ? '$label tidak valid' : null,
+        validator: (v) {
+          final value = _parseNumber(v ?? '');
+          return value == null || value <= 0
+              ? '$label harus lebih dari 0'
+              : null;
+        },
       );
 
   Widget _metric(String title, String value, String suffix) => Container(
