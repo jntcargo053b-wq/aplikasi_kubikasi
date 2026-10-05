@@ -20,6 +20,11 @@ class _CalculatorItem {
   final TextEditingController tinggi = TextEditingController();
   final TextEditingController jumlah = TextEditingController(text: '1');
   final TextEditingController berat = TextEditingController();
+  final FocusNode panjangFocus = FocusNode();
+  final FocusNode lebarFocus = FocusNode();
+  final FocusNode tinggiFocus = FocusNode();
+  final FocusNode jumlahFocus = FocusNode();
+  final FocusNode beratFocus = FocusNode();
 
   double _number(TextEditingController controller) {
     final value = double.tryParse(controller.text.replaceAll(',', '.'));
@@ -39,6 +44,7 @@ class _CalculatorItem {
     tinggi.dispose();
     jumlah.dispose();
     berat.dispose();
+    panjangFocus.dispose(); lebarFocus.dispose(); tinggiFocus.dispose(); jumlahFocus.dispose(); beratFocus.dispose();
   }
 }
 
@@ -158,7 +164,11 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
   }
 
   void _addItem() {
-    setState(() => _items.add(_CalculatorItem()));
+    final item = _CalculatorItem();
+    setState(() => _items.add(item));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) item.panjangFocus.requestFocus();
+    });
   }
 
   void _removeItem(int index) {
@@ -412,6 +422,9 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
               Expanded(
                 child: TextField(
                   controller: item.panjang,
+                  focusNode: item.panjangFocus,
+                  textInputAction: TextInputAction.next,
+                  onSubmitted: (_) => item.lebarFocus.requestFocus(),
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   onChanged: (_) => setState(() {}),
                   decoration: _dec('Panjang', suffix: 'cm'),
@@ -421,6 +434,9 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
               Expanded(
                 child: TextField(
                   controller: item.lebar,
+                  focusNode: item.lebarFocus,
+                  textInputAction: TextInputAction.next,
+                  onSubmitted: (_) => item.tinggiFocus.requestFocus(),
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   onChanged: (_) => setState(() {}),
                   decoration: _dec('Lebar', suffix: 'cm'),
@@ -430,6 +446,9 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
               Expanded(
                 child: TextField(
                   controller: item.tinggi,
+                  focusNode: item.tinggiFocus,
+                  textInputAction: TextInputAction.next,
+                  onSubmitted: (_) => item.jumlahFocus.requestFocus(),
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   onChanged: (_) => setState(() {}),
                   decoration: _dec('Tinggi', suffix: 'cm'),
@@ -443,6 +462,9 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
               Expanded(
                 child: TextField(
                   controller: item.jumlah,
+                  focusNode: item.jumlahFocus,
+                  textInputAction: TextInputAction.next,
+                  onSubmitted: (_) => item.beratFocus.requestFocus(),
                   keyboardType: TextInputType.number,
                   onChanged: (_) => setState(() {}),
                   decoration: _dec('Jumlah', suffix: 'pcs'),
@@ -452,6 +474,9 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
               Expanded(
                 child: TextField(
                   controller: item.berat,
+                  focusNode: item.beratFocus,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => _continueToShipment(),
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   onChanged: (_) => setState(() {}),
                   decoration: _dec('Berat/pcs', suffix: 'kg'),
