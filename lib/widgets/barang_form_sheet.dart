@@ -47,6 +47,7 @@ class _BarangFormState extends State<_BarangForm> {
   bool _saved = false;
   bool _busy = false;
   late final Listenable _previewListenable;
+  late final FocusNode _pFocus, _lFocus, _tFocus, _jumlahFocus, _beratFocus;
 
   @override
   void initState() {
@@ -60,6 +61,8 @@ class _BarangFormState extends State<_BarangForm> {
     _t = TextEditingController(text: e == null ? '0' : _n(e.tinggi));
     _photo = e?.photoPath;
     _previewListenable = Listenable.merge([_jumlah, _p, _l, _t]);
+    _pFocus = FocusNode(); _lFocus = FocusNode(); _tFocus = FocusNode();
+    _jumlahFocus = FocusNode(); _beratFocus = FocusNode();
   }
 
   String _n(double v) => v == v.roundToDouble() ? '${v.toInt()}' : '$v';
@@ -67,11 +70,28 @@ class _BarangFormState extends State<_BarangForm> {
 
   double _d(String s) => _parseNumber(s) ?? 0;
 
-  void _keepZero(TextEditingController controller) {
-    if (controller.text.isEmpty) {
-      controller.value = const TextEditingValue(text: '0');
-      controller.selection = const TextSelection.collapsed(offset: 1);
+  bool get _hasChanges {
+    final original = widget.existing;
+    if (original == null) {
+      return _nama.text.trim().isNotEmpty || _p.text.trim().isNotEmpty || _l.text.trim().isNotEmpty || _t.text.trim().isNotEmpty || _jumlah.text.trim() != '1' || _berat.text.trim().isNotEmpty || _photo != null;
     }
+    return _nama.text.trim() != original.nama || _p.text.trim() != _n(original.panjang) || _l.text.trim() != _n(original.lebar) || _t.text.trim() != _n(original.tinggi) || _jumlah.text.trim() != original.jumlah.toString() || _berat.text.trim() != _n(original.berat) || _photo != original.photoPath;
+  }
+
+  Future<void> _confirmDiscard() async {
+    if (!_hasChanges || !mounted) { Navigator.pop(context); return; }
+    final discard = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Buang perubahan?'),
+        content: const Text('Isian yang belum disimpan akan hilang.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Tetap di sini')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Buang')),
+        ],
+      ),
+    );
+    if (discard == true && mounted) Navigator.pop(context);
   }
 
   @override
@@ -84,9 +104,8 @@ class _BarangFormState extends State<_BarangForm> {
         await PhotoStorageService.deleteAll(paths);
       }());
     }
-    for (final c in [_nama, _jumlah, _berat, _p, _l, _t]) {
-      c.dispose();
-    }
+    for (final c in [_nama, _jumlah, _berat, _p, _l, _t]) c.dispose();
+    for (final f in [_pFocus, _lFocus, _tFocus, _jumlahFocus, _beratFocus]) f.dispose();
     super.dispose();
   }
 
@@ -196,7 +215,7 @@ class _BarangFormState extends State<_BarangForm> {
     if (!_key.currentState!.validate()) return;
     final item = BarangItem(
       id: widget.existing?.id ?? const Uuid().v4(),
-      nama: _nama.text.trim(),
+      nama: _nama.text.trim().isEmpty ? (widget.initialName ?? 'Barang') : _nama.text.trim(),
       jumlah: int.parse(_jumlah.text),
       panjang: _d(_p.text),
       lebar: _d(_l.text),
@@ -216,7 +235,8 @@ class _BarangFormState extends State<_BarangForm> {
     final availableHeight = media.size.height - bottom;
     final sheetHeight = availableHeight.clamp(0.0, maxHeight);
     return PopScope(
-      canPop: !_busy,
+      canPop: !_busy && !_hasChanges,
+      onPopInvokedWithResult: (didPop, _) { if (!didPop && !_busy) _confirmDiscard(); },
       child: Material(
         color: Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -244,53 +264,49 @@ class _BarangFormState extends State<_BarangForm> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
-                  controller: _nama,
-                  decoration: const InputDecoration(labelText: 'Nama Barang'),
-                  scrollPadding: const EdgeInsets.only(bottom: 180),
-                  validator: (v) => v == null || v.trim().isEmpty
-                      ? 'Nama barang wajib diisi'
-                      : null,
+                Row(
+                  children: [
+                    Expanded(child: _size(_p, 'Panjang', _pFocus, _lFocus)),
+                    const SizedBox(width: 8),
+                    Expanded(child: _size(_l, 'Lebar', _lFocus, _tFocus)),
+                    const SizedBox(width: 8),
+                    Expanded(child: _size(_t, 'Tinggi', _tFocus, _jumlahFocus)),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _jumlah,
+                  focusNode: _jumlahFocus,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Jumlah'),
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(labelText: 'Jumlah', hintText: '1'),
                   scrollPadding: const EdgeInsets.only(bottom: 180),
+                  onFieldSubmitted: (_) => _beratFocus.requestFocus(),
                   validator: (v) {
-                    final x = int.tryParse(v ?? '');
-                    return x == null || x <= 0
-                        ? 'Jumlah harus lebih dari 0'
-                        : null;
+                    final x = int.tryParse(v?.trim() ?? '');
+                    return x == null || x <= 0 ? 'Jumlah harus lebih dari 0' : null;
                   },
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _berat,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(
-                    labelText: 'Berat per unit',
-                    suffixText: 'kg',
-                  ),
+                  focusNode: _beratFocus,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  textInputAction: TextInputAction.done,
+                  decoration: const InputDecoration(labelText: 'Berat per unit', hintText: '0', suffixText: 'kg'),
                   scrollPadding: const EdgeInsets.only(bottom: 180),
-                  onChanged: (_) => _keepZero(_berat),
+                  onFieldSubmitted: (_) => _save(),
                   validator: (v) {
                     final value = _parseNumber(v ?? '');
                     return value == null || value < 0 ? 'Berat tidak valid' : null;
                   },
                 ),
                 const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(child: _size(_p, 'Panjang')),
-                    const SizedBox(width: 8),
-                    Expanded(child: _size(_l, 'Lebar')),
-                    const SizedBox(width: 8),
-                    Expanded(child: _size(_t, 'Tinggi')),
-                  ],
+                TextFormField(
+                  controller: _nama,
+                  textInputAction: TextInputAction.done,
+                  decoration: const InputDecoration(labelText: 'Nama Barang (opsional)', hintText: 'Otomatis jika dikosongkan'),
+                  scrollPadding: const EdgeInsets.only(bottom: 180),
                 ),
                 const SizedBox(height: 14),
                 Row(
@@ -341,7 +357,7 @@ class _BarangFormState extends State<_BarangForm> {
                         child: _metric(
                           'VOLUME TIMBANG',
                           _volume.toStringAsFixed(2),
-                          '',
+                          'kg',
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -372,12 +388,14 @@ class _BarangFormState extends State<_BarangForm> {
     );
   }
 
-  Widget _size(TextEditingController c, String label) => TextFormField(
+  Widget _size(TextEditingController c, String label, FocusNode focus, FocusNode next) => TextFormField(
         controller: c,
+        focusNode: focus,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        decoration: InputDecoration(labelText: label, suffixText: 'cm'),
+        textInputAction: TextInputAction.next,
+        decoration: InputDecoration(labelText: label, hintText: '0', suffixText: 'cm'),
         scrollPadding: const EdgeInsets.only(bottom: 180),
-        onChanged: (_) => _keepZero(c),
+        onFieldSubmitted: (_) => next.requestFocus(),
         validator: (v) {
           final value = _parseNumber(v ?? '');
           return value == null || value <= 0
