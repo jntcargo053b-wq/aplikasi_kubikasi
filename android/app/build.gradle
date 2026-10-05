@@ -27,31 +27,11 @@ android {
         versionName flutter.versionName
     }
 
-    def keystorePropertiesFile = rootProject.file("key.properties")
-    def keystoreProperties = new Properties()
-    if (keystorePropertiesFile.exists()) {
-        keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
-    }
-
-    signingConfigs {
-        release {
-            if (keystorePropertiesFile.exists()) {
-                keyAlias keystoreProperties["keyAlias"]
-                keyPassword keystoreProperties["keyPassword"]
-                storeFile file(keystoreProperties["storeFile"])
-                storePassword keystoreProperties["storePassword"]
-            }
-        }
-    }
-
     buildTypes {
         release {
-            // Production/manual releases are signed by the stable keystore
-            // generated in CI from GitHub Actions secrets. Local/PR builds
-            // keep the debug key only when no key.properties is present.
-            signingConfig keystorePropertiesFile.exists()
-                ? signingConfigs.release
-                : signingConfigs.debug
+            // Release APKs use the standard debug signing key.
+            // Production keystore management is intentionally disabled.
+            signingConfig signingConfigs.debug
         }
     }
 }
