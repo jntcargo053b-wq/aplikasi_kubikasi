@@ -14,20 +14,30 @@ Future<BarangItem?> showBarangFormSheet(
   BuildContext context, {
   BarangItem? existing,
   String? initialName,
+  bool focusQuantity = false,
 }) {
   return showModalBottomSheet<BarangItem>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => _BarangForm(existing: existing, initialName: initialName),
+    builder: (_) => _BarangForm(
+      existing: existing,
+      initialName: initialName,
+      focusQuantity: focusQuantity,
+    ),
   );
 }
 
 class _BarangForm extends StatefulWidget {
   final BarangItem? existing;
   final String? initialName;
-  const _BarangForm({this.existing, this.initialName});
+  final bool focusQuantity;
+  const _BarangForm({
+    this.existing,
+    this.initialName,
+    this.focusQuantity = false,
+  });
 
   @override
   State<_BarangForm> createState() => _BarangFormState();
@@ -107,9 +117,7 @@ class _BarangFormState extends State<_BarangForm> {
     for (final c in [_nama, _jumlah, _berat, _p, _l, _t]) {
       c.dispose();
     }
-    for (final f in [_pFocus, _lFocus, _tFocus, _jumlahFocus, _beratFocus]) {
-      f.dispose();
-    }
+    _jumlahFocus.dispose();
     super.dispose();
   }
 
