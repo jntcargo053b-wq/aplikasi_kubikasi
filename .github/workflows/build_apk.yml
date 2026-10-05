@@ -116,6 +116,10 @@ jobs:
       - name: Build release APK
         run: flutter build apk --release
 
+      - name: Clean signing material
+        if: always()
+        run: rm -f android/key.properties android/nextcube-release.jks
+
       - name: Upload APK artifact
         id: upload_apk
         uses: actions/upload-artifact@v4
