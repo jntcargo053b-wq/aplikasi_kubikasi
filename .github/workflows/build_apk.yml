@@ -29,7 +29,6 @@ jobs:
 
       # Android platform files are versioned in the repository. Do not run
       # flutter create here: it can regenerate Gradle files and signing config.
-
       - name: Configure Flutter SDK for Gradle
         shell: bash
         run: |
@@ -38,7 +37,6 @@ jobs:
           printf 'flutter.sdk=%s\n' "$FLUTTER_ROOT" > android/local.properties
           test -f android/local.properties
           grep -q '^flutter.sdk=' android/local.properties
-
 
       # The repository does not contain the Gradle wrapper binary. Bootstrap
       # the official wrapper from the pinned Gradle release in CI.
@@ -89,48 +87,28 @@ jobs:
         run: grep -R "ndkVersion" -n android/app/build.gradle
 
       - name: Configure production signing
-        if: ${{ github.event_name == 'workflow_dispatch' && secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' && secrets.ANDROID_STORE_PASSWORD != '' }}
         shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
         run: |
           set -euo pipefail
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/nextcube-release.jks
+          if [ -z "${ANDROID_KEYSTORE_BASE64:-}" ] || [ -z "${ANDROID_KEY_ALIAS:-}" ] || [ -z "${ANDROID_KEY_PASSWORD:-}" ] || [ -z "${ANDROID_STORE_PASSWORD:-}" ]; then
+            echo "Production signing secrets not configured; using local/debug signing fallback."
+            exit 0
+          fi
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/nextcube-release.jks
           cat > android/key.properties <<EOF
           storeFile=nextcube-release.jks
-          storePassword=${{ secrets.ANDROID_STORE_PASSWORD }}
-          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
-          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          storePassword=$ANDROID_STORE_PASSWORD
+          keyAlias=$ANDROID_KEY_ALIAS
+          keyPassword=$ANDROID_KEY_PASSWORD
           EOF
           chmod 600 android/nextcube-release.jks android/key.properties
           test -s android/nextcube-release.jks
-          grep -q '^storeFile=nextcube-release.jks
-      - name: Analyze
-        run: flutter analyze
-
-      - name: Test
-        run: flutter test
-
-      - name: Stop Gradle daemons
-        if: always()
-        run: cd android && ./gradlew --stop || true
-
-      - name: Build release APK
-        run: flutter build apk --release
-
-      - name: Clean signing material
-        if: always()
-        run: rm -f android/key.properties android/nextcube-release.jks
-
-      - name: Upload APK artifact
-        id: upload_apk
-        uses: actions/upload-artifact@v4
-        continue-on-error: true
-        with:
-          name: app-release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
-          if-no-files-found: error
-          retention-days: 7
-
- android/key.properties
+          grep -q '^storeFile=nextcube-release.jks$' android/key.properties
 
       - name: Dependencies
         run: flutter pub get
@@ -149,12 +127,13 @@ jobs:
         run: flutter build apk --release
 
       - name: Upload APK artifact
-        id: upload_apk
         uses: actions/upload-artifact@v4
-        continue-on-error: true
         with:
           name: app-release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 7
 
+      - name: Clean signing material
+        if: always()
+        run: rm -f android/key.properties android/nextcube-release.jks
