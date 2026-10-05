@@ -182,29 +182,86 @@ class _PengirimanFormState extends State<_PengirimanForm> {
 
   Future<void> _quickAddBarang() async {
     if (_busy || _savedBarangTemplates.isEmpty) return;
+    final search = TextEditingController();
     final picked = await showModalBottomSheet<BarangItem>(
-      context: context, showDragHandle: true, useSafeArea: true,
-      builder: (sheetContext) => SafeArea(
-        child: ListView.separated(
-          shrinkWrap: true, padding: const EdgeInsets.fromLTRB(12,0,12,20),
-          itemCount: _savedBarangTemplates.length,
-          separatorBuilder: (_,__) => const Divider(height: 1),
-          itemBuilder: (_, index) {
-            final item = _savedBarangTemplates[index];
-            return ListTile(
-              leading: const Icon(Icons.inventory_2_outlined),
-              title: Text(item.nama),
-              subtitle: Text('${item.panjang} × ${item.lebar} × ${item.tinggi} cm • ${item.berat} kg/unit'),
-              onTap: () => Navigator.pop(sheetContext, item),
-            );
-          },
-        ),
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      useSafeArea: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final query = search.text.trim().toLowerCase();
+          final filtered = _savedBarangTemplates.where((item) {
+            return query.isEmpty || item.nama.toLowerCase().contains(query);
+          }).toList();
+          return SafeArea(
+            child: SizedBox(
+              height: MediaQuery.of(context).size.height * .72,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+                    child: TextField(
+                      controller: search,
+                      autofocus: true,
+                      onChanged: (_) => setModalState(() {}),
+                      decoration: const InputDecoration(
+                        labelText: 'Cari barang lama',
+                        prefixIcon: Icon(Icons.search),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 20),
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (_, index) {
+                        final item = filtered[index];
+                        return ListTile(
+                          leading: const Icon(Icons.inventory_2_outlined),
+                          title: Text(item.nama),
+                          subtitle: Text('${item.panjang} × ${item.lebar} × ${item.tinggi} cm • ${item.berat} kg/unit'),
+                          onTap: () => Navigator.pop(sheetContext, item),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
-    if (picked != null && mounted) {
-      setState(() => _barang.add(BarangItem(id: const Uuid().v4(), nama: picked.nama, jumlah: picked.jumlah, panjang: picked.panjang, lebar: picked.lebar, tinggi: picked.tinggi, berat: picked.berat)));
+    search.dispose();
+    if (picked == null || !mounted) return;
+    final draft = BarangItem(
+      id: const Uuid().v4(),
+      nama: picked.nama,
+      jumlah: picked.jumlah,
+      panjang: picked.panjang,
+      lebar: picked.lebar,
+      tinggi: picked.tinggi,
+      berat: picked.berat,
+    );
+    await _editTemplateAsNewItem(draft);
+  }
+
+  Future<void> _editTemplateAsNewItem(BarangItem draft) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      final item = await showBarangFormSheet(context, existing: draft);
+      if (item != null && mounted) {
+        if (item.photoPath != null) _sessionPhotoPaths.add(item.photoPath!);
+        setState(() => _barang.add(item));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
+
   Future<void> _loadWilayah() async {
     try {
       final data = await IndonesiaRegionService.loadAllKabupatenKota();
