@@ -678,7 +678,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                   final picked = await showDatePicker(
                     context: context,
                     initialDate: _tanggal,
-                    firstDate: DateTime(2020),
+                    firstDate: DateTime(1900),
                     lastDate: DateTime(2100),
                   );
                   if (picked != null && mounted) {
