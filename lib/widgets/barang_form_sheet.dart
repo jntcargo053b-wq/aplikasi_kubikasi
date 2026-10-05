@@ -104,8 +104,12 @@ class _BarangFormState extends State<_BarangForm> {
         await PhotoStorageService.deleteAll(paths);
       }());
     }
-    for (final c in [_nama, _jumlah, _berat, _p, _l, _t]) c.dispose();
-    for (final f in [_pFocus, _lFocus, _tFocus, _jumlahFocus, _beratFocus]) f.dispose();
+    for (final c in [_nama, _jumlah, _berat, _p, _l, _t]) {
+      c.dispose();
+    }
+    for (final f in [_pFocus, _lFocus, _tFocus, _jumlahFocus, _beratFocus]) {
+      f.dispose();
+    }
     super.dispose();
   }
 
