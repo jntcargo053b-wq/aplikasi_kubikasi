@@ -281,6 +281,15 @@ class _HomeScreenState extends State<HomeScreen> {
     await PhotoStorageService.deleteAll(_photoPaths([item]).difference(remaining));
   }
 
+  Future<void> _openBackupRestore() async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const BackupRestoreScreen()),
+    );
+    if (changed == true && mounted) {
+      await _load();
+    }
+  }
+
   Future<void> _openReportHeaderSettings() async {
     final result = await Navigator.of(context).push<ReportSettings>(MaterialPageRoute(builder: (_) => const ReportHeaderSettingsScreen()));
     if (result != null && mounted) setState(() => _reportSettings = result);
@@ -458,7 +467,7 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: _brand(),
         actions: [
-          IconButton(tooltip: 'Backup & Restore', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BackupRestoreScreen())), icon: const Icon(Icons.shield_outlined)),
+          IconButton(tooltip: 'Backup & Restore', onPressed: _openBackupRestore, icon: const Icon(Icons.shield_outlined)),
           IconButton(tooltip: 'Pengaturan laporan', onPressed: _openReportHeaderSettings, icon: const Icon(Icons.tune_rounded)),
         ],
       ),
@@ -537,7 +546,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(width: 10),
             Expanded(child: _quickAction(Icons.add_box_outlined, 'Tambah\nPengiriman', _newShipment)),
             const SizedBox(width: 10),
-            Expanded(child: _quickAction(Icons.backup_outlined, 'Backup &\nRestore', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BackupRestoreScreen())))),
+            Expanded(child: _quickAction(Icons.backup_outlined, 'Backup &\nRestore', _openBackupRestore)),
           ]),
           const SizedBox(height: 20),
           _sectionTitle('Rekap Hari Ini', '\$todayCount data'),
@@ -629,7 +638,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _showSettingsMenu() async {
     if (!mounted) return;
-    await showModalBottomSheet<void>(context: context, showDragHandle: true, builder: (_) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [ListTile(leading: const Icon(Icons.tune_outlined), title: const Text('Header Laporan'), onTap: () { Navigator.pop(context); _openReportHeaderSettings(); }), ListTile(leading: const Icon(Icons.shield_outlined), title: const Text('Backup & Restore'), onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const BackupRestoreScreen())); }), ListTile(leading: const Icon(Icons.sort_outlined), title: const Text('Urutkan Data'), subtitle: Text(_sort == _SortMode.terbaru ? 'Terbaru' : _sort == _SortMode.terlama ? 'Terlama' : 'Pengirim A-Z'), onTap: () {
+    await showModalBottomSheet<void>(context: context, showDragHandle: true, builder: (_) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [ListTile(leading: const Icon(Icons.tune_outlined), title: const Text('Header Laporan'), onTap: () { Navigator.pop(context); _openReportHeaderSettings(); }), ListTile(leading: const Icon(Icons.shield_outlined), title: const Text('Backup & Restore'), onTap: () { Navigator.pop(context); _openBackupRestore(); }), ListTile(leading: const Icon(Icons.sort_outlined), title: const Text('Urutkan Data'), subtitle: Text(_sort == _SortMode.terbaru ? 'Terbaru' : _sort == _SortMode.terlama ? 'Terlama' : 'Pengirim A-Z'), onTap: () {
               Navigator.pop(context);
               showModalBottomSheet<_SortMode>(
                 context: context,
