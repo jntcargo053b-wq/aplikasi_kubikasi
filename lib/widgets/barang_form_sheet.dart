@@ -71,8 +71,21 @@ class _BarangFormState extends State<_BarangForm> {
     _t = TextEditingController(text: e == null ? '0' : _n(e.tinggi));
     _photo = e?.photoPath;
     _previewListenable = Listenable.merge([_jumlah, _p, _l, _t]);
-    _pFocus = FocusNode(); _lFocus = FocusNode(); _tFocus = FocusNode();
-    _jumlahFocus = FocusNode(); _beratFocus = FocusNode();
+    _pFocus = FocusNode();
+    _lFocus = FocusNode();
+    _tFocus = FocusNode();
+    _jumlahFocus = FocusNode();
+    _beratFocus = FocusNode();
+    if (widget.focusQuantity) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _jumlahFocus.requestFocus();
+        _jumlah.selection = TextSelection(
+          baseOffset: 0,
+          extentOffset: _jumlah.text.length,
+        );
+      });
+    }
   }
 
   String _n(double v) => v == v.roundToDouble() ? '${v.toInt()}' : '$v';
@@ -117,7 +130,15 @@ class _BarangFormState extends State<_BarangForm> {
     for (final c in [_nama, _jumlah, _berat, _p, _l, _t]) {
       c.dispose();
     }
-    _jumlahFocus.dispose();
+    for (final f in [
+      _pFocus,
+      _lFocus,
+      _tFocus,
+      _jumlahFocus,
+      _beratFocus,
+    ]) {
+      f.dispose();
+    }
     super.dispose();
   }
 
