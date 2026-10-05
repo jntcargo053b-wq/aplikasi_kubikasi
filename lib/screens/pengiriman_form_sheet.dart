@@ -662,9 +662,11 @@ class _PengirimanFormState extends State<_PengirimanForm> {
       clipBehavior: Clip.antiAlias,
       child: SafeArea(
         top: false,
-        child: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(20, 14, 20, 24 + bottom),
-          child: Column(
+        child: Stack(
+          children: [
+            SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(20, 14, 20, 112 + bottom),
+              child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Center(
@@ -1014,16 +1016,48 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                   );
                 }),
               const SizedBox(height: 12),
-              FilledButton(
-                onPressed: _busy ? null : _save,
-                child: Text(
-                  widget.existing == null
-                      ? 'Simpan Pengiriman'
-                      : 'Simpan Perubahan',
-                ),
-              ),
             ],
           ),
+        ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: bottom,
+              child: Material(
+                elevation: 10,
+                color: Colors.white,
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${_barang.length} barang • ${_barang.fold<int>(0, (sum, item) => sum + item.jumlah)} pcs',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.muted,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        FilledButton(
+                          onPressed: _busy ? null : _save,
+                          child: Text(
+                            widget.existing == null
+                                ? 'Simpan Pengiriman'
+                                : 'Simpan Perubahan',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     ),
