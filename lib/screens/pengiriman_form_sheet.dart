@@ -264,7 +264,11 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     if (_busy) return;
     setState(() => _busy = true);
     try {
-      final item = await showBarangFormSheet(context, existing: draft);
+      final item = await showBarangFormSheet(
+        context,
+        existing: draft,
+        focusQuantity: true,
+      );
       if (item != null && mounted) {
         if (item.photoPath != null) _sessionPhotoPaths.add(item.photoPath!);
         setState(() => _barang.add(item));
