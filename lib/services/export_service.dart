@@ -346,6 +346,8 @@ class ExportService {
     final totalVolume = sorted.fold<double>(0, (s, p) => s + p.totalVolume);
     final totalKubikasi = sorted.fold<double>(0, (s, p) => s + p.totalKubikasi);
     final photoQuotas = await _allocatePhotoQuotas(sorted, _maxEmbeddedPhotos);
+    final plannedPhotos = photoQuotas.values.fold<int>(0, (sum, count) => sum + count);
+    final photoProfile = _photoProfile(plannedPhotos);
     var anyTruncated = false;
     var totalEmbedded = 0;
 
@@ -386,7 +388,7 @@ class ExportService {
       final loaded = await _loadPhotos(
         shipment,
         limit: quota,
-        profile: _photoProfile(quota),
+        profile: photoProfile,
       );
       final photos = loaded.photos;
       totalEmbedded += photos.length;
