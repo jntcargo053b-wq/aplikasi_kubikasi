@@ -88,6 +88,46 @@ jobs:
       - name: Verify NDK
         run: grep -R "ndkVersion" -n android/app/build.gradle
 
+      - name: Configure production signing
+        if: ${{ github.event_name == 'workflow_dispatch' && secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' && secrets.ANDROID_STORE_PASSWORD != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/nextcube-release.jks
+          cat > android/key.properties <<EOF
+          storeFile=nextcube-release.jks
+          storePassword=${{ secrets.ANDROID_STORE_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          EOF
+          chmod 600 android/nextcube-release.jks android/key.properties
+          test -s android/nextcube-release.jks
+          grep -q '^storeFile=nextcube-release.jks
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+      - name: Stop Gradle daemons
+        if: always()
+        run: cd android && ./gradlew --stop || true
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Upload APK artifact
+        id: upload_apk
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: app-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 7
+
+ android/key.properties
+
       - name: Dependencies
         run: flutter pub get
 
