@@ -28,6 +28,16 @@ Uint8List _prepareReportImageBytes(Uint8List sourceBytes, int maxDimension, int 
   return Uint8List.fromList(img.encodeJpg(processed, quality: quality));
 }
 
+Future<Uint8List> _prepareReportImageFromPath(
+  String path,
+  int maxDimension,
+  int quality,
+) async {
+  final bytes = await File(path).readAsBytes();
+  if (bytes.isEmpty) return Uint8List(0);
+  return _prepareReportImageBytes(bytes, maxDimension, quality);
+}
+
 Map<String, int> allocatePhotoQuotasRoundRobin(List<MapEntry<String, int>> counts, int maxTotal) {
   final result = <String, int>{for (final entry in counts) entry.key: 0};
   if (maxTotal <= 0) return result;
@@ -58,8 +68,11 @@ class ExportService {
   final _waktuFmt = DateFormat('dd/MM/yyyy HH:mm');
 
   static const int _maxEmbeddedPhotos = 60;
-  static const int _reportPhotoMaxDimension = 1400;
-  static const int _reportPhotoJpegQuality = 82;
+  // Keep report images intentionally bounded: PDF generation holds the
+  // encoded images until doc.save(), so the peak heap matters more than the
+  // final PDF file size.
+  static const int _reportPhotoMaxDimension = 800;
+  static const int _reportPhotoJpegQuality = 72;
 
   String _fmtNum(double value) {
     if (value == value.roundToDouble()) return value.toInt().toString();
@@ -534,13 +547,13 @@ class ExportService {
       final file = File(path);
       if (!await file.exists()) continue;
       try {
-        final bytes = await file.readAsBytes();
-        if (bytes.isEmpty) continue;
-        final encoded = await Isolate.run(() => _prepareReportImageBytes(
-              bytes,
-              _reportPhotoMaxDimension,
-              _reportPhotoJpegQuality,
-            ));
+        final encoded = await Isolate.run(
+          () => _prepareReportImageFromPath(
+            path,
+            _reportPhotoMaxDimension,
+            _reportPhotoJpegQuality,
+          ),
+        );
         if (encoded.isEmpty) continue;
         result.add(_PhotoData(
           image: pw.MemoryImage(encoded),
