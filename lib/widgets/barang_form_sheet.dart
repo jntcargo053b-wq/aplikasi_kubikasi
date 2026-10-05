@@ -63,7 +63,9 @@ class _BarangFormState extends State<_BarangForm> {
   }
 
   String _n(double v) => v == v.roundToDouble() ? '${v.toInt()}' : '$v';
-  double _d(String s) => double.tryParse(s.replaceAll(',', '.')) ?? 0;
+  double? _parseNumber(String s) => double.tryParse(s.trim().replaceAll(',', '.'));
+
+  double _d(String s) => _parseNumber(s) ?? 0;
 
   void _keepZero(TextEditingController controller) {
     if (controller.text.isEmpty) {
@@ -275,8 +277,10 @@ class _BarangFormState extends State<_BarangForm> {
                   ),
                   scrollPadding: const EdgeInsets.only(bottom: 180),
                   onChanged: (_) => _keepZero(_berat),
-                  validator: (v) =>
-                      _d(v ?? '') < 0 ? 'Berat tidak valid' : null,
+                  validator: (v) {
+                    final value = _parseNumber(v ?? '');
+                    return value == null || value < 0 ? 'Berat tidak valid' : null;
+                  },
                 ),
                 const SizedBox(height: 12),
                 Row(
