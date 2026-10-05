@@ -7,9 +7,6 @@ on:
     branches: [main]
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -30,14 +27,32 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Ensure Android platform files
-        run: flutter create --platforms=android --no-pub .
-
-      - name: Pin Gradle wrapper
+      # Android platform files are versioned in the repository. Do not run
+      # flutter create here: it can regenerate Gradle files and signing config.
+      - name: Configure Flutter SDK for Gradle
         shell: bash
         run: |
+          set -euo pipefail
+          test -n "${FLUTTER_ROOT:-}" || { echo "::error::FLUTTER_ROOT is not available"; exit 1; }
+          printf 'flutter.sdk=%s\n' "$FLUTTER_ROOT" > android/local.properties
+          test -f android/local.properties
+          grep -q '^flutter.sdk=' android/local.properties
+
+      # The repository does not contain the Gradle wrapper binary. Bootstrap
+      # the official wrapper from the pinned Gradle release in CI.
+      - name: Setup Gradle 8.14
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '8.14'
+
+      - name: Bootstrap Gradle wrapper
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle -p android wrapper --gradle-version 8.14 --distribution-type all
           test -f android/gradlew
           test -f android/gradle/wrapper/gradle-wrapper.jar
+          chmod +x android/gradlew
           cat > android/gradle/wrapper/gradle-wrapper.properties <<'EOF'
           distributionBase=GRADLE_USER_HOME
           distributionPath=wrapper/dists
@@ -71,6 +86,30 @@ jobs:
       - name: Verify NDK
         run: grep -R "ndkVersion" -n android/app/build.gradle
 
+      - name: Configure production signing
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ANDROID_KEYSTORE_BASE64:-}" ] || [ -z "${ANDROID_KEY_ALIAS:-}" ] || [ -z "${ANDROID_KEY_PASSWORD:-}" ] || [ -z "${ANDROID_STORE_PASSWORD:-}" ]; then
+            echo "Production signing secrets not configured; using local/debug signing fallback."
+            exit 0
+          fi
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/nextcube-release.jks
+          cat > android/key.properties <<EOF
+          storeFile=nextcube-release.jks
+          storePassword=$ANDROID_STORE_PASSWORD
+          keyAlias=$ANDROID_KEY_ALIAS
+          keyPassword=$ANDROID_KEY_PASSWORD
+          EOF
+          chmod 600 android/nextcube-release.jks android/key.properties
+          test -s android/nextcube-release.jks
+          grep -q '^storeFile=nextcube-release.jks$' android/key.properties
+
       - name: Dependencies
         run: flutter pub get
 
@@ -88,23 +127,13 @@ jobs:
         run: flutter build apk --release
 
       - name: Upload APK artifact
-        id: upload_apk
         uses: actions/upload-artifact@v4
-        continue-on-error: true
         with:
           name: app-release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 7
 
-      - name: Publish APK to GitHub Releases
-        if: github.event_name == 'workflow_dispatch'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          tag="apk-build-${GITHUB_RUN_NUMBER}"
-          gh release create "$tag" build/app/outputs/flutter-apk/app-release.apk \
-            --title "Nextcube APK build #${GITHUB_RUN_NUMBER}" \
-            --notes "Automated release APK. Commit: ${GITHUB_SHA}" \
-            --target "${GITHUB_SHA}"
+      - name: Clean signing material
+        if: always()
+        run: rm -f android/key.properties android/nextcube-release.jks

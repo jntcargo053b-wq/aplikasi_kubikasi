@@ -24,7 +24,12 @@ class BackupService {
       : _storage = storage ?? StorageService(),
         _settings = settings ?? SettingsService();
 
-  Future<File> createBackup() async {
+  /// Creates a portable backup in the selected directory when provided.
+  ///
+  /// If [destinationDirectory] is omitted, the historical app-private
+  /// documents directory is used. Keeping that fallback preserves callers
+  /// that do not need an explicit export location.
+  Future<File> createBackup({String? destinationDirectory}) async {
     final items = await _storage.loadPengiriman();
     final settings = await _settings.loadReportSettings();
     final files = <String, String>{};
@@ -93,8 +98,34 @@ class BackupService {
     };
 
     final name = formatBackupFilename(DateTime.now());
-    final file = File('${docs.path}/$name');
-    await file.writeAsString(jsonEncode(payload), flush: true);
+    final destination = destinationDirectory?.trim();
+    final targetDirectory = destination == null || destination.isEmpty
+        ? Directory(docs.path)
+        : Directory(destination);
+
+    try {
+      if (!await targetDirectory.exists()) {
+        throw FormatException('Folder tujuan backup tidak ditemukan.');
+      }
+      if (!await targetDirectory.stat().then((value) => value.type == FileSystemEntityType.directory)) {
+        throw FormatException('Lokasi tujuan backup bukan folder.');
+      }
+    } on FormatException {
+      rethrow;
+    } catch (_) {
+      throw const FormatException(
+        'Folder tujuan backup tidak dapat diakses. Pilih folder lain.',
+      );
+    }
+
+    final file = File('${targetDirectory.path}/$name');
+    try {
+      await file.writeAsString(jsonEncode(payload), flush: true);
+    } on FileSystemException catch (e) {
+      throw FormatException(
+        'Backup tidak dapat disimpan ke folder yang dipilih: ${e.message}',
+      );
+    }
     return file;
   }
 

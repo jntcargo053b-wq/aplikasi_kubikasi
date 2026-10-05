@@ -28,6 +28,23 @@ Uint8List _prepareReportImageBytes(Uint8List sourceBytes, int maxDimension, int 
   return Uint8List.fromList(img.encodeJpg(processed, quality: quality));
 }
 
+/// Runs in a worker isolate. Only the file path and small numeric parameters
+/// cross the isolate boundary, so the original photo bytes stay out of the
+/// main isolate heap.
+Uint8List _prepareReportImageFromPath(
+  String path,
+  int maxDimension,
+  int quality,
+) {
+  try {
+    final bytes = File(path).readAsBytesSync();
+    if (bytes.isEmpty) return Uint8List(0);
+    return _prepareReportImageBytes(bytes, maxDimension, quality);
+  } catch (_) {
+    return Uint8List(0);
+  }
+}
+
 Map<String, int> allocatePhotoQuotasRoundRobin(List<MapEntry<String, int>> counts, int maxTotal) {
   final result = <String, int>{for (final entry in counts) entry.key: 0};
   if (maxTotal <= 0) return result;
@@ -58,8 +75,14 @@ class ExportService {
   final _waktuFmt = DateFormat('dd/MM/yyyy HH:mm');
 
   static const int _maxEmbeddedPhotos = 60;
-  static const int _reportPhotoMaxDimension = 1400;
-  static const int _reportPhotoJpegQuality = 82;
+
+  /// PDF keeps embedded images alive until doc.save(), so use a smaller
+  /// profile as the number of planned photos increases.
+  _PhotoProfile _photoProfile(int plannedPhotos) {
+    if (plannedPhotos <= 12) return const _PhotoProfile(1000, 78);
+    if (plannedPhotos <= 30) return const _PhotoProfile(800, 72);
+    return const _PhotoProfile(640, 68);
+  }
 
   String _fmtNum(double value) {
     if (value == value.roundToDouble()) return value.toInt().toString();
@@ -227,7 +250,15 @@ class ExportService {
   Future<({File file, bool hasPhotos})> _buildPdf(Pengiriman p, ReportSettings settings) async {
     final doc = pw.Document();
     final logo = await _loadReportLogo(settings);
-    final loaded = await _loadPhotos(p, limit: _maxEmbeddedPhotos);
+    final availablePhotos =
+        p.barang.where((b) => b.photoPath?.trim().isNotEmpty == true).length;
+    final plannedPhotos =
+        availablePhotos < _maxEmbeddedPhotos ? availablePhotos : _maxEmbeddedPhotos;
+    final loaded = await _loadPhotos(
+      p,
+      limit: _maxEmbeddedPhotos,
+      profile: _photoProfile(plannedPhotos),
+    );
     final photos = loaded.photos;
     final headers = ['No', 'Nama Barang', 'Jml', 'P×L×T (cm)', 'Berat (kg)', 'Volume', 'Kubikasi (m³)'];
     final rows = [
@@ -315,19 +346,10 @@ class ExportService {
     final totalVolume = sorted.fold<double>(0, (s, p) => s + p.totalVolume);
     final totalKubikasi = sorted.fold<double>(0, (s, p) => s + p.totalKubikasi);
     final photoQuotas = await _allocatePhotoQuotas(sorted, _maxEmbeddedPhotos);
-    final combinedPhotos = <String, List<_PhotoData>>{};
+    final plannedPhotos = photoQuotas.values.fold<int>(0, (sum, count) => sum + count);
+    final photoProfile = _photoProfile(plannedPhotos);
     var anyTruncated = false;
     var totalEmbedded = 0;
-    for (final shipment in sorted) {
-      final quota = photoQuotas[shipment.id] ?? 0;
-      final available = shipment.barang
-          .where((b) => b.photoPath?.trim().isNotEmpty == true)
-          .length;
-      final loaded = await _loadPhotos(shipment, limit: quota);
-      combinedPhotos[shipment.id] = loaded.photos;
-      totalEmbedded += loaded.photos.length;
-      if (loaded.truncated || quota < available) anyTruncated = true;
-    }
 
     doc.addPage(pw.MultiPage(
       pageFormat: PdfPageFormat.a4, margin: const pw.EdgeInsets.all(28), footer: _reportFooter,
@@ -358,7 +380,19 @@ class ExportService {
     ));
 
     for (final shipment in sorted) {
-      final photos = combinedPhotos[shipment.id] ?? const <_PhotoData>[];
+      final quota = photoQuotas[shipment.id] ?? 0;
+      if (quota <= 0) continue;
+      final available = shipment.barang
+          .where((b) => b.photoPath?.trim().isNotEmpty == true)
+          .length;
+      final loaded = await _loadPhotos(
+        shipment,
+        limit: quota,
+        profile: photoProfile,
+      );
+      final photos = loaded.photos;
+      totalEmbedded += photos.length;
+      if (loaded.truncated || quota < available) anyTruncated = true;
       if (photos.isEmpty) continue;
       doc.addPage(pw.MultiPage(
         pageFormat: PdfPageFormat.a4, margin: const pw.EdgeInsets.all(28), footer: _reportFooter,
@@ -522,7 +556,11 @@ class ExportService {
     await Share.shareXFiles([XFile(file.path)], text: 'Rekap laporan kubikasi (${items.length} pengiriman)');
   }
 
-  Future<_LoadedPhotos> _loadPhotos(Pengiriman p, {required int limit}) async {
+  Future<_LoadedPhotos> _loadPhotos(
+    Pengiriman p, {
+    required int limit,
+    required _PhotoProfile profile,
+  }) async {
     if (limit <= 0) return const _LoadedPhotos(photos: [], truncated: false);
     final result = <_PhotoData>[];
     for (final item in p.barang) {
@@ -534,13 +572,13 @@ class ExportService {
       final file = File(path);
       if (!await file.exists()) continue;
       try {
-        final bytes = await file.readAsBytes();
-        if (bytes.isEmpty) continue;
-        final encoded = await Isolate.run(() => _prepareReportImageBytes(
-              bytes,
-              _reportPhotoMaxDimension,
-              _reportPhotoJpegQuality,
-            ));
+        final encoded = await Isolate.run(
+          () => _prepareReportImageFromPath(
+            path,
+            profile.dimension,
+            profile.quality,
+          ),
+        );
         if (encoded.isEmpty) continue;
         result.add(_PhotoData(
           image: pw.MemoryImage(encoded),
@@ -584,6 +622,12 @@ class ExportService {
           pw.Text(value, style: const pw.TextStyle(fontSize: 9)),
         ]),
       );
+}
+
+class _PhotoProfile {
+  final int dimension;
+  final int quality;
+  const _PhotoProfile(this.dimension, this.quality);
 }
 
 class _PhotoData {
