@@ -151,7 +151,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
         _savedBarangTemplates = templates.entries.map((entry) => entry.value).toList()
           ..sort((a, b) {
             int usage(BarangItem item) {
-              final key = '\${item.nama.trim().toLowerCase()}|\${item.panjang}|\${item.lebar}|\${item.tinggi}|\${item.berat}';
+              final key = '${item.nama.trim().toLowerCase()}|${item.panjang}|${item.lebar}|${item.tinggi}|${item.berat}';
               return templateUsage[key] ?? 0;
             }
             final byUsage = usage(b).compareTo(usage(a));
