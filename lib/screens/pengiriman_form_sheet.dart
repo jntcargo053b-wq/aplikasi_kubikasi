@@ -621,7 +621,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     await Future<void>.delayed(Duration.zero);
     if (!mounted) return;
     final targetContext = target.currentContext;
-    if (targetContext == null) return;
+    if (targetContext == null || !targetContext.mounted) return;
     await Scrollable.ensureVisible(
       targetContext,
       duration: const Duration(milliseconds: 300),
@@ -1041,12 +1041,14 @@ class _PengirimanFormState extends State<_PengirimanForm> {
               ],
               KeyedSubtree(
                 key: _barangKey,
-                child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  const Text(
+                child: Column(
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        const Text(
                     'Daftar Barang',
                     style: TextStyle(
                       fontSize: 16,
@@ -1063,11 +1065,11 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                     onPressed: _busy ? null : _addItem,
                     icon: const Icon(Icons.add, size: 18),
                     label: const Text('Tambah Barang', maxLines: 1, softWrap: false),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              if (_barangError != null)
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (_barangError != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Text(_barangError!, style: const TextStyle(fontSize: 12, color: Colors.red)),
@@ -1139,7 +1141,8 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                   );
                 }),
                 ],
-              ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
             ],
