@@ -93,14 +93,33 @@ class _PengirimanFormState extends State<_PengirimanForm> {
 
   String _date(DateTime d) => DateFormat('dd/MM/yyyy').format(d);
 
+  bool _sameBarang(BarangItem a, BarangItem b) =>
+      a.id == b.id &&
+      a.nama.trim() == b.nama.trim() &&
+      a.jumlah == b.jumlah &&
+      a.panjang == b.panjang &&
+      a.lebar == b.lebar &&
+      a.tinggi == b.tinggi &&
+      a.berat == b.berat &&
+      a.photoPath == b.photoPath;
+
+  bool get _barangChanged {
+    final original = widget.existing?.barang;
+    if (original == null || original.length != _barang.length) return true;
+    for (var i = 0; i < _barang.length; i++) {
+      if (!_sameBarang(_barang[i], original[i])) return true;
+    }
+    return false;
+  }
+
   bool get _hasChanges => widget.existing != null
-      ? _resi.text.trim() != (widget.existing!.nomorResi.trim()) ||
+      ? _resi.text.trim() != widget.existing!.nomorResi.trim() ||
           _pengirim.text.trim() != widget.existing!.pengirim.trim() ||
           _noTelepon.text.trim() != widget.existing!.noTelepon.trim() ||
           _tanggal.year != widget.existing!.tanggal.year ||
           _tanggal.month != widget.existing!.tanggal.month ||
           _tanggal.day != widget.existing!.tanggal.day ||
-          _barang.length != widget.existing!.barang.length ||
+          _barangChanged ||
           _selectedKotaKabupaten?.name != widget.existing!.kotaKabupaten ||
           _selectedKecamatan?.name != widget.existing!.kecamatan
       : _resi.text.trim().isNotEmpty || _pengirim.text.trim().isNotEmpty ||
