@@ -397,8 +397,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
               child: SafeArea(
                 top: false,
                 child: SizedBox(
-                  height: MediaQuery.of(context).size.height * .72,
-                  child: Column(
+                  height: MediaQuery.of(context).size.height * .72,                  child: Column(
                     children: [
                       const SizedBox(height: 12),
                       Container(
@@ -797,8 +796,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
+  @override  Widget build(BuildContext context) {
     final bottom = MediaQuery.of(context).viewInsets.bottom;
     return PopScope(
       canPop: !_busy && !_hasChanges,
@@ -843,6 +841,26 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                   ),
                 ),
               ],
+              KeyedSubtree(
+                key: _resiKey,
+                child: TextField(
+                controller: _resi,
+                focusNode: _resiFocus,
+                textInputAction: TextInputAction.next,
+                onChanged: _validateResi,
+                decoration: InputDecoration(
+                  labelText: 'Nomor Resi',
+                  errorText: _resiError,
+                  suffixIcon: IconButton(
+                    tooltip: 'Scan Resi',
+                    onPressed: _busy ? null : _scanResi,
+                    icon: const Icon(Icons.qr_code_scanner_outlined),
+                  ),
+                ),
+                scrollPadding: const EdgeInsets.only(bottom: 180),
+              ),
+              ),
+              const SizedBox(height: 12),
               KeyedSubtree(
                 key: _pengirimKey,
                 child: Autocomplete<String>(
@@ -1064,25 +1082,6 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                 ),
               ],
               const SizedBox(height: 12),
-              KeyedSubtree(
-                key: _resiKey,
-                child: TextField(
-                controller: _resi,
-                focusNode: _resiFocus,
-                textInputAction: TextInputAction.next,
-                onChanged: _validateResi,
-                decoration: InputDecoration(
-                  labelText: 'Nomor Resi',
-                  errorText: _resiError,
-                  suffixIcon: IconButton(
-                    tooltip: 'Scan Resi',
-                    onPressed: _busy ? null : _scanResi,
-                    icon: const Icon(Icons.qr_code_scanner_outlined),
-                  ),
-                ),
-                scrollPadding: const EdgeInsets.only(bottom: 180),
-              ),
-              ),
               const SizedBox(height: 18),
               if (widget.existing == null && widget.initialBarang != null && widget.initialBarang!.isNotEmpty) ...[
                 Container(
@@ -1197,8 +1196,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                         const SizedBox(width: 12),
                         FilledButton(
                           onPressed: _busy ? null : _save,
-                          child: Text(
-                            widget.existing == null
+                          child: Text(                            widget.existing == null
                                 ? 'Simpan Pengiriman'
                                 : 'Simpan Perubahan',
                           ),
