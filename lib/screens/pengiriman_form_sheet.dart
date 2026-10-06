@@ -1129,8 +1129,10 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                     ),
                   );
                 }),
-              const SizedBox(height: 12),
+                ],
               ),
+              ),
+              const SizedBox(height: 12),
             ],
           ),
         ),
