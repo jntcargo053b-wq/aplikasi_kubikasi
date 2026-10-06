@@ -498,6 +498,8 @@ class _PengirimanFormState extends State<_PengirimanForm> {
       _kecamatanError = null;
     });
     await _loadKecamatan(value);
+    if (!mounted || _kecamatan.isEmpty || _busy) return;
+    await _selectKecamatan();
   }
 
   Future<void> _selectKecamatan() async {
@@ -764,7 +766,14 @@ class _PengirimanFormState extends State<_PengirimanForm> {
               ),
               const SizedBox(height: 16),
               if (widget.existing == null && widget.duplicateFrom == null && _savedShipments.isNotEmpty) ...[
-                Align(alignment: Alignment.centerLeft, child: TextButton.icon(onPressed: _busy ? null : _useLastShipment, icon: const Icon(Icons.history, size: 18), label: const Text('Gunakan data pengiriman terakhir'))),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: ActionChip(
+                    avatar: const Icon(Icons.history, size: 18),
+                    label: const Text('Tujuan terakhir'),
+                    onPressed: _busy ? null : _useLastShipment,
+                  ),
+                ),
               ],
               KeyedSubtree(
                 key: _pengirimKey,
