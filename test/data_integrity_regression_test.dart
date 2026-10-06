@@ -217,6 +217,79 @@ void main() {
       );
     });
 
+    test('shipment storage roundtrip preserves shipment fields and item photo', () async {
+      final shipment = Pengiriman(
+        id: 'storage-roundtrip-1',
+        pengirim: 'Budi',
+        noTelepon: '08123456789',
+        tanggal: DateTime(2026, 10, 2, 14, 30),
+        nomorResi: 'ROUNDTRIP001',
+        kotaKabupaten: 'Kota Malang',
+        kecamatan: 'Klojen',
+        barang: [
+          BarangItem(
+            id: 'item-roundtrip-1',
+            nama: 'Kardus',
+            jumlah: 3,
+            panjang: 40,
+            lebar: 30,
+            tinggi: 20,
+            berat: 2.5,
+            photoPath: '/documents/barang_roundtrip.jpg',
+          ),
+        ],
+      );
+
+      SharedPreferences.setMockInitialValues({});
+      final storage = StorageService();
+      await storage.savePengiriman([shipment]);
+
+      final restored = await storage.loadPengiriman();
+
+      expect(restored, hasLength(1));
+      final actual = restored.single;
+      expect(actual.id, shipment.id);
+      expect(actual.pengirim, shipment.pengirim);
+      expect(actual.noTelepon, shipment.noTelepon);
+      expect(actual.tanggal, shipment.tanggal);
+      expect(actual.nomorResi, shipment.nomorResi);
+      expect(actual.kotaKabupaten, shipment.kotaKabupaten);
+      expect(actual.kecamatan, shipment.kecamatan);
+      expect(actual.barang, hasLength(1));
+      expect(actual.barang.single.id, 'item-roundtrip-1');
+      expect(actual.barang.single.photoPath, shipment.barang.single.photoPath);
+      expect(actual.barang.single.jumlah, 3);
+    });
+
+    test('shipment storage rejects malformed item numeric types before data can be silently defaulted', () async {
+      SharedPreferences.setMockInitialValues({
+        'daftar_pengiriman_v2': jsonEncode([
+          {
+            'id': 'shipment-malformed-dimension',
+            'pengirim': 'Sender',
+            'nomorResi': 'RESI-MALFORMED-DIMENSION',
+            'tanggal': '2026-10-02T00:00:00.000',
+            'barang': [
+              {
+                'id': 'item-1',
+                'nama': 'Box',
+                'jumlah': 1,
+                'panjang': 'not-a-number',
+                'lebar': 10,
+                'tinggi': 10,
+                'berat': 1,
+              },
+            ],
+          },
+        ]),
+      });
+
+      await expectLater(
+        StorageService().loadPengiriman(),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
     test('shipment storage returns empty list only when no current data exists', () async {
       SharedPreferences.setMockInitialValues({});
 
