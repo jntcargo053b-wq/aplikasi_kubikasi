@@ -100,7 +100,13 @@ class _BarangFormState extends State<_BarangForm> {
   bool get _hasChanges {
     final original = widget.existing;
     if (original == null) {
-      return _nama.text.trim().isNotEmpty || _p.text.trim().isNotEmpty || _l.text.trim().isNotEmpty || _t.text.trim().isNotEmpty || _jumlah.text.trim() != '1' || _berat.text.trim().isNotEmpty || _photo != null;
+      return _nama.text.trim() != (widget.initialName ?? '').trim() ||
+          _p.text.trim().isNotEmpty ||
+          _l.text.trim().isNotEmpty ||
+          _t.text.trim().isNotEmpty ||
+          _jumlah.text.trim() != '1' ||
+          _berat.text.trim().isNotEmpty ||
+          _photo != null;
     }
     return _nama.text.trim() != original.nama || _p.text.trim() != _n(original.panjang) || _l.text.trim() != _n(original.lebar) || _t.text.trim() != _n(original.tinggi) || _jumlah.text.trim() != original.jumlah.toString() || _berat.text.trim() != _n(original.berat) || _photo != original.photoPath;
   }
