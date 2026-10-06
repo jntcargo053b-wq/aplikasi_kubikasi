@@ -475,15 +475,25 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                       },
                       icon: const Icon(Icons.remove_circle_outline),
                     ),
-                    Expanded(
+                    SizedBox(
+                      width: 72,
                       child: TextField(
                         controller: item.jumlah,
                         focusNode: item.jumlahFocus,
                         textInputAction: TextInputAction.next,
                         onSubmitted: (_) => item.beratFocus.requestFocus(),
                         keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
                         onChanged: (_) => setState(() {}),
-                        decoration: _dec('Jumlah', suffix: 'pcs'),
+                        decoration: const InputDecoration(
+                          hintText: '1',
+                          suffixText: 'pcs',
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 10,
+                          ),
+                        ),
                       ),
                     ),
                     IconButton(
