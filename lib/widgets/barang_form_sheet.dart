@@ -69,10 +69,10 @@ class _BarangFormState extends State<_BarangForm> {
     final e = widget.existing;
     _nama = TextEditingController(text: e?.nama ?? widget.initialName ?? '');
     _jumlah = TextEditingController(text: '${e?.jumlah ?? 1}');
-    _berat = TextEditingController(text: e == null ? '0' : _n(e.berat));
-    _p = TextEditingController(text: e == null ? '0' : _n(e.panjang));
-    _l = TextEditingController(text: e == null ? '0' : _n(e.lebar));
-    _t = TextEditingController(text: e == null ? '0' : _n(e.tinggi));
+    _berat = TextEditingController(text: e == null ? '' : _n(e.berat));
+    _p = TextEditingController(text: e == null ? '' : _n(e.panjang));
+    _l = TextEditingController(text: e == null ? '' : _n(e.lebar));
+    _t = TextEditingController(text: e == null ? '' : _n(e.tinggi));
     _photo = e?.photoPath;
     _previewListenable = Listenable.merge([_jumlah, _p, _l, _t]);
     _pFocus = FocusNode();
@@ -456,6 +456,14 @@ class _BarangFormState extends State<_BarangForm> {
 
   Widget _size(TextEditingController c, String label, FocusNode focus, FocusNode next) => TextFormField(
         controller: c,
+        onTap: () {
+          if (c.text.isNotEmpty) {
+            c.selection = TextSelection(
+              baseOffset: 0,
+              extentOffset: c.text.length,
+            );
+          }
+        },
         focusNode: focus,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         textInputAction: TextInputAction.next,
