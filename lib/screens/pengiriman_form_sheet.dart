@@ -58,6 +58,10 @@ class _PengirimanFormState extends State<_PengirimanForm> {
   bool _busy = false;
   String? _wilayahError;
   String? _resiError;
+  String? _pengirimError;
+  String? _kotaError;
+  String? _kecamatanError;
+  String? _barangError;
   late final FocusNode _resiFocus;
 
   @override
@@ -479,7 +483,11 @@ class _PengirimanFormState extends State<_PengirimanForm> {
       selected: _selectedKotaKabupaten,
     );
     if (value == null || !mounted) return;
-    setState(() => _selectedKotaKabupaten = value);
+    setState(() {
+      _selectedKotaKabupaten = value;
+      _kotaError = null;
+      _kecamatanError = null;
+    });
     await _loadKecamatan(value);
   }
 
@@ -492,7 +500,10 @@ class _PengirimanFormState extends State<_PengirimanForm> {
       selected: _selectedKecamatan,
     );
     if (value != null && mounted) {
-      setState(() => _selectedKecamatan = value);
+      setState(() {
+        _selectedKecamatan = value;
+        _kecamatanError = null;
+      });
     }
   }
 
@@ -572,19 +583,23 @@ class _PengirimanFormState extends State<_PengirimanForm> {
 
   void _save() {
     _validateResi(_resi.text);
-    if (_resiError != null) { _resiFocus.requestFocus(); return; }
-    if (_pengirim.text.trim().isEmpty ||
-        _resi.text.trim().isEmpty ||
-        _barang.isEmpty ||
-        _selectedKotaKabupaten == null ||
-        _selectedKecamatan == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Lengkapi pengirim, kota/kabupaten, kecamatan, resi, dan minimal satu barang.',
-          ),
-        ),
-      );
+    final pengirimEmpty = _pengirim.text.trim().isEmpty;
+    final resiEmpty = _resi.text.trim().isEmpty;
+    final kotaEmpty = _selectedKotaKabupaten == null;
+    final kecamatanEmpty = _selectedKecamatan == null;
+    final barangEmpty = _barang.isEmpty;
+    setState(() {
+      _pengirimError = pengirimEmpty ? 'Nama pengirim wajib diisi.' : null;
+      _kotaError = kotaEmpty ? 'Kota/kabupaten tujuan wajib dipilih.' : null;
+      _kecamatanError = kecamatanEmpty ? 'Kecamatan tujuan wajib dipilih.' : null;
+      _barangError = barangEmpty ? 'Tambahkan minimal satu barang.' : null;
+    });
+    if (_resiError != null || resiEmpty) {
+      _resiFocus.requestFocus();
+      return;
+    }
+    if (pengirimEmpty || kotaEmpty || kecamatanEmpty || barangEmpty) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
       return;
     }
 
@@ -729,10 +744,17 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                     controller: controller,
                     focusNode: focusNode,
                     textInputAction: TextInputAction.next,
-                    onChanged: (value) { _pengirim.text = value; _applySender(value); },
+                    onChanged: (value) {
+                      _pengirim.text = value;
+                      _applySender(value);
+                      if (_pengirimError != null && value.trim().isNotEmpty) {
+                        setState(() => _pengirimError = null);
+                      }
+                    },
                     onSubmitted: (_) => onFieldSubmitted(),
                     decoration: InputDecoration(
                       labelText: 'Nama Pengirim',
+                      errorText: _pengirimError,
                       hintText: _savedSenders.isEmpty
                           ? 'Ketik nama pengirim'
                           : 'Ketik atau pilih pengirim',
@@ -847,6 +869,11 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                   onTap: _selectKotaKabupaten,
                   value: _selectedKotaKabupaten,
                 ),
+              if (_kotaError != null)
+                Padding(
+                  padding: const EdgeInsets.only(left: 12, top: 6),
+                  child: Text(_kotaError!, style: const TextStyle(fontSize: 12, color: Colors.red)),
+                ),
               if (_wilayahError != null) ...[
                 const SizedBox(height: 6),
                 Text(
@@ -875,6 +902,11 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                 onTap: _selectKecamatan,
                 value: _selectedKecamatan,
               ),
+              if (_kecamatanError != null)
+                Padding(
+                  padding: const EdgeInsets.only(left: 12, top: 6),
+                  child: Text(_kecamatanError!, style: const TextStyle(fontSize: 12, color: Colors.red)),
+                ),
               if (_loadingKecamatan) ...[
                 const SizedBox(height: 6),
                 const Align(
@@ -949,6 +981,11 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                 ],
               ),
               const SizedBox(height: 8),
+              if (_barangError != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(_barangError!, style: const TextStyle(fontSize: 12, color: Colors.red)),
+                ),
               if (_barang.isEmpty)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 20),
