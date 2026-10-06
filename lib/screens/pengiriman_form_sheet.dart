@@ -275,7 +275,10 @@ class _PengirimanFormState extends State<_PengirimanForm> {
       );
       if (item != null && mounted) {
         if (item.photoPath != null) _sessionPhotoPaths.add(item.photoPath!);
-        setState(() => _barang.add(item));
+        setState(() {
+          _barang.add(item);
+          _barangError = null;
+        });
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -525,7 +528,10 @@ class _PengirimanFormState extends State<_PengirimanForm> {
             !_originalPhotoPaths.contains(item.photoPath)) {
           _sessionPhotoPaths.add(item.photoPath!);
         }
-        setState(() => _barang.add(item));
+        setState(() {
+          _barang.add(item);
+          _barangError = null;
+        });
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -550,7 +556,10 @@ class _PengirimanFormState extends State<_PengirimanForm> {
         if (beforePhoto != null && _sessionPhotoPaths.contains(beforePhoto)) {
           _sessionPhotoPaths.add(beforePhoto);
         }
-        setState(() => _barang[index] = item);
+        setState(() {
+          _barang[index] = item;
+          _barangError = null;
+        });
       }
     } finally {
       if (mounted) setState(() => _busy = false);
