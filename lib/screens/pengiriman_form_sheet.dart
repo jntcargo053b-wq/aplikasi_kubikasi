@@ -97,6 +97,9 @@ class _PengirimanFormState extends State<_PengirimanForm> {
       ? _resi.text.trim() != (widget.existing!.nomorResi.trim()) ||
           _pengirim.text.trim() != widget.existing!.pengirim.trim() ||
           _noTelepon.text.trim() != widget.existing!.noTelepon.trim() ||
+          _tanggal.year != widget.existing!.tanggal.year ||
+          _tanggal.month != widget.existing!.tanggal.month ||
+          _tanggal.day != widget.existing!.tanggal.day ||
           _barang.length != widget.existing!.barang.length ||
           _selectedKotaKabupaten?.name != widget.existing!.kotaKabupaten ||
           _selectedKecamatan?.name != widget.existing!.kecamatan
