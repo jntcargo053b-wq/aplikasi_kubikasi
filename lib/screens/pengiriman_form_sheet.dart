@@ -63,6 +63,12 @@ class _PengirimanFormState extends State<_PengirimanForm> {
   String? _kecamatanError;
   String? _barangError;
   late final FocusNode _resiFocus;
+  final ScrollController _formScrollController = ScrollController();
+  final GlobalKey _pengirimKey = GlobalKey();
+  final GlobalKey _kotaKey = GlobalKey();
+  final GlobalKey _kecamatanKey = GlobalKey();
+  final GlobalKey _resiKey = GlobalKey();
+  final GlobalKey _barangKey = GlobalKey();
 
   @override
   void initState() {
@@ -590,6 +596,38 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     if (result != null && mounted) { setState(() => _resi.text = result); _validateResi(result); }
   }
 
+  Future<void> _scrollToFirstError({
+    required bool resiEmpty,
+    required bool pengirimEmpty,
+    required bool kotaEmpty,
+    required bool kecamatanEmpty,
+    required bool barangEmpty,
+  }) async {
+    GlobalKey? target;
+    if (_resiError != null || resiEmpty) {
+      target = _resiKey;
+    } else if (pengirimEmpty) {
+      target = _pengirimKey;
+    } else if (kotaEmpty) {
+      target = _kotaKey;
+    } else if (kecamatanEmpty) {
+      target = _kecamatanKey;
+    } else if (barangEmpty) {
+      target = _barangKey;
+    }
+    if (target == null || !mounted) return;
+    await Future<void>.delayed(Duration.zero);
+    if (!mounted) return;
+    final targetContext = target.currentContext;
+    if (targetContext == null) return;
+    await Scrollable.ensureVisible(
+      targetContext,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+      alignment: 0.12,
+    );
+  }
+
   void _save() {
     _validateResi(_resi.text);
     final pengirimEmpty = _pengirim.text.trim().isEmpty;
@@ -605,10 +643,24 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     });
     if (_resiError != null || resiEmpty) {
       _resiFocus.requestFocus();
+      _scrollToFirstError(
+        resiEmpty: resiEmpty,
+        pengirimEmpty: pengirimEmpty,
+        kotaEmpty: kotaEmpty,
+        kecamatanEmpty: kecamatanEmpty,
+        barangEmpty: barangEmpty,
+      );
       return;
     }
     if (pengirimEmpty || kotaEmpty || kecamatanEmpty || barangEmpty) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      _scrollToFirstError(
+        resiEmpty: false,
+        pengirimEmpty: pengirimEmpty,
+        kotaEmpty: kotaEmpty,
+        kecamatanEmpty: kecamatanEmpty,
+        barangEmpty: barangEmpty,
+      );
       return;
     }
 
@@ -645,6 +697,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     _noTelepon.dispose();
     _resi.dispose();
     _resiFocus.dispose();
+    _formScrollController.dispose();
     super.dispose();
   }
 
@@ -689,6 +742,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
         child: Stack(
           children: [
             SingleChildScrollView(
+              controller: _formScrollController,
               padding: EdgeInsets.fromLTRB(20, 14, 20, 112 + bottom),
               child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -712,7 +766,9 @@ class _PengirimanFormState extends State<_PengirimanForm> {
               if (widget.existing == null && widget.duplicateFrom == null && _savedShipments.isNotEmpty) ...[
                 Align(alignment: Alignment.centerLeft, child: TextButton.icon(onPressed: _busy ? null : _useLastShipment, icon: const Icon(Icons.history, size: 18), label: const Text('Gunakan data pengiriman terakhir'))),
               ],
-              Autocomplete<String>(
+              KeyedSubtree(
+                key: _pengirimKey,
+                child: Autocomplete<String>(
                 initialValue: TextEditingValue(text: _pengirim.text),
                 optionsBuilder: (value) {
                   final query = value.text.trim().toLowerCase();
@@ -819,6 +875,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                   );
                 },
               ),
+              ),
               const SizedBox(height: 12),
               TextField(
                 controller: _noTelepon,
@@ -870,13 +927,16 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                   ),
                 )
               else
-                _regionField(
+                KeyedSubtree(
+                  key: _kotaKey,
+                  child: _regionField(
                   label: 'Kota/Kab. Tujuan',
                   hint: 'Pilih kota/kabupaten tujuan',
                   icon: Icons.location_city_outlined,
                   enabled: !_busy,
                   onTap: _selectKotaKabupaten,
                   value: _selectedKotaKabupaten,
+                ),
                 ),
               if (_kotaError != null)
                 Padding(
@@ -899,7 +959,9 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                 ),
               ],
               const SizedBox(height: 12),
-              _regionField(
+              KeyedSubtree(
+                key: _kecamatanKey,
+                child: _regionField(
                 label: 'Kecamatan Tujuan',
                 hint: _selectedKotaKabupaten == null
                     ? 'Pilih kota/kabupaten tujuan terlebih dahulu'
@@ -910,6 +972,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                     !_busy,
                 onTap: _selectKecamatan,
                 value: _selectedKecamatan,
+              ),
               ),
               if (_kecamatanError != null)
                 Padding(
@@ -924,7 +987,9 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                 ),
               ],
               const SizedBox(height: 12),
-              TextField(
+              KeyedSubtree(
+                key: _resiKey,
+                child: TextField(
                 controller: _resi,
                 focusNode: _resiFocus,
                 textInputAction: TextInputAction.next,
@@ -939,6 +1004,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                   ),
                 ),
                 scrollPadding: const EdgeInsets.only(bottom: 180),
+              ),
               ),
               const SizedBox(height: 18),
               if (widget.existing == null && widget.initialBarang != null && widget.initialBarang!.isNotEmpty) ...[
@@ -964,7 +1030,9 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                 ),
                 const SizedBox(height: 12),
               ],
-              Wrap(
+              KeyedSubtree(
+                key: _barangKey,
+                child: Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 crossAxisAlignment: WrapCrossAlignment.center,
@@ -1062,6 +1130,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                   );
                 }),
               const SizedBox(height: 12),
+              ),
             ],
           ),
         ),
