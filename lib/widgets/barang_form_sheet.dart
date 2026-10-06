@@ -15,6 +15,7 @@ Future<BarangItem?> showBarangFormSheet(
   BarangItem? existing,
   String? initialName,
   bool focusQuantity = false,
+  FutureOr<void> Function(BarangItem item)? onSaveAndAddAnother,
 }) {
   return showModalBottomSheet<BarangItem>(
     context: context,
@@ -25,6 +26,7 @@ Future<BarangItem?> showBarangFormSheet(
       existing: existing,
       initialName: initialName,
       focusQuantity: focusQuantity,
+      onSaveAndAddAnother: onSaveAndAddAnother,
     ),
   );
 }
@@ -33,10 +35,12 @@ class _BarangForm extends StatefulWidget {
   final BarangItem? existing;
   final String? initialName;
   final bool focusQuantity;
+  final FutureOr<void> Function(BarangItem item)? onSaveAndAddAnother;
   const _BarangForm({
     this.existing,
     this.initialName,
     this.focusQuantity = false,
+    this.onSaveAndAddAnother,
   });
 
   @override
@@ -65,10 +69,10 @@ class _BarangFormState extends State<_BarangForm> {
     final e = widget.existing;
     _nama = TextEditingController(text: e?.nama ?? widget.initialName ?? '');
     _jumlah = TextEditingController(text: '${e?.jumlah ?? 1}');
-    _berat = TextEditingController(text: e == null ? '0' : _n(e.berat));
-    _p = TextEditingController(text: e == null ? '0' : _n(e.panjang));
-    _l = TextEditingController(text: e == null ? '0' : _n(e.lebar));
-    _t = TextEditingController(text: e == null ? '0' : _n(e.tinggi));
+    _berat = TextEditingController(text: e == null ? '' : _n(e.berat));
+    _p = TextEditingController(text: e == null ? '' : _n(e.panjang));
+    _l = TextEditingController(text: e == null ? '' : _n(e.lebar));
+    _t = TextEditingController(text: e == null ? '' : _n(e.tinggi));
     _photo = e?.photoPath;
     _previewListenable = Listenable.merge([_jumlah, _p, _l, _t]);
     _pFocus = FocusNode();
@@ -96,7 +100,13 @@ class _BarangFormState extends State<_BarangForm> {
   bool get _hasChanges {
     final original = widget.existing;
     if (original == null) {
-      return _nama.text.trim().isNotEmpty || _p.text.trim().isNotEmpty || _l.text.trim().isNotEmpty || _t.text.trim().isNotEmpty || _jumlah.text.trim() != '1' || _berat.text.trim().isNotEmpty || _photo != null;
+      return _nama.text.trim() != (widget.initialName ?? '').trim() ||
+          _p.text.trim().isNotEmpty ||
+          _l.text.trim().isNotEmpty ||
+          _t.text.trim().isNotEmpty ||
+          _jumlah.text.trim() != '1' ||
+          _berat.text.trim().isNotEmpty ||
+          _photo != null;
     }
     return _nama.text.trim() != original.nama || _p.text.trim() != _n(original.panjang) || _l.text.trim() != _n(original.lebar) || _t.text.trim() != _n(original.tinggi) || _jumlah.text.trim() != original.jumlah.toString() || _berat.text.trim() != _n(original.berat) || _photo != original.photoPath;
   }
@@ -244,7 +254,7 @@ class _BarangFormState extends State<_BarangForm> {
     if (source != null) await _pickPhoto(source);
   }
 
-  void _save() {
+  Future<void> _save({bool addAnother = false}) async {
     if (!_key.currentState!.validate()) return;
     final item = BarangItem(
       id: widget.existing?.id ?? const Uuid().v4(),
@@ -256,6 +266,26 @@ class _BarangFormState extends State<_BarangForm> {
       berat: _d(_berat.text),
       photoPath: _photo,
     );
+    if (addAnother && widget.onSaveAndAddAnother != null) {
+      await widget.onSaveAndAddAnother!(item);
+      if (!mounted) return;
+      final handedOffPhoto = item.photoPath;
+      if (handedOffPhoto != null) _createdPhotos.remove(handedOffPhoto);
+      _saved = false;
+      setState(() {
+        _nama.clear();
+        _jumlah.text = '1';
+        _berat.clear();
+        _p.clear();
+        _l.clear();
+        _t.clear();
+        _photo = null;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _pFocus.requestFocus();
+      });
+      return;
+    }
     _saved = true;
     Navigator.pop(context, item);
   }
@@ -405,8 +435,17 @@ class _BarangFormState extends State<_BarangForm> {
                   ),
                 ),
                 const SizedBox(height: 20),
+                if (widget.existing == null &&
+                    widget.onSaveAndAddAnother != null) ...[
+                  FilledButton.icon(
+                    onPressed: _busy ? null : () => _save(addAnother: true),
+                    icon: const Icon(Icons.add_circle_outline),
+                    label: const Text('Simpan & Tambah Lagi'),
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 FilledButton(
-                  onPressed: _save,
+                  onPressed: _busy ? null : _save,
                   child: Text(
                     widget.existing == null
                         ? 'Tambah Barang'
@@ -423,6 +462,14 @@ class _BarangFormState extends State<_BarangForm> {
 
   Widget _size(TextEditingController c, String label, FocusNode focus, FocusNode next) => TextFormField(
         controller: c,
+        onTap: () {
+          if (c.text.isNotEmpty) {
+            c.selection = TextSelection(
+              baseOffset: 0,
+              extentOffset: c.text.length,
+            );
+          }
+        },
         focusNode: focus,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         textInputAction: TextInputAction.next,

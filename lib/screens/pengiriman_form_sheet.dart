@@ -58,7 +58,17 @@ class _PengirimanFormState extends State<_PengirimanForm> {
   bool _busy = false;
   String? _wilayahError;
   String? _resiError;
+  String? _pengirimError;
+  String? _kotaError;
+  String? _kecamatanError;
+  String? _barangError;
   late final FocusNode _resiFocus;
+  final ScrollController _formScrollController = ScrollController();
+  final GlobalKey _pengirimKey = GlobalKey();
+  final GlobalKey _kotaKey = GlobalKey();
+  final GlobalKey _kecamatanKey = GlobalKey();
+  final GlobalKey _resiKey = GlobalKey();
+  final GlobalKey _barangKey = GlobalKey();
 
   @override
   void initState() {
@@ -271,7 +281,10 @@ class _PengirimanFormState extends State<_PengirimanForm> {
       );
       if (item != null && mounted) {
         if (item.photoPath != null) _sessionPhotoPaths.add(item.photoPath!);
-        setState(() => _barang.add(item));
+        setState(() {
+          _barang.add(item);
+          _barangError = null;
+        });
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -479,8 +492,14 @@ class _PengirimanFormState extends State<_PengirimanForm> {
       selected: _selectedKotaKabupaten,
     );
     if (value == null || !mounted) return;
-    setState(() => _selectedKotaKabupaten = value);
+    setState(() {
+      _selectedKotaKabupaten = value;
+      _kotaError = null;
+      _kecamatanError = null;
+    });
     await _loadKecamatan(value);
+    if (!mounted || _kecamatan.isEmpty || _busy) return;
+    await _selectKecamatan();
   }
 
   Future<void> _selectKecamatan() async {
@@ -492,7 +511,10 @@ class _PengirimanFormState extends State<_PengirimanForm> {
       selected: _selectedKecamatan,
     );
     if (value != null && mounted) {
-      setState(() => _selectedKecamatan = value);
+      setState(() {
+        _selectedKecamatan = value;
+        _kecamatanError = null;
+      });
     }
   }
 
@@ -502,14 +524,22 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     try {
       final item = await showBarangFormSheet(
         context,
-        initialName: 'Item${_barang.length + 1}',
+        initialName: 'Barang ${_barang.length + 1}',
+        onSaveAndAddAnother: (item) async {
+          if (!mounted) return;
+          if (item.photoPath != null) _sessionPhotoPaths.add(item.photoPath!);
+          setState(() => _barang.add(item));
+        },
       );
       if (item != null && mounted) {
         if (item.photoPath != null &&
             !_originalPhotoPaths.contains(item.photoPath)) {
           _sessionPhotoPaths.add(item.photoPath!);
         }
-        setState(() => _barang.add(item));
+        setState(() {
+          _barang.add(item);
+          _barangError = null;
+        });
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -534,7 +564,10 @@ class _PengirimanFormState extends State<_PengirimanForm> {
         if (beforePhoto != null && _sessionPhotoPaths.contains(beforePhoto)) {
           _sessionPhotoPaths.add(beforePhoto);
         }
-        setState(() => _barang[index] = item);
+        setState(() {
+          _barang[index] = item;
+          _barangError = null;
+        });
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -565,20 +598,70 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     if (result != null && mounted) { setState(() => _resi.text = result); _validateResi(result); }
   }
 
+  Future<void> _scrollToFirstError({
+    required bool resiEmpty,
+    required bool pengirimEmpty,
+    required bool kotaEmpty,
+    required bool kecamatanEmpty,
+    required bool barangEmpty,
+  }) async {
+    GlobalKey? target;
+    if (_resiError != null || resiEmpty) {
+      target = _resiKey;
+    } else if (pengirimEmpty) {
+      target = _pengirimKey;
+    } else if (kotaEmpty) {
+      target = _kotaKey;
+    } else if (kecamatanEmpty) {
+      target = _kecamatanKey;
+    } else if (barangEmpty) {
+      target = _barangKey;
+    }
+    if (target == null || !mounted) return;
+    await Future<void>.delayed(Duration.zero);
+    if (!mounted) return;
+    final targetContext = target.currentContext;
+    if (targetContext == null) return;
+    await Scrollable.ensureVisible(
+      targetContext,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+      alignment: 0.12,
+    );
+  }
+
   void _save() {
     _validateResi(_resi.text);
-    if (_resiError != null) { _resiFocus.requestFocus(); return; }
-    if (_pengirim.text.trim().isEmpty ||
-        _resi.text.trim().isEmpty ||
-        _barang.isEmpty ||
-        _selectedKotaKabupaten == null ||
-        _selectedKecamatan == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Lengkapi pengirim, kota/kabupaten, kecamatan, resi, dan minimal satu barang.',
-          ),
-        ),
+    final pengirimEmpty = _pengirim.text.trim().isEmpty;
+    final resiEmpty = _resi.text.trim().isEmpty;
+    final kotaEmpty = _selectedKotaKabupaten == null;
+    final kecamatanEmpty = _selectedKecamatan == null;
+    final barangEmpty = _barang.isEmpty;
+    setState(() {
+      _pengirimError = pengirimEmpty ? 'Nama pengirim wajib diisi.' : null;
+      _kotaError = kotaEmpty ? 'Kota/kabupaten tujuan wajib dipilih.' : null;
+      _kecamatanError = kecamatanEmpty ? 'Kecamatan tujuan wajib dipilih.' : null;
+      _barangError = barangEmpty ? 'Tambahkan minimal satu barang.' : null;
+    });
+    if (_resiError != null || resiEmpty) {
+      _resiFocus.requestFocus();
+      _scrollToFirstError(
+        resiEmpty: resiEmpty,
+        pengirimEmpty: pengirimEmpty,
+        kotaEmpty: kotaEmpty,
+        kecamatanEmpty: kecamatanEmpty,
+        barangEmpty: barangEmpty,
+      );
+      return;
+    }
+    if (pengirimEmpty || kotaEmpty || kecamatanEmpty || barangEmpty) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      _scrollToFirstError(
+        resiEmpty: false,
+        pengirimEmpty: pengirimEmpty,
+        kotaEmpty: kotaEmpty,
+        kecamatanEmpty: kecamatanEmpty,
+        barangEmpty: barangEmpty,
       );
       return;
     }
@@ -616,6 +699,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     _noTelepon.dispose();
     _resi.dispose();
     _resiFocus.dispose();
+    _formScrollController.dispose();
     super.dispose();
   }
 
@@ -657,9 +741,12 @@ class _PengirimanFormState extends State<_PengirimanForm> {
       clipBehavior: Clip.antiAlias,
       child: SafeArea(
         top: false,
-        child: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(20, 14, 20, 24 + bottom),
-          child: Column(
+        child: Stack(
+          children: [
+            SingleChildScrollView(
+              controller: _formScrollController,
+              padding: EdgeInsets.fromLTRB(20, 14, 20, 112 + bottom),
+              child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Center(
@@ -679,9 +766,18 @@ class _PengirimanFormState extends State<_PengirimanForm> {
               ),
               const SizedBox(height: 16),
               if (widget.existing == null && widget.duplicateFrom == null && _savedShipments.isNotEmpty) ...[
-                Align(alignment: Alignment.centerLeft, child: TextButton.icon(onPressed: _busy ? null : _useLastShipment, icon: const Icon(Icons.history, size: 18), label: const Text('Gunakan data pengiriman terakhir'))),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: ActionChip(
+                    avatar: const Icon(Icons.history, size: 18),
+                    label: const Text('Tujuan terakhir'),
+                    onPressed: _busy ? null : _useLastShipment,
+                  ),
+                ),
               ],
-              Autocomplete<String>(
+              KeyedSubtree(
+                key: _pengirimKey,
+                child: Autocomplete<String>(
                 initialValue: TextEditingValue(text: _pengirim.text),
                 optionsBuilder: (value) {
                   final query = value.text.trim().toLowerCase();
@@ -722,10 +818,17 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                     controller: controller,
                     focusNode: focusNode,
                     textInputAction: TextInputAction.next,
-                    onChanged: (value) { _pengirim.text = value; _applySender(value); },
+                    onChanged: (value) {
+                      _pengirim.text = value;
+                      _applySender(value);
+                      if (_pengirimError != null && value.trim().isNotEmpty) {
+                        setState(() => _pengirimError = null);
+                      }
+                    },
                     onSubmitted: (_) => onFieldSubmitted(),
                     decoration: InputDecoration(
                       labelText: 'Nama Pengirim',
+                      errorText: _pengirimError,
                       hintText: _savedSenders.isEmpty
                           ? 'Ketik nama pengirim'
                           : 'Ketik atau pilih pengirim',
@@ -781,6 +884,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                   );
                 },
               ),
+              ),
               const SizedBox(height: 12),
               TextField(
                 controller: _noTelepon,
@@ -832,13 +936,21 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                   ),
                 )
               else
-                _regionField(
+                KeyedSubtree(
+                  key: _kotaKey,
+                  child: _regionField(
                   label: 'Kota/Kab. Tujuan',
                   hint: 'Pilih kota/kabupaten tujuan',
                   icon: Icons.location_city_outlined,
                   enabled: !_busy,
                   onTap: _selectKotaKabupaten,
                   value: _selectedKotaKabupaten,
+                ),
+                ),
+              if (_kotaError != null)
+                Padding(
+                  padding: const EdgeInsets.only(left: 12, top: 6),
+                  child: Text(_kotaError!, style: const TextStyle(fontSize: 12, color: Colors.red)),
                 ),
               if (_wilayahError != null) ...[
                 const SizedBox(height: 6),
@@ -856,7 +968,9 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                 ),
               ],
               const SizedBox(height: 12),
-              _regionField(
+              KeyedSubtree(
+                key: _kecamatanKey,
+                child: _regionField(
                 label: 'Kecamatan Tujuan',
                 hint: _selectedKotaKabupaten == null
                     ? 'Pilih kota/kabupaten tujuan terlebih dahulu'
@@ -868,6 +982,12 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                 onTap: _selectKecamatan,
                 value: _selectedKecamatan,
               ),
+              ),
+              if (_kecamatanError != null)
+                Padding(
+                  padding: const EdgeInsets.only(left: 12, top: 6),
+                  child: Text(_kecamatanError!, style: const TextStyle(fontSize: 12, color: Colors.red)),
+                ),
               if (_loadingKecamatan) ...[
                 const SizedBox(height: 6),
                 const Align(
@@ -876,7 +996,9 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                 ),
               ],
               const SizedBox(height: 12),
-              TextField(
+              KeyedSubtree(
+                key: _resiKey,
+                child: TextField(
                 controller: _resi,
                 focusNode: _resiFocus,
                 textInputAction: TextInputAction.next,
@@ -891,6 +1013,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                   ),
                 ),
                 scrollPadding: const EdgeInsets.only(bottom: 180),
+              ),
               ),
               const SizedBox(height: 18),
               if (widget.existing == null && widget.initialBarang != null && widget.initialBarang!.isNotEmpty) ...[
@@ -916,7 +1039,9 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                 ),
                 const SizedBox(height: 12),
               ],
-              Wrap(
+              KeyedSubtree(
+                key: _barangKey,
+                child: Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 crossAxisAlignment: WrapCrossAlignment.center,
@@ -942,6 +1067,11 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                 ],
               ),
               const SizedBox(height: 8),
+              if (_barangError != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(_barangError!, style: const TextStyle(fontSize: 12, color: Colors.red)),
+                ),
               if (_barang.isEmpty)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 20),
@@ -1008,17 +1138,52 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                     ),
                   );
                 }),
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: _busy ? null : _save,
-                child: Text(
-                  widget.existing == null
-                      ? 'Simpan Pengiriman'
-                      : 'Simpan Perubahan',
-                ),
+                ],
               ),
+              ),
+              const SizedBox(height: 12),
             ],
           ),
+        ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: bottom,
+              child: Material(
+                elevation: 10,
+                color: Colors.white,
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${_barang.length} barang • ${_barang.fold<int>(0, (sum, item) => sum + item.jumlah)} pcs',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.muted,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        FilledButton(
+                          onPressed: _busy ? null : _save,
+                          child: Text(
+                            widget.existing == null
+                                ? 'Simpan Pengiriman'
+                                : 'Simpan Perubahan',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     ),
