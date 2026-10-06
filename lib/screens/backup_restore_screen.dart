@@ -110,6 +110,10 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
       if (!mounted) return;
       final mode = await _chooseRestoreMode(backup);
       if (mode == null || !mounted) return;
+      if (!mode) {
+        final confirmed = await _confirmReplaceAll(backup);
+        if (confirmed != true || !mounted) return;
+      }
       final result = await _backupService.restore(backup, merge: mode);
       if (!mounted) return;
       await showDialog<void>(
@@ -175,6 +179,33 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
           FilledButton(
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Ganti Semua'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<bool?> _confirmReplaceAll(BackupData backup) {
+    final itemCount =
+        backup.shipments.fold<int>(0, (sum, shipment) => sum + shipment.barang.length);
+    return showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Konfirmasi ganti semua data'),
+        content: Text(
+          'Data pengiriman yang saat ini tersimpan akan diganti dengan '
+          '${backup.shipments.length} pengiriman dan $itemCount barang dari backup.\n\n'
+          'Tindakan ini tidak dapat dibatalkan tanpa backup lain. '
+          'Pastikan Anda sudah memiliki backup terbaru jika data saat ini masih diperlukan.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Ya, Ganti Semua'),
           ),
         ],
       ),
@@ -278,7 +309,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                 ListTile(
                   leading: Icon(Icons.merge_type_outlined),
                   title: Text('Restore dapat digabung'),
-                  subtitle: Text('Data yang sudah ada tetap dipertahankan; ID pengiriman yang sama dilewati.'),
+                  subtitle: Text('Data yang sudah ada tetap dipertahankan; ID atau nomor resi yang sama dilewati.'),
                 ),
                 Divider(height: 1),
                 ListTile(
