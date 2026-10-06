@@ -1042,6 +1042,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
               KeyedSubtree(
                 key: _barangKey,
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Wrap(
                       spacing: 8,
@@ -1049,106 +1050,132 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         const Text(
-                    'Daftar Barang',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  if (_savedBarangTemplates.isNotEmpty)
-                    OutlinedButton.icon(
-                      onPressed: _busy ? null : _quickAddBarang,
-                      icon: const Icon(Icons.history, size: 18),
-                      label: const Text('Barang Lama', maxLines: 1, softWrap: false),
-                    ),
-                  OutlinedButton.icon(
-                    onPressed: _busy ? null : _addItem,
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Tambah Barang', maxLines: 1, softWrap: false),
+                          'Daftar Barang',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        if (_savedBarangTemplates.isNotEmpty)
+                          OutlinedButton.icon(
+                            onPressed: _busy ? null : _quickAddBarang,
+                            icon: const Icon(Icons.history, size: 18),
+                            label: const Text(
+                              'Barang Lama',
+                              maxLines: 1,
+                              softWrap: false,
+                            ),
+                          ),
+                        OutlinedButton.icon(
+                          onPressed: _busy ? null : _addItem,
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text(
+                            'Tambah Barang',
+                            maxLines: 1,
+                            softWrap: false,
+                          ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
                     if (_barangError != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(_barangError!, style: const TextStyle(fontSize: 12, color: Colors.red)),
-                ),
-              if (_barang.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 20),
-                  child: Center(child: Text('Belum ada barang.')),
-                )
-              else
-                ..._barang.asMap().entries.map((entry) {
-                  final i = entry.key;
-                  final b = entry.value;
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    clipBehavior: Clip.antiAlias,
-                    child: ListTile(
-                      onTap: _busy ? null : () => _editItem(i),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                      leading: b.photoPath == null
-                          ? const CircleAvatar(
-                              child: Icon(Icons.inventory_2_outlined),
-                            )
-                          : GestureDetector(
-                              onTap: () => showPhotoPreview(context, b.photoPath!),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(10),
-                                child: Image.file(
-                                  File(b.photoPath!),
-                                  width: 48,
-                                  height: 48,
-                                  fit: BoxFit.cover,
-                                  cacheWidth: 144,
-                                  cacheHeight: 144,
-                                  errorBuilder: (_, __, ___) => const SizedBox(
-                                    width: 48,
-                                    height: 48,
-                                    child: Icon(Icons.broken_image_outlined),
-                                  ),
-                                ),
-                              ),
-                            ),
-                      title: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              b.nama,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          const Icon(Icons.edit_outlined, size: 16, color: AppColors.muted),
-                        ],
-                      ),
-                      subtitle: Padding(
-                        padding: const EdgeInsets.only(top: 4),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
                         child: Text(
-                          '${b.jumlah} pcs • ${b.panjang} × ${b.lebar} × ${b.tinggi} cm • ${b.berat} kg/unit\n${b.kubikasi.toStringAsFixed(3)} m³ • ${b.totalBerat.toStringAsFixed(2)} kg',
+                          _barangError!,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.red,
+                          ),
                         ),
                       ),
-                      isThreeLine: true,
-                      trailing: IconButton(
-                        tooltip: 'Hapus Barang',
-                        onPressed: _busy ? null : () => _removeItem(i),
-                        icon: const Icon(Icons.delete_outline),
-                      ),
-                    ),
-                  );
-                }),
-                ],
-                  ),
-                ],
+                    if (_barang.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: Center(child: Text('Belum ada barang.')),
+                      )
+                    else
+                      ..._barang.asMap().entries.map((entry) {
+                        final i = entry.key;
+                        final b = entry.value;
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          clipBehavior: Clip.antiAlias,
+                          child: ListTile(
+                            onTap: _busy ? null : () => _editItem(i),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            ),
+                            leading: b.photoPath == null
+                                ? const CircleAvatar(
+                                    child: Icon(Icons.inventory_2_outlined),
+                                  )
+                                : GestureDetector(
+                                    onTap: () => showPhotoPreview(
+                                      context,
+                                      b.photoPath!,
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: Image.file(
+                                        File(b.photoPath!),
+                                        width: 48,
+                                        height: 48,
+                                        fit: BoxFit.cover,
+                                        cacheWidth: 144,
+                                        cacheHeight: 144,
+                                        errorBuilder: (_, __, ___) =>
+                                            const SizedBox(
+                                          width: 48,
+                                          height: 48,
+                                          child: Icon(
+                                            Icons.broken_image_outlined,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                            title: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    b.nama,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                const Icon(
+                                  Icons.edit_outlined,
+                                  size: 16,
+                                  color: AppColors.muted,
+                                ),
+                              ],
+                            ),
+                            subtitle: Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                '${b.jumlah} pcs • ${b.panjang} × ${b.lebar} × ${b.tinggi} cm • ${b.berat} kg/unit\n${b.kubikasi.toStringAsFixed(3)} m³ • ${b.totalBerat.toStringAsFixed(2)} kg',
+                              ),
+                            ),
+                            isThreeLine: true,
+                            trailing: IconButton(
+                              tooltip: 'Hapus Barang',
+                              onPressed: _busy ? null : () => _removeItem(i),
+                              icon: const Icon(Icons.delete_outline),
+                            ),
+                          ),
+                        );
+                      }),
+                  ],
+                ),
               ),
               const SizedBox(height: 12),
             ],
           ),
         ),
-            Positioned(
+            Positioned(            Positioned(
               left: 0,
               right: 0,
               bottom: bottom,
