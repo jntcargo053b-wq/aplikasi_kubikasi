@@ -729,6 +729,74 @@ class _PengirimanFormState extends State<_PengirimanForm> {
         ),
       );
 
+
+  Widget _buildBarangCard(int i) {
+    final b = _barang[i];
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      clipBehavior: Clip.antiAlias,
+      child: ListTile(
+        onTap: _busy ? null : () => _editItem(i),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 4,
+        ),
+        leading: b.photoPath == null
+            ? const CircleAvatar(
+                child: Icon(Icons.inventory_2_outlined),
+              )
+            : GestureDetector(
+                onTap: () => showPhotoPreview(context, b.photoPath!),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.file(
+                    File(b.photoPath!),
+                    width: 48,
+                    height: 48,
+                    fit: BoxFit.cover,
+                    cacheWidth: 144,
+                    cacheHeight: 144,
+                    errorBuilder: (_, __, ___) => const SizedBox(
+                      width: 48,
+                      height: 48,
+                      child: Icon(Icons.broken_image_outlined),
+                    ),
+                  ),
+                ),
+              ),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                b.nama,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 6),
+            const Icon(
+              Icons.edit_outlined,
+              size: 16,
+              color: AppColors.muted,
+            ),
+          ],
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+            '${b.jumlah} pcs • ${b.panjang} × ${b.lebar} × ${b.tinggi} cm • ${b.berat} kg/unit\\n${b.kubikasi.toStringAsFixed(3)} m³ • ${b.totalBerat.toStringAsFixed(2)} kg',
+          ),
+        ),
+        isThreeLine: true,
+        trailing: IconButton(
+          tooltip: 'Hapus Barang',
+          onPressed: _busy ? null : () => _removeItem(i),
+          icon: const Icon(Icons.delete_outline),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.of(context).viewInsets.bottom;
@@ -1093,81 +1161,9 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 20),
                         child: Center(child: Text('Belum ada barang.')),
-                      )
-                    else
-                      ..._barang.asMap().entries.map((entry) {
-                        final i = entry.key;
-                        final b = entry.value;
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          clipBehavior: Clip.antiAlias,
-                          child: ListTile(
-                            onTap: _busy ? null : () => _editItem(i),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 4,
-                            ),
-                            leading: b.photoPath == null
-                                ? const CircleAvatar(
-                                    child: Icon(Icons.inventory_2_outlined),
-                                  )
-                                : GestureDetector(
-                                    onTap: () => showPhotoPreview(
-                                      context,
-                                      b.photoPath!,
-                                    ),
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(10),
-                                      child: Image.file(
-                                        File(b.photoPath!),
-                                        width: 48,
-                                        height: 48,
-                                        fit: BoxFit.cover,
-                                        cacheWidth: 144,
-                                        cacheHeight: 144,
-                                        errorBuilder: (_, __, ___) =>
-                                            const SizedBox(
-                                          width: 48,
-                                          height: 48,
-                                          child: Icon(
-                                            Icons.broken_image_outlined,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                            title: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    b.nama,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                const Icon(
-                                  Icons.edit_outlined,
-                                  size: 16,
-                                  color: AppColors.muted,
-                                ),
-                              ],
-                            ),
-                            subtitle: Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Text(
-                                '${b.jumlah} pcs • ${b.panjang} × ${b.lebar} × ${b.tinggi} cm • ${b.berat} kg/unit\n${b.kubikasi.toStringAsFixed(3)} m³ • ${b.totalBerat.toStringAsFixed(2)} kg',
-                              ),
-                            ),
-                            isThreeLine: true,
-                            trailing: IconButton(
-                              tooltip: 'Hapus Barang',
-                              onPressed: _busy ? null : () => _removeItem(i),
-                              icon: const Icon(Icons.delete_outline),
-                            ),
-                          ),
-                        );
-                      }),
+                      ),
+                    for (var i = 0; i < _barang.length; i++)
+                      _buildBarangCard(i),
                   ],
                 ),
               ),
