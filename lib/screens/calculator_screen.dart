@@ -460,14 +460,46 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
           Row(
             children: [
               Expanded(
-                child: TextField(
-                  controller: item.jumlah,
-                  focusNode: item.jumlahFocus,
-                  textInputAction: TextInputAction.next,
-                  onSubmitted: (_) => item.beratFocus.requestFocus(),
-                  keyboardType: TextInputType.number,
-                  onChanged: (_) => setState(() {}),
-                  decoration: _dec('Jumlah', suffix: 'pcs'),
+                child: Row(
+                  children: [
+                    IconButton(
+                      tooltip: 'Kurangi jumlah',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () {
+                        final next = (item.qty - 1).clamp(1, 999999);
+                        item.jumlah.text = next.toString();
+                        item.jumlah.selection = TextSelection.collapsed(
+                          offset: item.jumlah.text.length,
+                        );
+                        setState(() {});
+                      },
+                      icon: const Icon(Icons.remove_circle_outline),
+                    ),
+                    Expanded(
+                      child: TextField(
+                        controller: item.jumlah,
+                        focusNode: item.jumlahFocus,
+                        textInputAction: TextInputAction.next,
+                        onSubmitted: (_) => item.beratFocus.requestFocus(),
+                        keyboardType: TextInputType.number,
+                        onChanged: (_) => setState(() {}),
+                        decoration: _dec('Jumlah', suffix: 'pcs'),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Tambah jumlah',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () {
+                        final next = (item.qty + 1).clamp(1, 999999);
+                        item.jumlah.text = next.toString();
+                        item.jumlah.selection = TextSelection.collapsed(
+                          offset: item.jumlah.text.length,
+                        );
+                        setState(() {});
+                      },
+                      icon: const Icon(Icons.add_circle_outline),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 8),
