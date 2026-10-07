@@ -292,6 +292,14 @@ class BackupService {
       throw const FormatException('Data logo pada backup tidak valid.');
     }
     final logoData = rawLogoData as String?;
+    final backupLogoPath = settingsLogoPath(rawSettings);
+    final hasLogoPath = backupLogoPath != null && backupLogoPath.trim().isNotEmpty;
+    final hasLogoData = logoData != null && logoData.isNotEmpty;
+    if (hasLogoPath != hasLogoData) {
+      throw const FormatException(
+        'Referensi logo dan data logo pada backup tidak konsisten.',
+      );
+    }
     if (logoData != null && logoData.isNotEmpty) {
       try {
         final expected = integrity['logo']?.toString();
@@ -611,6 +619,13 @@ DateTime? parseBackupCreatedAt(Object? rawCreatedAt) {
     throw const FormatException('Tanggal pembuatan backup tidak valid.');
   }
   return parsed;
+}
+
+/// Reads only the logo reference needed to validate backup consistency.
+String? settingsLogoPath(Object? rawSettings) {
+  if (rawSettings is! Map) return null;
+  final value = rawSettings['logoPath'];
+  return value is String ? value : null;
 }
 
 /// Parses and validates report settings from a backup payload.
