@@ -682,6 +682,38 @@ void main() {
       }
     });
 
+    test('backup read rejects inconsistent logo reference and payload', () async {
+      final payload = <String, dynamic>{
+        'format': BackupService.format,
+        'version': BackupService.version,
+        'createdAt': null,
+        'counts': {'shipments': 0, 'items': 0, 'photos': 0},
+        'shipments': <Map<String, dynamic>>[],
+        'reportSettings': {
+          'companyName': 'Nextcube',
+          'headerNote': '',
+          'logoPath': '/old/logo.jpg',
+          'reportTitle': 'LAPORAN',
+        },
+        'photos': <String, String>{},
+        'logoData': null,
+        'integrity': <String, String>{},
+      };
+      final file = File(
+        '${Directory.systemTemp.path}/nextcube-backup-logo-mismatch-test.ncbak',
+      );
+      await file.writeAsString(jsonEncode(payload), flush: true);
+      try {
+        await expectLater(
+          BackupService().readBackup(file),
+          throwsA(isA<FormatException>()),
+        );
+      } finally {
+        if (await file.exists()) {
+          await file.delete();
+        }
+      }
+    });
     test('backup creation timestamp validation accepts valid and legacy values', () {
       final parsed = parseBackupCreatedAt('2026-09-23T11:44:18.000Z');
       expect(parsed, isNotNull);
