@@ -287,6 +287,7 @@ class BackupService {
       );
     }
 
+    final rawSettings = decoded['reportSettings'];
     final rawLogoData = decoded['logoData'];
     if (rawLogoData != null && rawLogoData is! String) {
       throw const FormatException('Data logo pada backup tidak valid.');
@@ -320,7 +321,6 @@ class BackupService {
       }
     }
 
-    final rawSettings = decoded['reportSettings'];
     final settings = parseBackupReportSettings(rawSettings);
 
     final createdAt = parseBackupCreatedAt(decoded['createdAt']);
