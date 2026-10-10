@@ -57,8 +57,8 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  Future<void> _load() async {
-    if (mounted) {
+  Future<void> _load({bool showLoading = true}) async {
+    if (mounted && showLoading) {
       setState(() {
         _loading = true;
         _loadError = null;
@@ -78,14 +78,28 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     } catch (error) {
       if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _loadError = error.toString().replaceFirst('FormatException: ', '');
-      });
+      final message = error.toString().replaceFirst('FormatException: ', '');
+      if (showLoading) {
+        setState(() {
+          _loading = false;
+          _loadError = message;
+        });
+      } else {
+        // Keep the current screen and cached list visible if a manual refresh
+        // fails; do not replace a usable screen with a full-page error.
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal memperbarui data: $message')),
+        );
+      }
     }
   }
 
   String get _search => _searchText;
+  bool get _hasActiveFilters =>
+      _pengirim != 'Semua' ||
+      _mulai != null ||
+      _sampai != null ||
+      _search.isNotEmpty;
   String _date(DateTime d) => DateFormat('dd/MM/yyyy').format(d);
 
   bool _matchesSearch(Pengiriman e) => _search.isEmpty ||
@@ -472,7 +486,11 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       body: Stack(children: [_body(list), if (_exporting) _exportOverlay()]),
-      floatingActionButton: FloatingActionButton(onPressed: _newShipment, child: const Icon(Icons.add_rounded)),
+      floatingActionButton: FloatingActionButton(
+        tooltip: 'Tambah Pengiriman',
+        onPressed: _newShipment,
+        child: const Icon(Icons.add_rounded),
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _navIndex,
         onDestinationSelected: (index) async {
@@ -519,7 +537,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final today = DateTime.now();
     final todayCount = _items.where((e) => e.tanggal.year == today.year && e.tanggal.month == today.month && e.tanggal.day == today.day).length;
     return RefreshIndicator(
-      onRefresh: _load,
+      onRefresh: () => _load(showLoading: false),
       child: ListView(
         padding: const EdgeInsets.fromLTRB(18, 4, 18, 110),
         children: [
@@ -549,21 +567,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Expanded(child: _quickAction(Icons.backup_outlined, 'Backup &\nRestore', _openBackupRestore)),
           ]),
           const SizedBox(height: 20),
-          _sectionTitle('Rekap Hari Ini', '\$todayCount data'),
-          const SizedBox(height: 9),
-          Row(children: [
-            Expanded(child: _statCard(Icons.local_shipping_outlined, '${_items.length}', 'Total Pengiriman')),
-            const SizedBox(width: 10),
-            Expanded(child: _statCard(Icons.calendar_today_outlined, '$todayCount', 'Hari Ini')),
-          ]),
-          const SizedBox(height: 10),
-          Row(children: [
-            Expanded(child: _statCard(Icons.view_in_ar_outlined, '${_items.fold<double>(0, (s, e) => s + e.totalKubikasi).toStringAsFixed(3)} m³', 'Total Kubikasi')),
-            const SizedBox(width: 10),
-            Expanded(child: _statCard(Icons.inventory_2_outlined, '${_items.fold<int>(0, (s, e) => s + e.totalJumlah)}', 'Total Barang')),
-          ]),
-          const SizedBox(height: 22),
-          _sectionTitle('Pengiriman Terbaru', list.isEmpty ? '' : '${list.length} hasil'),
+          _sectionTitle('Pengiriman', list.isEmpty ? '' : '${list.length} hasil'),
           const SizedBox(height: 9),
           _searchBox(),
           _filters(),
@@ -577,7 +581,24 @@ class _HomeScreenState extends State<HomeScreen> {
             )),
             const SizedBox(height: 8),
           ],
-          if (list.isEmpty) _emptyState() else ...list.map(_shipmentCard),
+          if (list.isEmpty)
+            _emptyState(filtered: _items.isNotEmpty || _hasActiveFilters)
+          else
+            ...list.map(_shipmentCard),
+          const SizedBox(height: 22),
+          _sectionTitle('Rekap Hari Ini', '$todayCount data'),
+          const SizedBox(height: 9),
+          Row(children: [
+            Expanded(child: _statCard(Icons.local_shipping_outlined, '${_items.length}', 'Total Pengiriman')),
+            const SizedBox(width: 10),
+            Expanded(child: _statCard(Icons.calendar_today_outlined, '$todayCount', 'Hari Ini')),
+          ]),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(child: _statCard(Icons.view_in_ar_outlined, '${_items.fold<double>(0, (s, e) => s + e.totalKubikasi).toStringAsFixed(3)} m³', 'Total Kubikasi')),
+            const SizedBox(width: 10),
+            Expanded(child: _statCard(Icons.inventory_2_outlined, '${_items.fold<int>(0, (s, e) => s + e.totalJumlah)}', 'Total Barang')),
+          ]),
         ],
       ),
     );
@@ -595,7 +616,59 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _shipmentCard(Pengiriman p) => Card(margin: const EdgeInsets.only(bottom: 10), child: InkWell(onTap: () => _openShipment(p), borderRadius: BorderRadius.circular(18), child: Padding(padding: const EdgeInsets.all(15), child: Row(children: [Container(width: 44, height: 44, decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.local_shipping_outlined, color: AppColors.primary)), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(p.nomorResi, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)), const SizedBox(height: 4), Text('${p.pengirim} • ${_date(p.tanggal)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.muted, fontSize: 12)), const SizedBox(height: 5), Text('${p.barang.length} jenis barang • ${p.totalKubikasi.toStringAsFixed(3)} m³', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12))])), const Icon(Icons.chevron_right, color: AppColors.muted)]))));
 
-  Widget _emptyState() => Card(child: Padding(padding: const EdgeInsets.all(28), child: Column(children: [Container(width: 62, height: 62, decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(20)), child: const Icon(Icons.local_shipping_outlined, color: AppColors.primary, size: 30)), const SizedBox(height: 14), const Text('Belum ada pengiriman', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)), const SizedBox(height: 5), const Text('Tambahkan pengiriman pertama untuk mulai mencatat kubikasi.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.muted)), const SizedBox(height: 16), FilledButton.icon(onPressed: _newShipment, icon: const Icon(Icons.add), label: const Text('Tambah Pengiriman'))])));
+  Widget _emptyState({required bool filtered}) => Card(
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            children: [
+              Container(
+                width: 62,
+                height: 62,
+                decoration: BoxDecoration(
+                  color: AppColors.primarySoft,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(
+                  filtered
+                      ? Icons.search_off_rounded
+                      : Icons.local_shipping_outlined,
+                  color: AppColors.primary,
+                  size: 30,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                filtered ? 'Pengiriman tidak ditemukan' : 'Belum ada pengiriman',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 17,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                filtered
+                    ? 'Coba ubah kata kunci atau filter yang digunakan.'
+                    : 'Tambahkan pengiriman pertama untuk mulai mencatat kubikasi.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.muted),
+              ),
+              const SizedBox(height: 16),
+              if (filtered)
+                OutlinedButton.icon(
+                  onPressed: _clearFilters,
+                  icon: const Icon(Icons.filter_alt_off_outlined),
+                  label: const Text('Reset pencarian dan filter'),
+                )
+              else
+                FilledButton.icon(
+                  onPressed: _newShipment,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Tambah Pengiriman'),
+                ),
+            ],
+          ),
+        ),
+      );
 
   Widget _exportOverlay() => Container(color: Colors.black.withValues(alpha: .12), child: Center(child: Card(child: Padding(padding: const EdgeInsets.all(20), child: Row(mainAxisSize: MainAxisSize.min, children: [const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.5)), const SizedBox(width: 14), Text(_exportingLabel ?? 'Menyiapkan laporan...')])))));
 
