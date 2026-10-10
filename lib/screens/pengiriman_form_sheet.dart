@@ -1206,13 +1206,31 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                     child: Row(
                       children: [
                         Expanded(
-                          child: Text(
-                            '${_barang.length} barang • ${_barang.fold<int>(0, (sum, item) => sum + item.jumlah)} pcs',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.muted,
-                            ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '${_barang.length} barang • ${_barang.fold<int>(0, (sum, item) => sum + item.jumlah)} pcs',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.muted,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                '${_barang.fold<double>(0, (sum, item) => sum + item.kubikasi).toStringAsFixed(3)} m³ • ${_barang.fold<double>(0, (sum, item) => sum + item.totalBerat).toStringAsFixed(2)} kg',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.muted,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(width: 12),
