@@ -549,7 +549,10 @@ class _PengirimanFormState extends State<_PengirimanForm> {
         onSaveAndAddAnother: (item) async {
           if (!mounted) return;
           if (item.photoPath != null) _sessionPhotoPaths.add(item.photoPath!);
-          setState(() => _barang.add(item));
+          setState(() {
+            _barang.add(item);
+            _barangError = null;
+          });
         },
       );
       if (item != null && mounted) {
