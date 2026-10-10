@@ -202,7 +202,11 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     if (_busy || widget.existing != null || _savedShipments.isEmpty) return;
     final last = _savedShipments.reduce((a,b) => a.tanggal.isAfter(b.tanggal) ? a : b);
     if (!mounted) return;
-    setState(() { _pengirim.text = last.pengirim; _noTelepon.text = last.noTelepon; });
+    setState(() {
+      _pengirim.text = last.pengirim;
+      _noTelepon.text = last.noTelepon;
+      if (last.pengirim.trim().isNotEmpty) _pengirimError = null;
+    });
     final city = last.kotaKabupaten.trim().toLowerCase();
     final kec = last.kecamatan.trim().toLowerCase();
     IndonesiaRegion? selectedCity;
@@ -210,7 +214,11 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     if (selectedCity != null) {
       // Select the city before loading its districts so the form reflects
       // the copied region and the district picker uses the correct parent.
-      setState(() => _selectedKotaKabupaten = selectedCity);
+      setState(() {
+        _selectedKotaKabupaten = selectedCity;
+        _kotaError = null;
+        _kecamatanError = null;
+      });
       await _loadKecamatan(selectedCity);
       if (!mounted) return;
       IndonesiaRegion? selectedKec;
@@ -220,7 +228,10 @@ class _PengirimanFormState extends State<_PengirimanForm> {
           break;
         }
       }
-      setState(() => _selectedKecamatan = selectedKec);
+      setState(() {
+        _selectedKecamatan = selectedKec;
+        if (selectedKec != null) _kecamatanError = null;
+      });
     }
   }
 
