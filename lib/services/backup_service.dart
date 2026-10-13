@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:convert/convert.dart';
 import 'package:crypto/crypto.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
@@ -572,9 +571,9 @@ class BackupService {
   }
 
   Future<String> _writePhotoBase64(File file, IOSink output) async {
-    final digestSink = AccumulatorSink<Digest>();
+    final digestSink = _DigestAccumulatorSink();
     final digestConverter = sha256.startChunkedConversion(digestSink);
-    final encodedSink = StringConversionSink.fromStringSink(output);
+    final encodedSink = _StringSinkAdapter(output);
     final base64Converter = base64.encoder.startChunkedConversion(encodedSink);
 
     try {
@@ -793,4 +792,29 @@ class RestoreResult {
     required this.skippedDuplicates,
     required this.settings,
   });
+}
+
+
+/// Collects the single digest emitted by a chunked hash conversion.
+class _DigestAccumulatorSink implements Sink<Digest> {
+  final List<Digest> events = <Digest>[];
+
+  @override
+  void add(Digest data) => events.add(data);
+
+  @override
+  void close() {}
+}
+
+/// Adapts an IOSink to the Sink<String> required by chunked Base64 encoding.
+class _StringSinkAdapter implements Sink<String> {
+  final IOSink output;
+
+  _StringSinkAdapter(this.output);
+
+  @override
+  void add(String data) => output.write(data);
+
+  @override
+  void close() {}
 }
