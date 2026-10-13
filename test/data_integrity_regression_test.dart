@@ -14,6 +14,7 @@ import 'package:volume_calculator/services/export_service.dart';
 import 'package:volume_calculator/services/backup_service.dart';
 import 'package:volume_calculator/services/storage_service.dart';
 import 'package:volume_calculator/services/settings_service.dart';
+import 'package:volume_calculator/services/photo_storage_service.dart';
 
 
 class _FailOnceSettingsService extends SettingsService {
@@ -884,6 +885,90 @@ void main() {
       );
     });
 
+
+    test('photo cleanup deletes only unreferenced app-owned files', () async {
+      final docs = await Directory.systemTemp.createTemp('nextcube-photo-cleanup-docs-');
+      final external = await Directory.systemTemp.createTemp('nextcube-photo-cleanup-external-');
+      final referencedFile = File('${docs.path}/referenced.jpg');
+      final orphanFile = File('${docs.path}/orphan.jpg');
+      final externalFile = File('${external.path}/external.jpg');
+      await referencedFile.writeAsString('referenced');
+      await orphanFile.writeAsString('orphan');
+      await externalFile.writeAsString('external');
+
+      final shipment = Pengiriman(
+        id: 'photo-cleanup-reference',
+        pengirim: 'Sender',
+        tanggal: DateTime(2026, 10, 13),
+        nomorResi: 'PHOTO-CLEANUP-001',
+        barang: [
+          BarangItem(
+            id: 'photo-cleanup-item',
+            nama: 'Box',
+            jumlah: 1,
+            panjang: 10,
+            lebar: 10,
+            tinggi: 10,
+            berat: 1,
+            photoPath: referencedFile.path,
+          ),
+        ],
+      );
+      SharedPreferences.setMockInitialValues({
+        'daftar_pengiriman_v2': jsonEncode([shipment.toJson()]),
+      });
+      const channel = MethodChannel('plugins.flutter.io/path_provider');
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'getApplicationDocumentsDirectory') return docs.path;
+        return null;
+      });
+
+      try {
+        await PhotoStorageService.deleteAll([
+          referencedFile.path,
+          orphanFile.path,
+          externalFile.path,
+        ]);
+
+        expect(await referencedFile.exists(), isTrue,
+            reason: 'A photo referenced by persisted shipment data must remain.');
+        expect(await orphanFile.exists(), isFalse,
+            reason: 'An unreferenced photo owned by the app should be cleaned up.');
+        expect(await externalFile.exists(), isTrue,
+            reason: 'Cleanup must never delete a file outside app documents.');
+      } finally {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+        await docs.delete(recursive: true);
+        await external.delete(recursive: true);
+      }
+    });
+
+    test('photo cleanup fails closed when persisted shipment data is corrupted', () async {
+      final docs = await Directory.systemTemp.createTemp('nextcube-photo-cleanup-corrupt-');
+      final orphanFile = File('${docs.path}/orphan.jpg');
+      await orphanFile.writeAsString('orphan');
+      SharedPreferences.setMockInitialValues({
+        'daftar_pengiriman_v2': '{broken-json',
+      });
+      const channel = MethodChannel('plugins.flutter.io/path_provider');
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'getApplicationDocumentsDirectory') return docs.path;
+        return null;
+      });
+
+      try {
+        await PhotoStorageService.deleteAll([orphanFile.path]);
+        expect(await orphanFile.exists(), isTrue,
+            reason: 'Cleanup must preserve files when references cannot be read safely.');
+      } finally {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+        await docs.delete(recursive: true);
+      }
+    });
 
     test('full restore writes photo and report logo bytes and remaps references', () async {
       SharedPreferences.setMockInitialValues({});
