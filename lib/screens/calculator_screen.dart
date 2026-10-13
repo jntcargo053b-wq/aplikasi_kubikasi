@@ -31,10 +31,11 @@ class _CalculatorItem {
   }
 
   int get qty => int.tryParse(jumlah.text) ?? 0;
-  double get singleM3 => _number(panjang) * _number(lebar) * _number(tinggi) / 1000000;
+  double get singleM3 =>
+      _number(panjang) * _number(lebar) * _number(tinggi) / kFaktorKubikasi;
   double get kubikasi => singleM3 * qty;
   double get volumetricWeight =>
-      _number(panjang) * _number(lebar) * _number(tinggi) * qty / 5000;
+      _number(panjang) * _number(lebar) * _number(tinggi) * qty / kFaktorVolumetrik;
   double get actualWeight => _number(berat) * qty;
 
   void dispose() {
@@ -50,6 +51,54 @@ class _CalculatorItem {
 class _CalculatorScreenState extends State<CalculatorScreen> {
   final List<_CalculatorItem> _items = [_CalculatorItem()];
   bool _savingShipment = false;
+  bool _allowPopOnce = false;
+
+  bool get _hasCalculatorInput => _items.any((item) =>
+      item.panjang.text.trim().isNotEmpty ||
+      item.lebar.text.trim().isNotEmpty ||
+      item.tinggi.text.trim().isNotEmpty ||
+      item.jumlah.text.trim() != '1' ||
+      item.berat.text.trim().isNotEmpty);
+
+  Future<bool> _askDiscard({
+    required String title,
+    required String message,
+    required String confirmLabel,
+  }) async {
+    if (!mounted) return false;
+    return await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: Text(title),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Tetap di sini'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: Text(confirmLabel),
+              ),
+            ],
+          ),
+        ) ==
+        true;
+  }
+
+  Future<void> _confirmLeave() async {
+    if (_allowPopOnce || _savingShipment || !_hasCalculatorInput) return;
+    final discard = await _askDiscard(
+      title: 'Keluar dari kalkulator?',
+      message: 'Isian perhitungan yang belum dibawa ke pengiriman akan hilang.',
+      confirmLabel: 'Keluar',
+    );
+    if (!discard || !mounted) return;
+    setState(() => _allowPopOnce = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.of(context).pop();
+    });
+  }
 
   double get _totalKubikasi => _items.fold(0, (sum, item) => sum + item.kubikasi);
   double get _totalVolumetric => _items.fold(0, (sum, item) => sum + item.volumetricWeight);
@@ -133,7 +182,10 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
         await storage.savePengiriman([...existing, shipment]);
         shipmentPersisted = true;
         if (!mounted) return;
-        Navigator.of(context).pop(true);
+        setState(() => _allowPopOnce = true);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) Navigator.of(context).pop(true);
+        });
       } catch (error) {
         // Once persisted, keep referenced photos even if route navigation fails.
         if (!shipmentPersisted) {
@@ -189,7 +241,16 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
     setState(() {});
   }
 
-  void _clearAll() {
+  Future<void> _clearAll() async {
+    if (_savingShipment) return;
+    if (_hasCalculatorInput) {
+      final discard = await _askDiscard(
+        title: 'Hapus semua isian?',
+        message: 'Semua ukuran, jumlah, dan berat pada kalkulator akan dihapus.',
+        confirmLabel: 'Hapus semua',
+      );
+      if (!discard || !mounted) return;
+    }
     for (final item in _items) {
       item.dispose();
     }
@@ -208,7 +269,14 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: _allowPopOnce || !_hasCalculatorInput,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && !_allowPopOnce && !_savingShipment) {
+          _confirmLeave();
+        }
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Hitung Kubikasi'),
         actions: [
@@ -360,6 +428,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
             style: TextStyle(color: AppColors.muted, fontSize: 12),
           ),
         ],
+      ),
       ),
     );
   }
