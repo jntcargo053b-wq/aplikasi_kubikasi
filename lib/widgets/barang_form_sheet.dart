@@ -56,6 +56,7 @@ class _BarangFormState extends State<_BarangForm> {
   late final TextEditingController _l;
   late final TextEditingController _t;
   String? _photo;
+  String? _defaultName;
   final Set<String> _createdPhotos = <String>{};
   final Set<Future<void>> _pendingPhotoCopies = <Future<void>>{};
   bool _saved = false;
@@ -67,7 +68,8 @@ class _BarangFormState extends State<_BarangForm> {
   void initState() {
     super.initState();
     final e = widget.existing;
-    _nama = TextEditingController(text: e?.nama ?? widget.initialName ?? '');
+    _defaultName = widget.initialName;
+    _nama = TextEditingController(text: e?.nama ?? _defaultName ?? '');
     _jumlah = TextEditingController(text: '${e?.jumlah ?? 1}');
     _berat = TextEditingController(text: e == null ? '' : _n(e.berat));
     _p = TextEditingController(text: e == null ? '' : _n(e.panjang));
@@ -100,7 +102,9 @@ class _BarangFormState extends State<_BarangForm> {
   bool get _hasChanges {
     final original = widget.existing;
     if (original == null) {
-      return _nama.text.trim() != (widget.initialName ?? '').trim() ||
+      final enteredName = _nama.text.trim();
+      final defaultName = (_defaultName ?? '').trim();
+      return (enteredName.isNotEmpty && enteredName != defaultName) ||
           _p.text.trim().isNotEmpty ||
           _l.text.trim().isNotEmpty ||
           _t.text.trim().isNotEmpty ||
@@ -258,7 +262,7 @@ class _BarangFormState extends State<_BarangForm> {
     if (!_key.currentState!.validate()) return;
     final item = BarangItem(
       id: widget.existing?.id ?? const Uuid().v4(),
-      nama: _nama.text.trim().isEmpty ? (widget.initialName ?? 'Barang') : _nama.text.trim(),
+      nama: _nama.text.trim().isEmpty ? (_defaultName ?? 'Barang') : _nama.text.trim(),
       jumlah: int.parse(_jumlah.text),
       panjang: _d(_p.text),
       lebar: _d(_l.text),
@@ -272,6 +276,11 @@ class _BarangFormState extends State<_BarangForm> {
       final handedOffPhoto = item.photoPath;
       if (handedOffPhoto != null) _createdPhotos.remove(handedOffPhoto);
       _saved = false;
+      final defaultNameMatch = RegExp(r'^Barang\s+(\d+)$', caseSensitive: false)
+          .firstMatch(_defaultName ?? '');
+      _defaultName = defaultNameMatch == null
+          ? 'Barang 2'
+          : 'Barang ${int.parse(defaultNameMatch.group(1)!) + 1}';
       setState(() {
         _nama.clear();
         _jumlah.text = '1';

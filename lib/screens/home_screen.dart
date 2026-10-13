@@ -385,14 +385,46 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
   Future<void> _runExport({required String label, required Future<void> Function() action}) async {
-    if (_exporting) return;
+    if (_exporting) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Laporan sedang disiapkan. Mohon tunggu.')),
+      );
+      return;
+    }
     setState(() { _exporting = true; _exportingLabel = label; });
+    final progressDialog = showDialog<void>(
+      context: context,
+      useRootNavigator: true,
+      barrierDismissible: false,
+      builder: (_) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          content: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2.5),
+              ),
+              const SizedBox(width: 14),
+              Flexible(child: Text(label)),
+            ],
+          ),
+        ),
+      ),
+    );
     try {
       await action();
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal membuat laporan: $e')));
     } finally {
-      if (mounted) setState(() { _exporting = false; _exportingLabel = null; });
+      if (mounted) {
+        final navigator = Navigator.of(context, rootNavigator: true);
+        if (navigator.canPop()) navigator.pop();
+        setState(() { _exporting = false; _exportingLabel = null; });
+      }
+      await progressDialog;
     }
   }
 
@@ -408,6 +440,14 @@ class _HomeScreenState extends State<HomeScreen> {
         _sampai = d;
         if (_mulai != null && _mulai!.isAfter(d)) _mulai = d;
       }
+    });
+  }
+
+  void _clearSearch() {
+    _searchDebounce?.cancel();
+    setState(() {
+      _searchController.clear();
+      _searchText = '';
     });
   }
 
@@ -610,7 +650,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _sectionTitle(String title, String trailing) => Row(children: [Expanded(child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800))), if (trailing.isNotEmpty) Text(trailing, style: const TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w700))]);
 
-  Widget _searchBox() => Padding(padding: const EdgeInsets.only(top: 2), child: TextField(controller: _searchController, onChanged: (value) { _searchDebounce?.cancel(); final normalized = value.trim().toLowerCase(); _searchDebounce = Timer(const Duration(milliseconds: 250), () { if (mounted) setState(() => _searchText = normalized); }); }, decoration: InputDecoration(hintText: 'Cari resi, pengirim, barang, atau wilayah', prefixIcon: const Icon(Icons.search), suffixIcon: _search.isEmpty ? null : IconButton(onPressed: _clearFilters, icon: const Icon(Icons.clear)))));
+  Widget _searchBox() => Padding(padding: const EdgeInsets.only(top: 2), child: TextField(controller: _searchController, onChanged: (value) { _searchDebounce?.cancel(); final normalized = value.trim().toLowerCase(); _searchDebounce = Timer(const Duration(milliseconds: 250), () { if (mounted) setState(() => _searchText = normalized); }); }, decoration: InputDecoration(hintText: 'Cari resi, pengirim, barang, atau wilayah', prefixIcon: const Icon(Icons.search), suffixIcon: _search.isEmpty ? null : IconButton(tooltip: 'Hapus pencarian', onPressed: _clearSearch, icon: const Icon(Icons.clear)))));
 
   Widget _filters() => SingleChildScrollView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(vertical: 8), child: Row(children: [DropdownButtonHideUnderline(child: DropdownButton<String>(value: _pengirimList.contains(_pengirim) ? _pengirim : 'Semua', items: _pengirimList.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(), onChanged: (v) => setState(() => _pengirim = v ?? 'Semua'))), const SizedBox(width: 8), FilterChip(label: Text(_mulai == null ? 'Dari tanggal' : 'Dari ${_date(_mulai!)}'), onSelected: (_) => _pickRange(true)), const SizedBox(width: 8), FilterChip(label: Text(_sampai == null ? 'Sampai tanggal' : 'Sampai ${_date(_sampai!)}'), onSelected: (_) => _pickRange(false)), const SizedBox(width: 8), PopupMenuButton<_SortMode>(tooltip: 'Urutkan', onSelected: (v) => setState(() => _sort = v), itemBuilder: (_) => const [PopupMenuItem(value: _SortMode.terbaru, child: Text('Terbaru')), PopupMenuItem(value: _SortMode.terlama, child: Text('Terlama')), PopupMenuItem(value: _SortMode.pengirim, child: Text('Pengirim A-Z'))], child: const Chip(avatar: Icon(Icons.sort, size: 18), label: Text('Urutkan'))), if (_pengirim != 'Semua' || _mulai != null || _sampai != null || _search.isNotEmpty) ...[const SizedBox(width: 8), ActionChip(label: const Text('Reset'), onPressed: _clearFilters)]]));
 
