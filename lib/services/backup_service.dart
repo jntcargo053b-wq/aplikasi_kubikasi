@@ -430,6 +430,7 @@ class BackupService {
 
     // Snapshot the settings before restore so a later settings failure can
     // roll the complete restore back to the pre-restore state.
+    final previousRawSettings = await _settings.readRawReportSettings();
     final previousSettings = await _settings.loadReportSettings();
     // If the previous JSON was unreadable, its photo references are
     // unknowable. Preserve those files rather than risk deleting photos still
@@ -562,7 +563,7 @@ class BackupService {
       }
 
       try {
-        await _settings.saveReportSettings(previousSettings);
+        await _settings.restoreRawReportSettings(previousRawSettings);
       } catch (_) {
         // Preserve the original restore error.
       }
