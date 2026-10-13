@@ -58,6 +58,7 @@ class _BarangFormState extends State<_BarangForm> {
   String? _photo;
   String? _defaultName;
   final Set<String> _createdPhotos = <String>{};
+  final Set<String> _discardedCreatedPhotos = <String>{};
   final Set<Future<void>> _pendingPhotoCopies = <Future<void>>{};
   bool _saved = false;
   bool _busy = false;
@@ -133,8 +134,12 @@ class _BarangFormState extends State<_BarangForm> {
 
   @override
   void dispose() {
-    if (!_saved && _createdPhotos.isNotEmpty) {
-      final paths = List<String>.from(_createdPhotos);
+    final cleanupPaths = <String>{
+      if (!_saved) ..._createdPhotos,
+      ..._discardedCreatedPhotos,
+    };
+    if (cleanupPaths.isNotEmpty) {
+      final paths = List<String>.from(cleanupPaths);
       final copies = List<Future<void>>.from(_pendingPhotoCopies);
       unawaited(() async {
         if (copies.isNotEmpty) await Future.wait(copies, eagerError: false);
@@ -229,6 +234,20 @@ class _BarangFormState extends State<_BarangForm> {
             : null,
       ),
     );
+  }
+
+  Future<void> _removePhoto() async {
+    final path = _photo;
+    if (path == null || _busy) return;
+    setState(() => _photo = null);
+
+    // Newly picked files can be deleted immediately. Keep an existing saved
+    // photo on disk until the shipment is actually saved, so cancelling edit
+    // never destroys the original photo.
+    if (_createdPhotos.remove(path)) {
+      final deleted = await PhotoStorageService.delete(path);
+      if (!deleted) _discardedCreatedPhotos.add(path);
+    }
   }
 
   Future<void> _showPhotoSourceSheet() async {
@@ -397,7 +416,13 @@ class _BarangFormState extends State<_BarangForm> {
                       ),
                     ),
                     if (_photo != null) ...[
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 6),
+                      IconButton(
+                        tooltip: 'Hapus foto',
+                        onPressed: _busy ? null : _removePhoto,
+                        icon: const Icon(Icons.delete_outline),
+                      ),
+                      const SizedBox(width: 6),
                       GestureDetector(
                         onTap: () => showPhotoPreview(context, _photo!),
                         child: ClipRRect(
