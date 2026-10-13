@@ -30,6 +30,19 @@ class _FailOnceSettingsService extends SettingsService {
   }
 }
 
+class _PersistThenFailSettingsRollbackService extends SettingsService {
+  @override
+  Future<void> saveReportSettings(ReportSettings settings) async {
+    await super.saveReportSettings(settings);
+    throw StateError('Injected post-write settings failure for regression test.');
+  }
+
+  @override
+  Future<void> restoreRawReportSettings(String? raw) async {
+    throw StateError('Injected settings rollback failure for regression test.');
+  }
+}
+
 class _FailRollbackStorageService extends StorageService {
   var _saveCount = 0;
 
@@ -1040,6 +1053,43 @@ void main() {
           corruptedSettings,
           reason: 'Failed restore must preserve the exact prior settings value.',
         );
+      } finally {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+        await docs.delete(recursive: true);
+      }
+    });
+
+    test('failed settings rollback preserves logo still referenced by persisted settings', () async {
+      SharedPreferences.setMockInitialValues({
+        'daftar_pengiriman_v2': jsonEncode([]),
+        'report_header_settings_v1': jsonEncode(const ReportSettings().toJson()),
+      });
+      final docs = await Directory.systemTemp.createTemp('nextcube-restore-settings-rollback-failure-');
+      const channel = MethodChannel('plugins.flutter.io/path_provider');
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'getApplicationDocumentsDirectory') return docs.path;
+        return null;
+      });
+
+      try {
+        final service = BackupService(
+          settings: _PersistThenFailSettingsRollbackService(),
+        );
+        await expectLater(
+          service.restore(_photoAndLogoBackupData(), merge: false),
+          throwsA(isA<StateError>()),
+        );
+
+        expect(await StorageService().loadPengiriman(), isEmpty,
+            reason: 'Shipment rollback should still restore the previous shipment state.');
+        final persistedSettings = await SettingsService().loadReportSettings();
+        expect(persistedSettings.companyName, 'Restore Test');
+        final logoPath = persistedSettings.logoPath;
+        expect(logoPath, isNotNull);
+        expect(await File(logoPath!).exists(), isTrue,
+            reason: 'If settings rollback fails, a persisted logo reference must not become dangling.');
       } finally {
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
             .setMockMethodCallHandler(channel, null);
