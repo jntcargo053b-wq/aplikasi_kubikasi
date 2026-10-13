@@ -1063,7 +1063,7 @@ void main() {
     test('failed settings rollback preserves logo still referenced by persisted settings', () async {
       SharedPreferences.setMockInitialValues({
         'daftar_pengiriman_v2': jsonEncode([]),
-        'report_header_settings_v1': jsonEncode(const ReportSettings().toJson()),
+        'report_header_settings_v1': jsonEncode(ReportSettings().toJson()),
       });
       final docs = await Directory.systemTemp.createTemp('nextcube-restore-settings-rollback-failure-');
       const channel = MethodChannel('plugins.flutter.io/path_provider');
