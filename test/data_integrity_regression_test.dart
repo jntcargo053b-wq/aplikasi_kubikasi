@@ -878,7 +878,7 @@ void main() {
       const channel = MethodChannel('plugins.flutter.io/path_provider');
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, (call) async {
-        if (call.method == 'getApplicationDocumentsPath') return docs.path;
+        if (call.method == 'getApplicationDocumentsDirectory') return docs.path;
         return null;
       });
 
@@ -917,7 +917,7 @@ void main() {
       const channel = MethodChannel('plugins.flutter.io/path_provider');
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(channel, (call) async {
-        if (call.method == 'getApplicationDocumentsPath') return docs.path;
+        if (call.method == 'getApplicationDocumentsDirectory') return docs.path;
         return null;
       });
 
