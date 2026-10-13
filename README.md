@@ -13,6 +13,10 @@ Aplikasi Android Flutter untuk mencatat pengiriman dengan beberapa barang per re
 - Kubikasi: `panjang × lebar × tinggi / 1.000.000 × jumlah`
 - Berat total: `berat per unit × jumlah`
 
+## Dependensi
+
+File `pubspec.lock` disimpan di repository untuk mengunci versi dependensi yang ter-resolve dan membuat build CI lebih konsisten. Perbarui file ini dengan `flutter pub get` saat dependensi diubah.
+
 ## Build melalui GitHub Actions
 Workflow [Build APK](.github/workflows/build_apk.yml) menggunakan Flutter stable yang dipatok versinya, menyiapkan Gradle wrapper 8.14 di runner, lalu menjalankan `flutter pub get`, `flutter analyze`, `flutter test`, dan `flutter build apk --release`.
 
