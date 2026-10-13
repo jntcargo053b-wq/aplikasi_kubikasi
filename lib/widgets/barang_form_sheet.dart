@@ -56,6 +56,7 @@ class _BarangFormState extends State<_BarangForm> {
   late final TextEditingController _l;
   late final TextEditingController _t;
   String? _photo;
+  String? _defaultName;
   final Set<String> _createdPhotos = <String>{};
   final Set<Future<void>> _pendingPhotoCopies = <Future<void>>{};
   bool _saved = false;
@@ -67,7 +68,8 @@ class _BarangFormState extends State<_BarangForm> {
   void initState() {
     super.initState();
     final e = widget.existing;
-    _nama = TextEditingController(text: e?.nama ?? widget.initialName ?? '');
+    _defaultName = widget.initialName;
+    _nama = TextEditingController(text: e?.nama ?? _defaultName ?? '');
     _jumlah = TextEditingController(text: '${e?.jumlah ?? 1}');
     _berat = TextEditingController(text: e == null ? '' : _n(e.berat));
     _p = TextEditingController(text: e == null ? '' : _n(e.panjang));
@@ -100,7 +102,9 @@ class _BarangFormState extends State<_BarangForm> {
   bool get _hasChanges {
     final original = widget.existing;
     if (original == null) {
-      return _nama.text.trim() != (widget.initialName ?? '').trim() ||
+      final enteredName = _nama.text.trim();
+      final defaultName = (_defaultName ?? '').trim();
+      return (enteredName.isNotEmpty && enteredName != defaultName) ||
           _p.text.trim().isNotEmpty ||
           _l.text.trim().isNotEmpty ||
           _t.text.trim().isNotEmpty ||
@@ -258,7 +262,7 @@ class _BarangFormState extends State<_BarangForm> {
     if (!_key.currentState!.validate()) return;
     final item = BarangItem(
       id: widget.existing?.id ?? const Uuid().v4(),
-      nama: _nama.text.trim().isEmpty ? (widget.initialName ?? 'Barang') : _nama.text.trim(),
+      nama: _nama.text.trim().isEmpty ? (_defaultName ?? 'Barang') : _nama.text.trim(),
       jumlah: int.parse(_jumlah.text),
       panjang: _d(_p.text),
       lebar: _d(_l.text),
@@ -272,6 +276,310 @@ class _BarangFormState extends State<_BarangForm> {
       final handedOffPhoto = item.photoPath;
       if (handedOffPhoto != null) _createdPhotos.remove(handedOffPhoto);
       _saved = false;
+      final defaultNameMatch = RegExp(r'^Barang\\s+(\\d+)
+        _jumlah.text = '1';
+        _berat.clear();
+        _p.clear();
+        _l.clear();
+        _t.clear();
+        _photo = null;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _pFocus.requestFocus();
+      });
+      return;
+    }
+    _saved = true;
+    Navigator.pop(context, item);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final bottom = media.viewInsets.bottom;
+    final maxHeight = media.size.height * .92;
+    final availableHeight = media.size.height - bottom;
+    final sheetHeight = availableHeight.clamp(0.0, maxHeight);
+    return PopScope(
+      canPop: !_busy && !_hasChanges,
+      onPopInvokedWithResult: (didPop, _) { if (!didPop && !_busy) _confirmDiscard(); },
+      child: Material(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        clipBehavior: Clip.antiAlias,
+        child: SizedBox(
+          height: sheetHeight,
+          child: Form(
+            key: _key,
+            child: ListView(
+              padding: EdgeInsets.fromLTRB(20, 12, 20, 40 + bottom + 96),
+              children: [
+                Center(
+                  child: Container(
+                    width: 42,
+                    height: 4,
+                    color: AppColors.border,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  widget.existing == null ? 'Tambah Barang' : 'Edit Barang',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(child: _size(_p, 'Panjang', _pFocus, _lFocus)),
+                    const SizedBox(width: 8),
+                    Expanded(child: _size(_l, 'Lebar', _lFocus, _tFocus)),
+                    const SizedBox(width: 8),
+                    Expanded(child: _size(_t, 'Tinggi', _tFocus, _jumlahFocus)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _jumlah,
+                  focusNode: _jumlahFocus,
+                  keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(labelText: 'Jumlah', hintText: '1'),
+                  scrollPadding: const EdgeInsets.only(bottom: 180),
+                  onFieldSubmitted: (_) => _beratFocus.requestFocus(),
+                  validator: (v) {
+                    final x = int.tryParse(v?.trim() ?? '');
+                    return x == null || x <= 0 ? 'Jumlah harus lebih dari 0' : null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _berat,
+                  focusNode: _beratFocus,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  textInputAction: TextInputAction.done,
+                  decoration: const InputDecoration(labelText: 'Berat per unit', hintText: '0', suffixText: 'kg'),
+                  scrollPadding: const EdgeInsets.only(bottom: 180),
+                  onFieldSubmitted: (_) => _save(),
+                  validator: (v) {
+                    final value = _parseNumber(v ?? '');
+                    return value == null || value < 0 ? 'Berat tidak valid' : null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _nama,
+                  textInputAction: TextInputAction.done,
+                  decoration: const InputDecoration(labelText: 'Nama Barang (opsional)', hintText: 'Otomatis jika dikosongkan'),
+                  scrollPadding: const EdgeInsets.only(bottom: 180),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _busy ? null : _showPhotoSourceSheet,
+                        icon: Icon(
+                          _photo == null
+                              ? Icons.add_a_photo_outlined
+                              : Icons.photo_camera_back_outlined,
+                        ),
+                        label: Text(
+                          _photo == null ? 'Foto Barang' : 'Ganti Foto',
+                        ),
+                      ),
+                    ),
+                    if (_photo != null) ...[
+                      const SizedBox(width: 10),
+                      GestureDetector(
+                        onTap: () => showPhotoPreview(context, _photo!),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.file(
+                            File(_photo!),
+                            width: 54,
+                            height: 54,
+                            fit: BoxFit.cover,
+                            cacheWidth: 162,
+                            cacheHeight: 162,
+                            errorBuilder: (_, __, ___) => const SizedBox(
+                              width: 54,
+                              height: 54,
+                              child: Icon(Icons.broken_image_outlined),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 16),
+                AnimatedBuilder(
+                  animation: _previewListenable,
+                  builder: (context, _) => Row(
+                    children: [
+                      Expanded(
+                        child: _metric(
+                          'VOLUME TIMBANG',
+                          _volume.toStringAsFixed(2),
+                          'kg',
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _metric(
+                          'KUBIKASI',
+                          _kubikasi.toStringAsFixed(3),
+                          'm³',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                if (widget.existing == null &&
+                    widget.onSaveAndAddAnother != null) ...[
+                  FilledButton.icon(
+                    onPressed: _busy ? null : () => _save(addAnother: true),
+                    icon: const Icon(Icons.add_circle_outline),
+                    label: const Text('Simpan & Tambah Lagi'),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                FilledButton(
+                  onPressed: _busy ? null : _save,
+                  child: Text(
+                    widget.existing == null
+                        ? 'Tambah Barang'
+                        : 'Simpan Perubahan',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _size(TextEditingController c, String label, FocusNode focus, FocusNode next) => TextFormField(
+        controller: c,
+        onTap: () {
+          if (c.text.isNotEmpty) {
+            c.selection = TextSelection(
+              baseOffset: 0,
+              extentOffset: c.text.length,
+            );
+          }
+        },
+        focusNode: focus,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        textInputAction: TextInputAction.next,
+        decoration: InputDecoration(labelText: label, hintText: '0', suffixText: 'cm'),
+        scrollPadding: const EdgeInsets.only(bottom: 180),
+        onFieldSubmitted: (_) => next.requestFocus(),
+        validator: (v) {
+          final value = _parseNumber(v ?? '');
+          return value == null || value <= 0
+              ? '$label harus lebih dari 0'
+              : null;
+        },
+      );
+
+  Widget _metric(String title, String value, String suffix) => Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(fontSize: 10, color: AppColors.muted),
+            ),
+            const SizedBox(height: 4),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '$value $suffix',
+                maxLines: 1,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+
+  double get _volume =>
+      (_d(_p.text) * _d(_l.text) * _d(_t.text) / kFaktorVolumetrik) *
+      (int.tryParse(_jumlah.text) ?? 0);
+  double get _kubikasi =>
+      (_d(_p.text) * _d(_l.text) * _d(_t.text) / kFaktorKubikasi) *
+      (int.tryParse(_jumlah.text) ?? 0);
+}
+
+void showPhotoPreview(BuildContext context, String path) {
+  Navigator.of(context).push(
+    PageRouteBuilder(
+      opaque: false,
+      barrierColor: Colors.black87,
+      pageBuilder: (_, __, ___) => _PhotoPreview(path: path),
+    ),
+  );
+}
+
+class _PhotoPreview extends StatelessWidget {
+  final String path;
+  const _PhotoPreview({required this.path});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.of(context).pop(),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: Stack(
+            children: [
+              Center(
+                child: InteractiveViewer(
+                  minScale: 1,
+                  maxScale: 4,
+                  child: Image.file(File(path)),
+                ),
+              ),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: IconButton(
+                  icon: const Icon(
+                    Icons.close,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+, caseSensitive: false)
+          .firstMatch(_defaultName ?? '');
+      _defaultName = defaultNameMatch == null
+          ? 'Barang 2'
+          : 'Barang ${int.parse(defaultNameMatch.group(1)!) + 1}';
       setState(() {
         _nama.clear();
         _jumlah.text = '1';
