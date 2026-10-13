@@ -806,7 +806,7 @@ class _DigestAccumulatorSink implements Sink<Digest> {
   void close() {}
 }
 
-/// Adapts an IOSink to the Sink<String> required by chunked Base64 encoding.
+/// Adapts an IOSink to the string sink required by chunked Base64 encoding.
 class _StringSinkAdapter implements Sink<String> {
   final IOSink output;
 
