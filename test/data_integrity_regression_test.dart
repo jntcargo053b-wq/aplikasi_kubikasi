@@ -67,6 +67,8 @@ BackupData _photoAndLogoBackupData() {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('data integrity regression', () {
     test('shipment storage rejects malformed JSON instead of returning empty data', () async {
       SharedPreferences.setMockInitialValues({
