@@ -29,6 +29,19 @@ class _FailOnceSettingsService extends SettingsService {
   }
 }
 
+class _FailRollbackStorageService extends StorageService {
+  var _saveCount = 0;
+
+  @override
+  Future<void> savePengiriman(List<Pengiriman> items) async {
+    _saveCount++;
+    if (_saveCount == 2) {
+      throw StateError('Injected shipment rollback failure for regression test.');
+    }
+    await super.savePengiriman(items);
+  }
+}
+
 BackupData _photoAndLogoBackupData() {
   final photoBytes = utf8.encode('restored-photo-bytes');
   final logoBytes = utf8.encode('restored-logo-bytes');
@@ -941,16 +954,41 @@ void main() {
       }
     });
 
-    test('failed shipment rollback must preserve newly-created photo references', () {
-      // If shipment persistence cannot be rolled back after a restore failure,
-      // newly-created files must remain because persisted records may still
-      // reference them.
-      const shipmentsCommitted = true;
-      const rollbackSucceeded = false;
-      final deleteNewFiles = !shipmentsCommitted || rollbackSucceeded;
+    test('failed shipment rollback preserves files still referenced by persisted restore', () async {
+      SharedPreferences.setMockInitialValues({
+        'daftar_pengiriman_v2': jsonEncode([]),
+      });
+      final docs = await Directory.systemTemp.createTemp('nextcube-restore-rollback-failure-');
+      const channel = MethodChannel('plugins.flutter.io/path_provider');
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'getApplicationDocumentsDirectory') return docs.path;
+        return null;
+      });
 
-      expect(rollbackSucceeded, isFalse);
-      expect(deleteNewFiles, isFalse);
+      try {
+        final service = BackupService(
+          storage: _FailRollbackStorageService(),
+          settings: _FailOnceSettingsService(),
+        );
+        await expectLater(
+          service.restore(_photoAndLogoBackupData(), merge: false),
+          throwsA(isA<StateError>()),
+        );
+
+        // The first shipment write succeeded, but the rollback write failed.
+        // Therefore the stored restore still points at the new photo and that
+        // photo must not be removed by failure cleanup.
+        final persisted = (await StorageService().loadPengiriman()).single;
+        final photoPath = persisted.barang.single.photoPath;
+        expect(photoPath, isNotNull);
+        expect(await File(photoPath!).exists(), isTrue);
+        expect(await File(photoPath).readAsBytes(), utf8.encode('restored-photo-bytes'));
+      } finally {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+        await docs.delete(recursive: true);
+      }
     });
 
     test('full restore rejects duplicate shipment IDs and receipt numbers', () {
