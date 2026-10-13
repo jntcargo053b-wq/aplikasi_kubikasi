@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -12,6 +13,58 @@ import 'package:volume_calculator/models/report_settings.dart';
 import 'package:volume_calculator/services/export_service.dart';
 import 'package:volume_calculator/services/backup_service.dart';
 import 'package:volume_calculator/services/storage_service.dart';
+import 'package:volume_calculator/services/settings_service.dart';
+
+
+class _FailOnceSettingsService extends SettingsService {
+  bool _shouldFail = true;
+
+  @override
+  Future<void> saveReportSettings(ReportSettings settings) async {
+    if (_shouldFail) {
+      _shouldFail = false;
+      throw StateError('Injected settings persistence failure for regression test.');
+    }
+    await super.saveReportSettings(settings);
+  }
+}
+
+BackupData _photoAndLogoBackupData() {
+  final photoBytes = utf8.encode('restored-photo-bytes');
+  final logoBytes = utf8.encode('restored-logo-bytes');
+  final shipment = Pengiriman(
+    id: 'restore-photo-logo-shipment',
+    pengirim: 'Restore Test',
+    tanggal: DateTime(2026, 10, 13),
+    nomorResi: 'RESTORE-PHOTO-LOGO-001',
+    barang: [
+      BarangItem(
+        id: 'restore-photo-logo-item',
+        nama: 'Box',
+        jumlah: 1,
+        panjang: 10,
+        lebar: 10,
+        tinggi: 10,
+        berat: 1,
+        photoPath: '/backup/source-photo.jpg',
+      ),
+    ],
+  );
+  return BackupData(
+    shipments: [shipment],
+    settings: const ReportSettings(
+      companyName: 'Restore Test',
+      headerNote: 'Backup recovery test',
+      reportTitle: 'RESTORE TEST',
+      logoPath: '/backup/source-logo.png',
+    ),
+    photoData: {
+      '/backup/source-photo.jpg': base64Encode(photoBytes),
+    },
+    logoData: base64Encode(logoBytes),
+    createdAt: DateTime.utc(2026, 10, 13),
+  );
+}
 
 void main() {
   group('data integrity regression', () {
@@ -814,6 +867,76 @@ void main() {
         () => parseBackupReportSettings('invalid'),
         throwsA(isA<FormatException>()),
       );
+    });
+
+
+    test('full restore writes photo and report logo bytes and remaps references', () async {
+      SharedPreferences.setMockInitialValues({});
+      final docs = await Directory.systemTemp.createTemp('nextcube-restore-success-');
+      const channel = MethodChannel('plugins.flutter.io/path_provider');
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'getApplicationDocumentsPath') return docs.path;
+        return null;
+      });
+
+      try {
+        final result = await BackupService().restore(
+          _photoAndLogoBackupData(),
+          merge: false,
+        );
+        final restored = (await StorageService().loadPengiriman()).single;
+        final photoPath = restored.barang.single.photoPath;
+        expect(photoPath, isNotNull);
+        expect(photoPath, isNot('/backup/source-photo.jpg'));
+        expect(await File(photoPath!).exists(), isTrue);
+        expect(await File(photoPath).readAsBytes(), utf8.encode('restored-photo-bytes'));
+
+        expect(result.restoredPhotos, 1);
+        expect(result.restoredShipments, 1);
+        expect(result.settings.companyName, 'Restore Test');
+        final logoPath = result.settings.logoPath;
+        expect(logoPath, isNotNull);
+        expect(logoPath, isNot('/backup/source-logo.png'));
+        expect(await File(logoPath!).exists(), isTrue);
+        expect(await File(logoPath).readAsBytes(), utf8.encode('restored-logo-bytes'));
+      } finally {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+        await docs.delete(recursive: true);
+      }
+    });
+
+    test('failed settings write rolls shipment state back and removes new photo and logo', () async {
+      SharedPreferences.setMockInitialValues({
+        'daftar_pengiriman_v2': jsonEncode([]),
+      });
+      final docs = await Directory.systemTemp.createTemp('nextcube-restore-rollback-');
+      const channel = MethodChannel('plugins.flutter.io/path_provider');
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'getApplicationDocumentsPath') return docs.path;
+        return null;
+      });
+
+      try {
+        final service = BackupService(settings: _FailOnceSettingsService());
+        await expectLater(
+          service.restore(_photoAndLogoBackupData(), merge: false),
+          throwsA(isA<StateError>()),
+        );
+
+        expect(await StorageService().loadPengiriman(), isEmpty);
+        final files = docs.existsSync()
+            ? docs.listSync(recursive: true).whereType<File>().toList()
+            : <File>[];
+        expect(files, isEmpty, reason: 'Rollback must remove files created by the failed restore.');
+        expect(await SettingsService().loadReportSettings(), isEmpty);
+      } finally {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+        await docs.delete(recursive: true);
+      }
     });
 
     test('failed shipment rollback must preserve newly-created photo references', () {
