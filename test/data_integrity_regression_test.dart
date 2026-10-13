@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -714,6 +716,65 @@ void main() {
         }
       }
     });
+    test('backup read rejects missing logo reference, invalid payload type and bad checksum', () async {
+      final logoBytes = utf8.encode('company-logo-test');
+      final encodedLogo = base64Encode(logoBytes);
+
+      Map<String, dynamic> payload({
+        Object? logoPath,
+        Object? logoData = 'logo-payload',
+        String? checksum,
+      }) => <String, dynamic>{
+        'format': BackupService.format,
+        'version': BackupService.version,
+        'createdAt': null,
+        'counts': {'shipments': 0, 'items': 0, 'photos': 0},
+        'shipments': <Map<String, dynamic>>[],
+        'reportSettings': {
+          'companyName': 'Nextcube',
+          'headerNote': '',
+          'logoPath': logoPath,
+          'reportTitle': ReportSettings.defaultTitle,
+        },
+        'photos': <String, String>{},
+        'logoData': logoData,
+        'integrity': <String, String>{
+          if (checksum != null) 'logo': checksum,
+        },
+      };
+
+      final cases = <({String name, Map<String, dynamic> payload})>[
+        (
+          name: 'without-reference',
+          payload: payload(logoData: encodedLogo, checksum: sha256.convert(logoBytes).toString()),
+        ),
+        (
+          name: 'wrong-type',
+          payload: payload(logoPath: '/old/logo.jpg', logoData: 42),
+        ),
+        (
+          name: 'bad-checksum',
+          payload: payload(logoPath: '/old/logo.jpg', logoData: encodedLogo, checksum: 'invalid'),
+        ),
+      ];
+
+      for (final entry in cases) {
+        final file = File(
+          '${Directory.systemTemp.path}/nextcube-backup-logo-${entry.name}-test.ncbak',
+        );
+        await file.writeAsString(jsonEncode(entry.payload), flush: true);
+        try {
+          await expectLater(
+            BackupService().readBackup(file),
+            throwsA(isA<FormatException>()),
+            reason: entry.name,
+          );
+        } finally {
+          if (await file.exists()) await file.delete();
+        }
+      }
+    });
+
     test('backup creation timestamp validation accepts valid and legacy values', () {
       final parsed = parseBackupCreatedAt('2026-09-23T11:44:18.000Z');
       expect(parsed, isNotNull);
