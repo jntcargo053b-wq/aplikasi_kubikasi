@@ -1,0 +1,24 @@
+# Dart / Flutter generated files
+.dart_tool/
+.packages
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# IDE and OS files
+.idea/
+*.iml
+.DS_Store
+
+# Local Android configuration and signing material
+android/local.properties
+android/key.properties
+android/**/*.jks
+android/**/*.keystore
+
+# Gradle wrapper is bootstrapped in CI for this repository
+android/gradlew
+android/gradlew.bat
+android/gradle/wrapper/gradle-wrapper.jar
+android/gradle/wrapper/gradle-wrapper.properties

@@ -111,7 +111,8 @@ jobs:
           grep -q '^storeFile=nextcube-release.jks$' android/key.properties
 
       - name: Dependencies
-        run: flutter pub get
+        run: flutter pub get --enforce-lockfile
+
 
       - name: Analyze
         run: flutter analyze
