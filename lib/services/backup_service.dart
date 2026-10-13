@@ -32,34 +32,34 @@ class BackupService {
   Future<File> createBackup({String? destinationDirectory}) async {
     final items = await _storage.loadPengiriman();
     final settings = await _settings.loadReportSettings();
-    final files = <String, String>{};
-    final integrity = <String, String>{};
-
+    // Validate photo ownership/existence up front, but do not load all photo
+    // bytes or Base64 strings into memory. Photos are streamed to the backup
+    // file below, one file at a time, to keep peak memory bounded.
     final photoPaths = items
         .expand((e) => e.barang)
         .map((b) => b.photoPath)
         .whereType<String>()
         .where((p) => p.trim().isNotEmpty)
         .toSet();
+    final photoFiles = <String, File>{};
     final docs = await getApplicationDocumentsDirectory();
 
     for (final path in photoPaths) {
-      if (!await _isOwnedFile(File(path), docs.path)) {
+      final file = File(path);
+      if (!await _isOwnedFile(file, docs.path)) {
         throw FormatException(
           'Foto pengiriman berada di luar penyimpanan aplikasi dan tidak dapat dibackup: $path',
         );
       }
-      final file = File(path);
       if (!await file.exists()) {
         throw FormatException(
           'Foto yang direferensikan pengiriman tidak ditemukan: $path',
         );
       }
-      final bytes = await file.readAsBytes();
-      files[path] = base64Encode(bytes);
-      integrity['photo:$path'] = sha256.convert(bytes).toString();
+      photoFiles[path] = file;
     }
 
+    final integrity = <String, String>{};
     String? logoData;
     final logoPath = settings.logoPath;
     if (logoPath != null && logoPath.trim().isNotEmpty) {
@@ -88,13 +88,10 @@ class BackupService {
       'counts': {
         'shipments': items.length,
         'items': items.fold<int>(0, (sum, e) => sum + e.barang.length),
-        'photos': files.length,
+        'photos': photoFiles.length,
       },
       'shipments': items.map((e) => e.toJson()).toList(),
       'reportSettings': settings.toJson(),
-      'photos': files,
-      'logoData': logoData,
-      'integrity': integrity,
     };
 
     final name = formatBackupFilename(DateTime.now());
@@ -119,12 +116,53 @@ class BackupService {
     }
 
     final file = File('${targetDirectory.path}/$name');
+    final temporaryFile = File('${targetDirectory.path}/.$name.tmp');
+    final photoIntegrity = <String, String>{};
     try {
-      await file.writeAsString(jsonEncode(payload), flush: true);
+      final sink = temporaryFile.openWrite();
+      try {
+        // Preserve the existing v1 JSON structure and field order while
+        // streaming each photo's Base64 directly into the output.
+        sink.write('{"format":${jsonEncode(format)},');
+        sink.write('"version":${jsonEncode(version)},');
+        sink.write('"createdAt":${jsonEncode(payload['createdAt'])},');
+        sink.write('"counts":${jsonEncode(payload['counts'])},');
+        sink.write('"shipments":${jsonEncode(payload['shipments'])},');
+        sink.write('"reportSettings":${jsonEncode(payload['reportSettings'])},');
+        sink.write('"photos":{');
+
+        var firstPhoto = true;
+        for (final entry in photoFiles.entries) {
+          if (!firstPhoto) sink.write(',');
+          firstPhoto = false;
+          sink.write('${jsonEncode(entry.key)}: "'.replaceFirst(': ', ':'));
+          photoIntegrity['photo:${entry.key}'] =
+              await _writePhotoBase64(entry.value, sink);
+          sink.write('"');
+        }
+
+        sink.write('},"logoData":${jsonEncode(logoData)},');
+        sink.write('"integrity":${jsonEncode({...photoIntegrity, ...integrity})}}');
+        await sink.flush();
+      } finally {
+        await sink.close();
+      }
+
+      // Publish only a complete backup. A failed write must not leave a
+      // truncated file with the final .ncbak name.
+      await temporaryFile.rename(file.path);
     } on FileSystemException catch (e) {
+      if (await temporaryFile.exists()) {
+        try { await temporaryFile.delete(); } catch (_) {}
+      }
       throw FormatException(
         'Backup tidak dapat disimpan ke folder yang dipilih: ${e.message}',
       );
+    } catch (_) {
+      if (await temporaryFile.exists()) {
+        try { await temporaryFile.delete(); } catch (_) {}
+      }
+      rethrow;
     }
     return file;
   }
@@ -532,6 +570,29 @@ class BackupService {
     }
   }
 
+  Future<String> _writePhotoBase64(File file, IOSink output) async {
+    final digestSink = _DigestAccumulatorSink();
+    final digestConverter = sha256.startChunkedConversion(digestSink);
+    final encodedSink = _StringSinkAdapter(output);
+    final base64Converter = base64.encoder.startChunkedConversion(encodedSink);
+
+    try {
+      await for (final chunk in file.openRead()) {
+        digestConverter.add(chunk);
+        base64Converter.add(chunk);
+      }
+      base64Converter.close();
+      digestConverter.close();
+      return digestSink.events.single.toString();
+    } catch (_) {
+      // Closing both converters here ensures the output sink is not left with
+      // pending conversion state; the caller removes the temporary file.
+      try { base64Converter.close(); } catch (_) {}
+      try { digestConverter.close(); } catch (_) {}
+      rethrow;
+    }
+  }
+
   Future<String> _writePhoto(String oldPath, String encoded) async {
     final docs = await getApplicationDocumentsDirectory();
     final dir = Directory('${docs.path}/backup_photos');
@@ -731,4 +792,29 @@ class RestoreResult {
     required this.skippedDuplicates,
     required this.settings,
   });
+}
+
+
+/// Collects the single digest emitted by a chunked hash conversion.
+class _DigestAccumulatorSink implements Sink<Digest> {
+  final List<Digest> events = <Digest>[];
+
+  @override
+  void add(Digest data) => events.add(data);
+
+  @override
+  void close() {}
+}
+
+/// Adapts an IOSink to the string sink required by chunked Base64 encoding.
+class _StringSinkAdapter implements Sink<String> {
+  final IOSink output;
+
+  _StringSinkAdapter(this.output);
+
+  @override
+  void add(String data) => output.write(data);
+
+  @override
+  void close() {}
 }
