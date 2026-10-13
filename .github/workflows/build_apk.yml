@@ -113,6 +113,16 @@ jobs:
       - name: Dependencies
         run: flutter pub get
 
+      # Temporary diagnostic to retrieve the resolver-generated lockfile for committing.
+      - name: Export resolved lockfile (temporary)
+        if: github.event_name == 'pull_request' && github.head_ref == 'chore/repository-hygiene'
+        shell: bash
+        run: |
+          echo "LOCKFILE_BASE64_BEGIN"
+          base64 -w0 pubspec.lock
+          echo
+          echo "LOCKFILE_BASE64_END"
+
       - name: Analyze
         run: flutter analyze
 

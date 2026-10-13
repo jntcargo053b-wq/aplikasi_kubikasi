@@ -1,49 +1,24 @@
-# Aplikasi Kubikasi — Shipment Workflow
+# Nextcube — Aplikasi Kubikasi Pengiriman
 
-## Alur baru
-1. Isi **Nama Pengirim** satu kali.
-2. Pilih **Tanggal** satu kali.
-3. Tambahkan **banyak barang** pada pengiriman yang sama.
-4. Isi **Nomor Resi** manual atau gunakan **Scan Barcode Resi**.
-5. Tekan **Selesai & Simpan Pengiriman**.
+Aplikasi Android Flutter untuk mencatat pengiriman dengan beberapa barang per resi.
 
-Transaksi tidak disimpan sebagai pengiriman selesai sebelum nomor resi tersedia.
+## Alur pengiriman
+1. Isi nama pengirim dan tanggal.
+2. Tambahkan satu atau beberapa barang.
+3. Isi nomor resi secara manual atau melalui pemindaian barcode.
+4. Simpan setelah data wajib lengkap.
 
-## Kalkulasi dipertahankan
-- Volume timbang = `P × L × T / 5000 × jumlah`
-- Kubikasi = `P × L × T / 1.000.000 × jumlah`
-- Berat total = `berat per unit × jumlah`
+## Perhitungan
+- Volume timbang: `panjang × lebar × tinggi / 5000 × jumlah`
+- Kubikasi: `panjang × lebar × tinggi / 1.000.000 × jumlah`
+- Berat total: `berat per unit × jumlah`
 
-## Struktur
-- `Pengiriman` = header transaksi: pengirim, tanggal, nomor resi, daftar barang.
-- `BarangItem` = detail barang dan kalkulasi.
-- `StorageService` = penyimpanan pengiriman.
-- `BarcodeScannerScreen` = scan resi.
-- `PengirimanFormSheet` = alur transaksi baru.
+## Build melalui GitHub Actions
+Workflow [Build APK](.github/workflows/build_apk.yml) menggunakan Flutter stable yang dipatok versinya, menyiapkan Gradle wrapper 8.14 di runner, lalu menjalankan `flutter pub get`, `flutter analyze`, `flutter test`, dan `flutter build apk --release`.
 
-Data lama `daftar_barang_v1` tidak dipaksakan menjadi transaksi selesai karena data lama tidak memiliki nomor resi.
+Workflow tidak menjalankan `flutter create`; berkas platform Android yang ada di repository dipertahankan. APK release diunggah sebagai artifact bernama `app-release-apk`.
 
-## Build GitHub Actions
-Workflow `.github/workflows/build_apk.yml` menjalankan:
-`flutter create --platforms=android --no-pub .` → `flutter pub get` → `flutter analyze` → `flutter test` → `flutter build apk --release`.
+## Dokumentasi
+- [Perilaku berbagi laporan](docs/SHARE_REPORT.md)
 
-## Dari HP
-1. Extract ZIP.
-2. Upload/replace isi repository GitHub.
-3. Pastikan `.github/workflows/build_apk.yml` ikut ter-upload.
-4. Buka **Actions → Build APK**.
-5. Download artifact `app-release-apk`.
-
-
-## CI / Gradle Wrapper
-The repository does not carry Gradle wrapper files. The GitHub Actions workflow
-therefore runs `flutter create --platforms=android --no-pub .` before `flutter pub get`.
-This supplies missing Gradle wrapper/platform scaffold files while preserving
-the existing Dart source and existing Android files.
-
-
-## Gradle CI fix
-The workflow explicitly rewrites android/gradle/wrapper/gradle-wrapper.properties to Gradle 8.14 and runs `./gradlew --version` before `flutter build apk`, so a generated Gradle 8.7 wrapper cannot silently reach the Flutter plugin check.
-
-## Source integrity
-Verified source fixes preserve shipment header fields when editing an individual barang and correct report number formatting without changing calculation logic.
+Catatan audit lama yang tidak lagi dipelihara telah dihapus dari root. Untuk kondisi terbaru, utamakan source code dan hasil GitHub Actions.
