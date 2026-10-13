@@ -384,11 +384,17 @@ class _BarangFormState extends State<_BarangForm> {
                   focusNode: _beratFocus,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   textInputAction: TextInputAction.done,
-                  decoration: const InputDecoration(labelText: 'Berat per unit', hintText: '0', suffixText: 'kg'),
+                  decoration: const InputDecoration(
+                    labelText: 'Berat per unit',
+                    hintText: 'Isi berat (0 jika tidak ada)',
+                    suffixText: 'kg',
+                  ),
                   scrollPadding: const EdgeInsets.only(bottom: 180),
                   onFieldSubmitted: (_) => _save(),
                   validator: (v) {
-                    final value = _parseNumber(v ?? '');
+                    final input = v?.trim() ?? '';
+                    if (input.isEmpty) return null; // Empty weight is treated as 0.
+                    final value = _parseNumber(input);
                     return value == null || value < 0 ? 'Berat tidak valid' : null;
                   },
                 ),
