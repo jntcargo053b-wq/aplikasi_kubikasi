@@ -14,6 +14,7 @@ import 'package:volume_calculator/services/export_service.dart';
 import 'package:volume_calculator/services/backup_service.dart';
 import 'package:volume_calculator/services/storage_service.dart';
 import 'package:volume_calculator/services/settings_service.dart';
+import 'package:volume_calculator/services/photo_storage_service.dart';
 
 
 class _FailOnceSettingsService extends SettingsService {
@@ -26,6 +27,19 @@ class _FailOnceSettingsService extends SettingsService {
       throw StateError('Injected settings persistence failure for regression test.');
     }
     await super.saveReportSettings(settings);
+  }
+}
+
+class _PersistThenFailSettingsRollbackService extends SettingsService {
+  @override
+  Future<void> saveReportSettings(ReportSettings settings) async {
+    await super.saveReportSettings(settings);
+    throw StateError('Injected post-write settings failure for regression test.');
+  }
+
+  @override
+  Future<void> restoreRawReportSettings(String? raw) async {
+    throw StateError('Injected settings rollback failure for regression test.');
   }
 }
 
@@ -885,6 +899,90 @@ void main() {
     });
 
 
+    test('photo cleanup deletes only unreferenced app-owned files', () async {
+      final docs = await Directory.systemTemp.createTemp('nextcube-photo-cleanup-docs-');
+      final external = await Directory.systemTemp.createTemp('nextcube-photo-cleanup-external-');
+      final referencedFile = File('${docs.path}/referenced.jpg');
+      final orphanFile = File('${docs.path}/orphan.jpg');
+      final externalFile = File('${external.path}/external.jpg');
+      await referencedFile.writeAsString('referenced');
+      await orphanFile.writeAsString('orphan');
+      await externalFile.writeAsString('external');
+
+      final shipment = Pengiriman(
+        id: 'photo-cleanup-reference',
+        pengirim: 'Sender',
+        tanggal: DateTime(2026, 10, 13),
+        nomorResi: 'PHOTO-CLEANUP-001',
+        barang: [
+          BarangItem(
+            id: 'photo-cleanup-item',
+            nama: 'Box',
+            jumlah: 1,
+            panjang: 10,
+            lebar: 10,
+            tinggi: 10,
+            berat: 1,
+            photoPath: referencedFile.path,
+          ),
+        ],
+      );
+      SharedPreferences.setMockInitialValues({
+        'daftar_pengiriman_v2': jsonEncode([shipment.toJson()]),
+      });
+      const channel = MethodChannel('plugins.flutter.io/path_provider');
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'getApplicationDocumentsDirectory') return docs.path;
+        return null;
+      });
+
+      try {
+        await PhotoStorageService.deleteAll([
+          referencedFile.path,
+          orphanFile.path,
+          externalFile.path,
+        ]);
+
+        expect(await referencedFile.exists(), isTrue,
+            reason: 'A photo referenced by persisted shipment data must remain.');
+        expect(await orphanFile.exists(), isFalse,
+            reason: 'An unreferenced photo owned by the app should be cleaned up.');
+        expect(await externalFile.exists(), isTrue,
+            reason: 'Cleanup must never delete a file outside app documents.');
+      } finally {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+        await docs.delete(recursive: true);
+        await external.delete(recursive: true);
+      }
+    });
+
+    test('photo cleanup fails closed when persisted shipment data is corrupted', () async {
+      final docs = await Directory.systemTemp.createTemp('nextcube-photo-cleanup-corrupt-');
+      final orphanFile = File('${docs.path}/orphan.jpg');
+      await orphanFile.writeAsString('orphan');
+      SharedPreferences.setMockInitialValues({
+        'daftar_pengiriman_v2': '{broken-json',
+      });
+      const channel = MethodChannel('plugins.flutter.io/path_provider');
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'getApplicationDocumentsDirectory') return docs.path;
+        return null;
+      });
+
+      try {
+        await PhotoStorageService.deleteAll([orphanFile.path]);
+        expect(await orphanFile.exists(), isTrue,
+            reason: 'Cleanup must preserve files when references cannot be read safely.');
+      } finally {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+        await docs.delete(recursive: true);
+      }
+    });
+
     test('full restore writes photo and report logo bytes and remaps references', () async {
       SharedPreferences.setMockInitialValues({});
       final docs = await Directory.systemTemp.createTemp('nextcube-restore-success-');
@@ -955,6 +1053,43 @@ void main() {
           corruptedSettings,
           reason: 'Failed restore must preserve the exact prior settings value.',
         );
+      } finally {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+        await docs.delete(recursive: true);
+      }
+    });
+
+    test('failed settings rollback preserves logo still referenced by persisted settings', () async {
+      SharedPreferences.setMockInitialValues({
+        'daftar_pengiriman_v2': jsonEncode([]),
+        'report_header_settings_v1': jsonEncode(ReportSettings().toJson()),
+      });
+      final docs = await Directory.systemTemp.createTemp('nextcube-restore-settings-rollback-failure-');
+      const channel = MethodChannel('plugins.flutter.io/path_provider');
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+        if (call.method == 'getApplicationDocumentsDirectory') return docs.path;
+        return null;
+      });
+
+      try {
+        final service = BackupService(
+          settings: _PersistThenFailSettingsRollbackService(),
+        );
+        await expectLater(
+          service.restore(_photoAndLogoBackupData(), merge: false),
+          throwsA(isA<StateError>()),
+        );
+
+        expect(await StorageService().loadPengiriman(), isEmpty,
+            reason: 'Shipment rollback should still restore the previous shipment state.');
+        final persistedSettings = await SettingsService().loadReportSettings();
+        expect(persistedSettings.companyName, 'Restore Test');
+        final logoPath = persistedSettings.logoPath;
+        expect(logoPath, isNotNull);
+        expect(await File(logoPath!).exists(), isTrue,
+            reason: 'If settings rollback fails, a persisted logo reference must not become dangling.');
       } finally {
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
             .setMockMethodCallHandler(channel, null);

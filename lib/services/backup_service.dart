@@ -555,17 +555,22 @@ class BackupService {
         }
       }
 
-      if (shipmentRollbackSucceeded) {
-        await PhotoStorageService.deleteAll(createdPhotoPaths);
-        if (createdLogoPath != null) {
-          await ReportLogoStorageService.delete(createdLogoPath);
-        }
-      }
-
+      // Roll back settings before deleting the new logo. If settings were
+      // written but rollback fails, the persisted settings may still point to
+      // the new logo, so preserve it rather than leave a dangling reference.
+      var settingsRollbackSucceeded = false;
       try {
         await _settings.restoreRawReportSettings(previousRawSettings);
+        settingsRollbackSucceeded = true;
       } catch (_) {
-        // Preserve the original restore error.
+        // Preserve the original restore error and keep files that may remain referenced.
+      }
+
+      if (shipmentRollbackSucceeded) {
+        await PhotoStorageService.deleteAll(createdPhotoPaths);
+        if (settingsRollbackSucceeded && createdLogoPath != null) {
+          await ReportLogoStorageService.delete(createdLogoPath);
+        }
       }
       rethrow;
     }
