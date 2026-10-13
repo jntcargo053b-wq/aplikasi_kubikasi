@@ -923,8 +923,10 @@ void main() {
     });
 
     test('failed settings write rolls shipment state back and removes new photo and logo', () async {
+      const corruptedSettings = '{broken-settings-json';
       SharedPreferences.setMockInitialValues({
         'daftar_pengiriman_v2': jsonEncode([]),
+        'report_header_settings_v1': corruptedSettings,
       });
       final docs = await Directory.systemTemp.createTemp('nextcube-restore-rollback-');
       const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -947,6 +949,12 @@ void main() {
             : <File>[];
         expect(files, isEmpty, reason: 'Rollback must remove files created by the failed restore.');
         expect(await SettingsService().loadReportSettings(), isEmpty);
+        expect(
+          (await SharedPreferences.getInstance())
+              .getString('report_header_settings_v1'),
+          corruptedSettings,
+          reason: 'Failed restore must preserve the exact prior settings value.',
+        );
       } finally {
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
             .setMockMethodCallHandler(channel, null);

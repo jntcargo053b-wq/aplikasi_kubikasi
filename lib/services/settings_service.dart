@@ -18,6 +18,24 @@ class SettingsService {
     return const ReportSettings();
   }
 
+  /// Reads the exact stored settings value for transactional rollback.
+  /// Unlike [loadReportSettings], this preserves malformed legacy/corrupt JSON.
+  Future<String?> readRawReportSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_reportSettingsKey);
+  }
+
+  /// Restores the exact previous settings value after a failed operation.
+  Future<void> restoreRawReportSettings(String? raw) async {
+    final prefs = await SharedPreferences.getInstance();
+    final restored = raw == null
+        ? await prefs.remove(_reportSettingsKey)
+        : await prefs.setString(_reportSettingsKey, raw);
+    if (!restored) {
+      throw StateError('Gagal memulihkan pengaturan laporan sebelumnya.');
+    }
+  }
+
   Future<void> saveReportSettings(ReportSettings settings) async {
     final prefs = await SharedPreferences.getInstance();
     final saved = await prefs.setString(
