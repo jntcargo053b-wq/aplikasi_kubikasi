@@ -198,6 +198,77 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     if (phone != null && _noTelepon.text.trim().isEmpty) _noTelepon.text = phone;
   }
 
+  Future<void> _chooseSavedSender() async {
+    if (_busy || _savedSenders.isEmpty) return;
+    final search = TextEditingController();
+    try {
+      final selected = await showModalBottomSheet<String>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        showDragHandle: true,
+        builder: (sheetContext) => StatefulBuilder(
+          builder: (context, setModalState) {
+            final query = search.text.trim().toLowerCase();
+            final filtered = _savedSenders
+                .where((name) => name.toLowerCase().contains(query))
+                .toList();
+            return SizedBox(
+              height: MediaQuery.of(context).size.height * .72,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                    child: TextField(
+                      controller: search,
+                      autofocus: true,
+                      textInputAction: TextInputAction.search,
+                      onChanged: (_) => setModalState(() {}),
+                      decoration: const InputDecoration(
+                        labelText: 'Cari pelanggan / pengirim',
+                        hintText: 'Ketik nama pelanggan',
+                        prefixIcon: Icon(Icons.search),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: filtered.isEmpty
+                        ? const Center(child: Text('Pelanggan belum ada. Ketik nama baru pada formulir.'))
+                        : ListView.separated(
+                            itemCount: filtered.length,
+                            separatorBuilder: (_, __) => const Divider(height: 1),
+                            itemBuilder: (context, index) {
+                              final name = filtered[index];
+                              final phone = _senderPhones[name.toLowerCase()];
+                              return ListTile(
+                                leading: const CircleAvatar(child: Icon(Icons.person_outline)),
+                                title: Text(name),
+                                subtitle: phone == null || phone.isEmpty ? null : Text(phone),
+                                trailing: _pengirim.text.trim().toLowerCase() == name.toLowerCase()
+                                    ? const Icon(Icons.check_circle_outline)
+                                    : null,
+                                onTap: () => Navigator.pop(sheetContext, name),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      );
+      if (selected == null || !mounted) return;
+      setState(() {
+        _pengirim.text = selected;
+        _pengirimError = null;
+      });
+      _applySender(selected);
+    } finally {
+      search.dispose();
+    }
+  }
+
   Future<void> _useLastShipment() async {
     if (_busy || widget.existing != null || _savedShipments.isEmpty) return;
     final last = _savedShipments.reduce((a,b) => a.tanggal.isAfter(b.tanggal) ? a : b);
@@ -867,6 +938,89 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                 ),
               ),
               const SizedBox(height: 16),
+              if (widget.existing == null && widget.initialBarang != null && widget.initialBarang!.isNotEmpty) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.primarySoft,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.auto_awesome_outlined, size: 20, color: AppColors.primary),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Data barang dari kalkulator sudah diisi otomatis. Ketuk barang untuk mengubah nama, ukuran, berat, atau foto.',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+              KeyedSubtree(
+                key: _barangKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        const Text(
+                          'Daftar Barang',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        if (_savedBarangTemplates.isNotEmpty)
+                          OutlinedButton.icon(
+                            onPressed: _busy ? null : _quickAddBarang,
+                            icon: const Icon(Icons.history, size: 18),
+                            label: const Text(
+                              'Barang Lama',
+                              maxLines: 1,
+                              softWrap: false,
+                            ),
+                          ),
+                        OutlinedButton.icon(
+                          onPressed: _busy ? null : _addItem,
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text(
+                            'Tambah Barang',
+                            maxLines: 1,
+                            softWrap: false,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (_barangError != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          _barangError!,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.red,
+                          ),
+                        ),
+                      ),
+                    if (_barang.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: Center(child: Text('Belum ada barang.')),
+                      ),
+                    for (var i = 0; i < _barang.length; i++)
+                      _buildBarangCard(i),
+                  ],
+                ),
+              ),
               if (widget.existing == null && widget.duplicateFrom == null && _savedShipments.isNotEmpty) ...[
                 Align(
                   alignment: Alignment.centerLeft,
@@ -877,26 +1031,6 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                   ),
                 ),
               ],
-              KeyedSubtree(
-                key: _resiKey,
-                child: TextField(
-                controller: _resi,
-                focusNode: _resiFocus,
-                textInputAction: TextInputAction.next,
-                onChanged: _validateResi,
-                decoration: InputDecoration(
-                  labelText: 'Nomor Resi',
-                  errorText: _resiError,
-                  suffixIcon: IconButton(
-                    tooltip: 'Scan Resi',
-                    onPressed: _busy ? null : _scanResi,
-                    icon: const Icon(Icons.qr_code_scanner_outlined),
-                  ),
-                ),
-                scrollPadding: const EdgeInsets.only(bottom: 180),
-              ),
-              ),
-              const SizedBox(height: 12),
               KeyedSubtree(
                 key: _pengirimKey,
                 child: Autocomplete<String>(
@@ -957,7 +1091,11 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                       prefixIcon: const Icon(Icons.person_outline),
                       suffixIcon: _savedSenders.isEmpty
                           ? null
-                          : const Icon(Icons.arrow_drop_down),
+                          : IconButton(
+                              tooltip: 'Pilih pelanggan tersimpan',
+                              onPressed: _busy ? null : _chooseSavedSender,
+                              icon: const Icon(Icons.arrow_drop_down),
+                            ),
                     ),
                     scrollPadding: const EdgeInsets.only(bottom: 180),
                   );
@@ -1119,89 +1257,27 @@ class _PengirimanFormState extends State<_PengirimanForm> {
               ],
               const SizedBox(height: 12),
               const SizedBox(height: 18),
-              if (widget.existing == null && widget.initialBarang != null && widget.initialBarang!.isNotEmpty) ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.primarySoft,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.auto_awesome_outlined, size: 20, color: AppColors.primary),
-                      SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Data barang dari kalkulator sudah diisi otomatis. Ketuk barang untuk mengubah nama, ukuran, berat, atau foto.',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ],
+
               KeyedSubtree(
-                key: _barangKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        const Text(
-                          'Daftar Barang',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        if (_savedBarangTemplates.isNotEmpty)
-                          OutlinedButton.icon(
-                            onPressed: _busy ? null : _quickAddBarang,
-                            icon: const Icon(Icons.history, size: 18),
-                            label: const Text(
-                              'Barang Lama',
-                              maxLines: 1,
-                              softWrap: false,
-                            ),
-                          ),
-                        OutlinedButton.icon(
-                          onPressed: _busy ? null : _addItem,
-                          icon: const Icon(Icons.add, size: 18),
-                          label: const Text(
-                            'Tambah Barang',
-                            maxLines: 1,
-                            softWrap: false,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    if (_barangError != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Text(
-                          _barangError!,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.red,
-                          ),
-                        ),
-                      ),
-                    if (_barang.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 20),
-                        child: Center(child: Text('Belum ada barang.')),
-                      ),
-                    for (var i = 0; i < _barang.length; i++)
-                      _buildBarangCard(i),
-                  ],
+                key: _resiKey,
+                child: TextField(
+                controller: _resi,
+                focusNode: _resiFocus,
+                textInputAction: TextInputAction.next,
+                onChanged: _validateResi,
+                decoration: InputDecoration(
+                  labelText: 'Nomor Resi',
+                  errorText: _resiError,
+                  suffixIcon: IconButton(
+                    tooltip: 'Scan Resi',
+                    onPressed: _busy ? null : _scanResi,
+                    icon: const Icon(Icons.qr_code_scanner_outlined),
+                  ),
                 ),
+                scrollPadding: const EdgeInsets.only(bottom: 180),
               ),
+              ),
+
               const SizedBox(height: 12),
             ],
           ),
