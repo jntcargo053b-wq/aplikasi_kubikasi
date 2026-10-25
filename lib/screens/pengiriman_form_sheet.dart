@@ -200,73 +200,23 @@ class _PengirimanFormState extends State<_PengirimanForm> {
 
   Future<void> _chooseSavedSender() async {
     if (_busy || _savedSenders.isEmpty) return;
-    final search = TextEditingController();
-    try {
-      final selected = await showModalBottomSheet<String>(
-        context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        showDragHandle: true,
-        builder: (sheetContext) => StatefulBuilder(
-          builder: (context, setModalState) {
-            final query = search.text.trim().toLowerCase();
-            final filtered = _savedSenders
-                .where((name) => name.toLowerCase().contains(query))
-                .toList();
-            return SizedBox(
-              height: MediaQuery.of(context).size.height * .72,
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-                    child: TextField(
-                      controller: search,
-                      autofocus: true,
-                      textInputAction: TextInputAction.search,
-                      onChanged: (_) => setModalState(() {}),
-                      decoration: const InputDecoration(
-                        labelText: 'Cari pelanggan / pengirim',
-                        hintText: 'Ketik nama pelanggan',
-                        prefixIcon: Icon(Icons.search),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: filtered.isEmpty
-                        ? const Center(child: Text('Pelanggan belum ada. Ketik nama baru pada formulir.'))
-                        : ListView.separated(
-                            itemCount: filtered.length,
-                            separatorBuilder: (_, __) => const Divider(height: 1),
-                            itemBuilder: (context, index) {
-                              final name = filtered[index];
-                              final phone = _senderPhones[name.toLowerCase()];
-                              return ListTile(
-                                leading: const CircleAvatar(child: Icon(Icons.person_outline)),
-                                title: Text(name),
-                                subtitle: phone == null || phone.isEmpty ? null : Text(phone),
-                                trailing: _pengirim.text.trim().toLowerCase() == name.toLowerCase()
-                                    ? const Icon(Icons.check_circle_outline)
-                                    : null,
-                                onTap: () => Navigator.pop(sheetContext, name),
-                              );
-                            },
-                          ),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-      );
-      if (selected == null || !mounted) return;
-      setState(() {
-        _pengirim.text = selected;
-        _pengirimError = null;
-      });
-      _applySender(selected);
-    } finally {
-      search.dispose();
-    }
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (_) => _SavedSenderPicker(
+        senders: _savedSenders,
+        phones: _senderPhones,
+        currentSender: _pengirim.text,
+      ),
+    );
+    if (selected == null || !mounted) return;
+    setState(() {
+      _pengirim.text = selected;
+      _pengirimError = null;
+    });
+    _applySender(selected);
   }
 
   Future<void> _useLastShipment() async {
@@ -1341,6 +1291,93 @@ class _PengirimanFormState extends State<_PengirimanForm> {
         ),
       ),
     ),
+    );
+  }
+}
+
+class _SavedSenderPicker extends StatefulWidget {
+  final List<String> senders;
+  final Map<String, String> phones;
+  final String currentSender;
+
+  const _SavedSenderPicker({
+    required this.senders,
+    required this.phones,
+    required this.currentSender,
+  });
+
+  @override
+  State<_SavedSenderPicker> createState() => _SavedSenderPickerState();
+}
+
+class _SavedSenderPickerState extends State<_SavedSenderPicker> {
+  late final TextEditingController _searchController;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final query = _searchController.text.trim().toLowerCase();
+    final filtered = widget.senders
+        .where((name) => name.toLowerCase().contains(query))
+        .toList();
+
+    return SizedBox(
+      height: MediaQuery.of(context).size.height * .72,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+            child: TextField(
+              controller: _searchController,
+              autofocus: true,
+              textInputAction: TextInputAction.search,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(
+                labelText: 'Cari pelanggan / pengirim',
+                hintText: 'Ketik nama pelanggan',
+                prefixIcon: Icon(Icons.search),
+              ),
+            ),
+          ),
+          Expanded(
+            child: filtered.isEmpty
+                ? const Center(
+                    child: Text('Pelanggan belum ada. Ketik nama baru pada formulir.'),
+                  )
+                : ListView.separated(
+                    itemCount: filtered.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final name = filtered[index];
+                      final phone = widget.phones[name.toLowerCase()];
+                      return ListTile(
+                        leading: const CircleAvatar(
+                          child: Icon(Icons.person_outline),
+                        ),
+                        title: Text(name),
+                        subtitle: phone == null || phone.isEmpty ? null : Text(phone),
+                        trailing: widget.currentSender.trim().toLowerCase() ==
+                                name.toLowerCase()
+                            ? const Icon(Icons.check_circle_outline)
+                            : null,
+                        onTap: () => Navigator.pop(context, name),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }
