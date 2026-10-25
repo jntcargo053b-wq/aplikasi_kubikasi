@@ -867,6 +867,89 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                 ),
               ),
               const SizedBox(height: 16),
+              if (widget.existing == null && widget.initialBarang != null && widget.initialBarang!.isNotEmpty) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.primarySoft,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.auto_awesome_outlined, size: 20, color: AppColors.primary),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Data barang dari kalkulator sudah diisi otomatis. Ketuk barang untuk mengubah nama, ukuran, berat, atau foto.',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+              KeyedSubtree(
+                key: _barangKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        const Text(
+                          'Daftar Barang',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        if (_savedBarangTemplates.isNotEmpty)
+                          OutlinedButton.icon(
+                            onPressed: _busy ? null : _quickAddBarang,
+                            icon: const Icon(Icons.history, size: 18),
+                            label: const Text(
+                              'Barang Lama',
+                              maxLines: 1,
+                              softWrap: false,
+                            ),
+                          ),
+                        OutlinedButton.icon(
+                          onPressed: _busy ? null : _addItem,
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text(
+                            'Tambah Barang',
+                            maxLines: 1,
+                            softWrap: false,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (_barangError != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          _barangError!,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.red,
+                          ),
+                        ),
+                      ),
+                    if (_barang.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: Center(child: Text('Belum ada barang.')),
+                      ),
+                    for (var i = 0; i < _barang.length; i++)
+                      _buildBarangCard(i),
+                  ],
+                ),
+              ),
               if (widget.existing == null && widget.duplicateFrom == null && _savedShipments.isNotEmpty) ...[
                 Align(
                   alignment: Alignment.centerLeft,
@@ -1119,89 +1202,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
               ],
               const SizedBox(height: 12),
               const SizedBox(height: 18),
-              if (widget.existing == null && widget.initialBarang != null && widget.initialBarang!.isNotEmpty) ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.primarySoft,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.auto_awesome_outlined, size: 20, color: AppColors.primary),
-                      SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Data barang dari kalkulator sudah diisi otomatis. Ketuk barang untuk mengubah nama, ukuran, berat, atau foto.',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ],
-              KeyedSubtree(
-                key: _barangKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        const Text(
-                          'Daftar Barang',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        if (_savedBarangTemplates.isNotEmpty)
-                          OutlinedButton.icon(
-                            onPressed: _busy ? null : _quickAddBarang,
-                            icon: const Icon(Icons.history, size: 18),
-                            label: const Text(
-                              'Barang Lama',
-                              maxLines: 1,
-                              softWrap: false,
-                            ),
-                          ),
-                        OutlinedButton.icon(
-                          onPressed: _busy ? null : _addItem,
-                          icon: const Icon(Icons.add, size: 18),
-                          label: const Text(
-                            'Tambah Barang',
-                            maxLines: 1,
-                            softWrap: false,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    if (_barangError != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Text(
-                          _barangError!,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.red,
-                          ),
-                        ),
-                      ),
-                    if (_barang.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 20),
-                        child: Center(child: Text('Belum ada barang.')),
-                      ),
-                    for (var i = 0; i < _barang.length; i++)
-                      _buildBarangCard(i),
-                  ],
-                ),
-              ),
+
               const SizedBox(height: 12),
             ],
           ),
