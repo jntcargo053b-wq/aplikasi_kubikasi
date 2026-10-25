@@ -454,6 +454,12 @@ class ExportService {
         } else {
           cell.value = xls.TextCellValue(value.toString());
         }
+        // Keep weight cells numeric while consistently displaying two decimals.
+        if (j == 6 || j == 7) {
+          cell.cellStyle = xls.CellStyle(
+            numberFormat: xls.NumFormat.custom(formatCode: '0.00'),
+          );
+        }
       }
       row++;
     }
@@ -509,6 +515,12 @@ class ExportService {
           cell.value = xls.DoubleCellValue(value);
         } else {
           cell.value = xls.TextCellValue(value.toString());
+        }
+        // Weight column remains numeric and always shows two decimal places.
+        if (j == 8) {
+          cell.cellStyle = xls.CellStyle(
+            numberFormat: xls.NumFormat.custom(formatCode: '0.00'),
+          );
         }
       }
       row++;
