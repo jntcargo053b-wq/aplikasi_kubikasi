@@ -368,6 +368,7 @@ class _BarangFormState extends State<_BarangForm> {
                 TextFormField(
                   controller: _jumlah,
                   focusNode: _jumlahFocus,
+                  onTap: () => _selectAll(_jumlah),
                   keyboardType: TextInputType.number,
                   textInputAction: TextInputAction.next,
                   decoration: const InputDecoration(labelText: 'Jumlah', hintText: '1'),
@@ -382,11 +383,12 @@ class _BarangFormState extends State<_BarangForm> {
                 TextFormField(
                   controller: _berat,
                   focusNode: _beratFocus,
+                  onTap: () => _selectAll(_berat),
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   textInputAction: TextInputAction.done,
                   decoration: const InputDecoration(
                     labelText: 'Berat per unit',
-                    hintText: 'Isi berat (0 jika tidak ada)',
+                    hintText: 'Opsional jika tidak ada berat',
                     suffixText: 'kg',
                   ),
                   scrollPadding: const EdgeInsets.only(bottom: 180),
@@ -500,6 +502,14 @@ class _BarangFormState extends State<_BarangForm> {
     );
   }
 
+  void _selectAll(TextEditingController controller) {
+    if (controller.text.isEmpty) return;
+    controller.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: controller.text.length,
+    );
+  }
+
   Widget _size(TextEditingController c, String label, FocusNode focus, FocusNode next) => TextFormField(
         controller: c,
         onTap: () {
@@ -513,7 +523,7 @@ class _BarangFormState extends State<_BarangForm> {
         focusNode: focus,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         textInputAction: TextInputAction.next,
-        decoration: InputDecoration(labelText: label, hintText: '0', suffixText: 'cm'),
+        decoration: InputDecoration(labelText: label, suffixText: 'cm'),
         scrollPadding: const EdgeInsets.only(bottom: 180),
         onFieldSubmitted: (_) => next.requestFocus(),
         validator: (v) {

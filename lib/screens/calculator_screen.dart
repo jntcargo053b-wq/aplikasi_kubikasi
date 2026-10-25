@@ -100,6 +100,14 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
     });
   }
 
+  void _selectAll(TextEditingController controller) {
+    if (controller.text.isEmpty) return;
+    controller.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: controller.text.length,
+    );
+  }
+
   double get _totalKubikasi => _items.fold(0, (sum, item) => sum + item.kubikasi);
   double get _totalVolumetric => _items.fold(0, (sum, item) => sum + item.volumetricWeight);
   double get _totalActual => _items.fold(0, (sum, item) => sum + item.actualWeight);
@@ -491,6 +499,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                 child: TextField(
                   controller: item.panjang,
                   focusNode: item.panjangFocus,
+                  onTap: () => _selectAll(item.panjang),
                   textInputAction: TextInputAction.next,
                   onSubmitted: (_) => item.lebarFocus.requestFocus(),
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -503,6 +512,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                 child: TextField(
                   controller: item.lebar,
                   focusNode: item.lebarFocus,
+                  onTap: () => _selectAll(item.lebar),
                   textInputAction: TextInputAction.next,
                   onSubmitted: (_) => item.tinggiFocus.requestFocus(),
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -515,6 +525,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                 child: TextField(
                   controller: item.tinggi,
                   focusNode: item.tinggiFocus,
+                  onTap: () => _selectAll(item.tinggi),
                   textInputAction: TextInputAction.next,
                   onSubmitted: (_) => item.jumlahFocus.requestFocus(),
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -548,6 +559,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                       child: TextField(
                         controller: item.jumlah,
                         focusNode: item.jumlahFocus,
+                        onTap: () => _selectAll(item.jumlah),
                         textInputAction: TextInputAction.next,
                         onSubmitted: (_) => item.beratFocus.requestFocus(),
                         keyboardType: TextInputType.number,
@@ -585,6 +597,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                 child: TextField(
                   controller: item.berat,
                   focusNode: item.beratFocus,
+                  onTap: () => _selectAll(item.berat),
                   textInputAction: TextInputAction.done,
                   onSubmitted: (_) => _continueToShipment(),
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),

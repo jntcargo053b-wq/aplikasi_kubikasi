@@ -1,5 +1,8 @@
 name: Build APK
 
+permissions:
+  contents: write
+
 on:
   push:
     branches: [main]
@@ -127,13 +130,17 @@ jobs:
       - name: Build release APK
         run: flutter build apk --release
 
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+      - name: Publish APK to GitHub Release
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
         with:
-          name: app-release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
-          if-no-files-found: error
-          retention-days: 7
+          tag_name: apk-build-${{ github.run_number }}
+          name: Nextcube APK build #${{ github.run_number }}
+          body: |
+            Automated release APK.
+            Commit: ${{ github.sha }}
+          files: build/app/outputs/flutter-apk/app-release.apk
+          fail_on_unmatched_files: true
 
       - name: Clean signing material
         if: always()
