@@ -961,26 +961,6 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                 ),
               ],
               KeyedSubtree(
-                key: _resiKey,
-                child: TextField(
-                controller: _resi,
-                focusNode: _resiFocus,
-                textInputAction: TextInputAction.next,
-                onChanged: _validateResi,
-                decoration: InputDecoration(
-                  labelText: 'Nomor Resi',
-                  errorText: _resiError,
-                  suffixIcon: IconButton(
-                    tooltip: 'Scan Resi',
-                    onPressed: _busy ? null : _scanResi,
-                    icon: const Icon(Icons.qr_code_scanner_outlined),
-                  ),
-                ),
-                scrollPadding: const EdgeInsets.only(bottom: 180),
-              ),
-              ),
-              const SizedBox(height: 12),
-              KeyedSubtree(
                 key: _pengirimKey,
                 child: Autocomplete<String>(
                 initialValue: TextEditingValue(text: _pengirim.text),
@@ -1202,6 +1182,26 @@ class _PengirimanFormState extends State<_PengirimanForm> {
               ],
               const SizedBox(height: 12),
               const SizedBox(height: 18),
+
+              KeyedSubtree(
+                key: _resiKey,
+                child: TextField(
+                controller: _resi,
+                focusNode: _resiFocus,
+                textInputAction: TextInputAction.next,
+                onChanged: _validateResi,
+                decoration: InputDecoration(
+                  labelText: 'Nomor Resi',
+                  errorText: _resiError,
+                  suffixIcon: IconButton(
+                    tooltip: 'Scan Resi',
+                    onPressed: _busy ? null : _scanResi,
+                    icon: const Icon(Icons.qr_code_scanner_outlined),
+                  ),
+                ),
+                scrollPadding: const EdgeInsets.only(bottom: 180),
+              ),
+              ),
 
               const SizedBox(height: 12),
             ],
