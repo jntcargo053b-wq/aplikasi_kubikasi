@@ -198,6 +198,77 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     if (phone != null && _noTelepon.text.trim().isEmpty) _noTelepon.text = phone;
   }
 
+  Future<void> _chooseSavedSender() async {
+    if (_busy || _savedSenders.isEmpty) return;
+    final search = TextEditingController();
+    try {
+      final selected = await showModalBottomSheet<String>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        showDragHandle: true,
+        builder: (sheetContext) => StatefulBuilder(
+          builder: (context, setModalState) {
+            final query = search.text.trim().toLowerCase();
+            final filtered = _savedSenders
+                .where((name) => name.toLowerCase().contains(query))
+                .toList();
+            return SizedBox(
+              height: MediaQuery.of(context).size.height * .72,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                    child: TextField(
+                      controller: search,
+                      autofocus: true,
+                      textInputAction: TextInputAction.search,
+                      onChanged: (_) => setModalState(() {}),
+                      decoration: const InputDecoration(
+                        labelText: 'Cari pelanggan / pengirim',
+                        hintText: 'Ketik nama pelanggan',
+                        prefixIcon: Icon(Icons.search),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: filtered.isEmpty
+                        ? const Center(child: Text('Pelanggan belum ada. Ketik nama baru pada formulir.'))
+                        : ListView.separated(
+                            itemCount: filtered.length,
+                            separatorBuilder: (_, __) => const Divider(height: 1),
+                            itemBuilder: (context, index) {
+                              final name = filtered[index];
+                              final phone = _senderPhones[name.toLowerCase()];
+                              return ListTile(
+                                leading: const CircleAvatar(child: Icon(Icons.person_outline)),
+                                title: Text(name),
+                                subtitle: phone == null || phone.isEmpty ? null : Text(phone),
+                                trailing: _pengirim.text.trim().toLowerCase() == name.toLowerCase()
+                                    ? const Icon(Icons.check_circle_outline)
+                                    : null,
+                                onTap: () => Navigator.pop(sheetContext, name),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      );
+      if (selected == null || !mounted) return;
+      setState(() {
+        _pengirim.text = selected;
+        _pengirimError = null;
+      });
+      _applySender(selected);
+    } finally {
+      search.dispose();
+    }
+  }
+
   Future<void> _useLastShipment() async {
     if (_busy || widget.existing != null || _savedShipments.isEmpty) return;
     final last = _savedShipments.reduce((a,b) => a.tanggal.isAfter(b.tanggal) ? a : b);
@@ -1020,7 +1091,11 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                       prefixIcon: const Icon(Icons.person_outline),
                       suffixIcon: _savedSenders.isEmpty
                           ? null
-                          : const Icon(Icons.arrow_drop_down),
+                          : IconButton(
+                              tooltip: 'Pilih pelanggan tersimpan',
+                              onPressed: _busy ? null : _chooseSavedSender,
+                              icon: const Icon(Icons.arrow_drop_down),
+                            ),
                     ),
                     scrollPadding: const EdgeInsets.only(bottom: 180),
                   );
