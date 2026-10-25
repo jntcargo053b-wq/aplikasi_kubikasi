@@ -158,6 +158,10 @@ class _ReportHeaderSettingsScreenState extends State<ReportHeaderSettingsScreen>
     );
     try {
       await _settingsService.saveReportSettings(settings);
+      // The new settings now reference the selected logo. Mark the save as
+      // committed before any further awaits so dispose-time cleanup cannot
+      // delete that logo if this route is removed during old-file cleanup.
+      _committed = true;
       final oldLogo = _originalLogoPath;
       final pendingLogo = _pendingLogoPath;
       if (oldLogo != null && oldLogo != settings.logoPath) {
@@ -166,7 +170,6 @@ class _ReportHeaderSettingsScreenState extends State<ReportHeaderSettingsScreen>
       if (pendingLogo != null && pendingLogo != settings.logoPath) {
         await ReportLogoStorageService.delete(pendingLogo);
       }
-      _committed = true;
       _pendingLogoPath = null;
       if (!mounted) return;
       setState(() => _saving = false);
