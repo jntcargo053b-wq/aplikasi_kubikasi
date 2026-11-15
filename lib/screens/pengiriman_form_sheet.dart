@@ -718,7 +718,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
       _kecamatanError = null;
       _barangError = barangEmpty ? 'Tambahkan minimal satu barang.' : null;
     });
-    if (_resiError != null || resiEmpty) {
+    if (_resiError != null) {
       _resiFocus.requestFocus();
       _scrollToFirstError(
         resiEmpty: false,
@@ -729,13 +729,17 @@ class _PengirimanFormState extends State<_PengirimanForm> {
       );
       return;
     }
-    if (pengirimEmpty || barangEmpty || invalidGlobalWeight) {
+    if (invalidGlobalWeight) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Berat global harus berupa angka nol atau lebih.')));
+      return;
+    }
+    if (pengirimEmpty || barangEmpty) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       _scrollToFirstError(
         resiEmpty: false,
         pengirimEmpty: pengirimEmpty,
-        kotaEmpty: kotaEmpty,
-        kecamatanEmpty: kecamatanEmpty,
+        kotaEmpty: false,
+        kecamatanEmpty: false,
         barangEmpty: barangEmpty,
       );
       return;
@@ -1323,7 +1327,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                               ),
                               const SizedBox(height: 3),
                               Text(
-                                '${_barang.fold<double>(0, (sum, item) => sum + item.kubikasi).toStringAsFixed(3)} m³ • ${_barang.fold<double>(0, (sum, item) => sum + item.totalBerat).toStringAsFixed(2)} kg',
+                                '${_barang.fold<double>(0, (sum, item) => sum + item.kubikasi).toStringAsFixed(3)} m³ • ${(_useGlobalWeight ? (_globalWeight ?? 0) : _barang.fold<double>(0, (sum, item) => sum + item.totalBerat)).toStringAsFixed(2)} kg',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
