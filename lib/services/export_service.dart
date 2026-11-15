@@ -360,7 +360,7 @@ class ExportService {
       build: (context) => [
         pw.SizedBox(height: 4),
         pw.TableHelper.fromTextArray(
-          headers: const ['No', 'Tanggal', 'Resi', 'Pengirim', 'No. Telepon', 'Kota/Kab. Tujuan', 'Kecamatan Tujuan', 'Barang', 'Berat (kg)', 'Kubikasi (m³)'],
+          headers: const ['No', 'Tanggal', 'Resi', 'Pengirim', 'Penerima', 'No. Telepon', 'Kota/Kab. Tujuan', 'Kecamatan Tujuan', 'Barang', 'Berat (kg)', 'Kubikasi (m³)'],
           data: [for (var i = 0; i < sorted.length; i++) ['${i + 1}', _tanggalFmt.format(sorted[i].tanggal), sorted[i].nomorResi, sorted[i].pengirim, sorted[i].namaPenerima, sorted[i].noTelepon, sorted[i].kotaKabupaten, sorted[i].kecamatan, '${sorted[i].totalJumlah}', sorted[i].totalBerat.toStringAsFixed(2), sorted[i].totalKubikasi.toStringAsFixed(3)]],
           headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8), cellStyle: const pw.TextStyle(fontSize: 7.5),
           headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFE2E8F0)), border: pw.TableBorder.all(color: const PdfColor.fromInt(0xFFCBD5E1), width: 0.5),
