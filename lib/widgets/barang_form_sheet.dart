@@ -377,7 +377,13 @@ class _BarangFormState extends State<_BarangForm> {
                   textInputAction: TextInputAction.next,
                   decoration: const InputDecoration(labelText: 'Jumlah', hintText: '1'),
                   scrollPadding: const EdgeInsets.only(bottom: 180),
-                  onFieldSubmitted: (_) => widget.showWeightField ? _beratFocus.requestFocus() : _save(),
+                  onFieldSubmitted: (_) {
+                    if (widget.showWeightField) {
+                      _beratFocus.requestFocus();
+                    } else {
+                      _save();
+                    }
+                  },
                   validator: (v) {
                     final x = int.tryParse(v?.trim() ?? '');
                     return x == null || x <= 0 ? 'Jumlah harus lebih dari 0' : null;
