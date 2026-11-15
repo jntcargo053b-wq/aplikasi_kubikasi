@@ -243,6 +243,9 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     setState(() {
       _pengirim.text = last.pengirim;
       _noTelepon.text = last.noTelepon;
+      _namaPenerima.text = last.namaPenerima;
+      _beratGlobalController.text = last.beratGlobal == null ? '' : _formatWeight(last.beratGlobal!);
+      _useGlobalWeight = last.beratGlobal != null;
       if (last.pengirim.trim().isNotEmpty) _pengirimError = null;
     });
     final city = last.kotaKabupaten.trim().toLowerCase();
@@ -349,6 +352,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
         context,
         existing: draft,
         focusQuantity: true,
+        showWeightField: !_useGlobalWeight,
       );
       if (item != null && mounted) {
         if (item.photoPath != null) _sessionPhotoPaths.add(item.photoPath!);
@@ -595,6 +599,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
       final item = await showBarangFormSheet(
         context,
         initialName: 'Barang ${_barang.length + 1}',
+        showWeightField: !_useGlobalWeight,
         onSaveAndAddAnother: (item) async {
           if (!mounted) return;
           if (item.photoPath != null) _sessionPhotoPaths.add(item.photoPath!);
@@ -625,7 +630,11 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     final beforePhoto = before.photoPath;
     setState(() => _busy = true);
     try {
-      final item = await showBarangFormSheet(context, existing: before);
+      final item = await showBarangFormSheet(
+        context,
+        existing: before,
+        showWeightField: !_useGlobalWeight,
+      );
       if (item != null && mounted) {
         final newPhoto = item.photoPath;
         if (newPhoto != null &&
