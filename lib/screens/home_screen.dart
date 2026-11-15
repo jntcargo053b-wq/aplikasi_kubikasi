@@ -104,6 +104,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _matchesSearch(Pengiriman e) => _search.isEmpty ||
       e.nomorResi.toLowerCase().contains(_search) ||
       e.pengirim.toLowerCase().contains(_search) ||
+      e.namaPenerima.toLowerCase().contains(_search) ||
       e.kotaKabupaten.toLowerCase().contains(_search) ||
       e.kecamatan.toLowerCase().contains(_search) ||
       e.barang.any((b) => b.nama.toLowerCase().contains(_search));
@@ -227,7 +228,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _editBarang(Pengiriman shipment, int index) async {
     if (index < 0 || index >= shipment.barang.length) return;
-    final result = await showBarangFormSheet(context, existing: shipment.barang[index]);
+    final result = await showBarangFormSheet(
+      context,
+      existing: shipment.barang[index],
+      showWeightField: shipment.beratGlobal == null,
+    );
     if (result == null || !mounted) return;
     final i = _items.indexWhere((e) => e.id == shipment.id);
     if (i == -1) return;
@@ -236,6 +241,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final updatedShipment = Pengiriman(
       id: shipment.id,
       pengirim: shipment.pengirim,
+      namaPenerima: shipment.namaPenerima,
+      beratGlobal: shipment.beratGlobal,
       noTelepon: shipment.noTelepon,
       tanggal: shipment.tanggal,
       nomorResi: shipment.nomorResi,
@@ -653,7 +660,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _filters() => SingleChildScrollView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(vertical: 8), child: Row(children: [DropdownButtonHideUnderline(child: DropdownButton<String>(value: _pengirimList.contains(_pengirim) ? _pengirim : 'Semua', items: _pengirimList.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(), onChanged: (v) => setState(() => _pengirim = v ?? 'Semua'))), const SizedBox(width: 8), FilterChip(label: Text(_mulai == null ? 'Dari tanggal' : 'Dari ${_date(_mulai!)}'), onSelected: (_) => _pickRange(true)), const SizedBox(width: 8), FilterChip(label: Text(_sampai == null ? 'Sampai tanggal' : 'Sampai ${_date(_sampai!)}'), onSelected: (_) => _pickRange(false)), const SizedBox(width: 8), PopupMenuButton<_SortMode>(tooltip: 'Urutkan', onSelected: (v) => setState(() => _sort = v), itemBuilder: (_) => const [PopupMenuItem(value: _SortMode.terbaru, child: Text('Terbaru')), PopupMenuItem(value: _SortMode.terlama, child: Text('Terlama')), PopupMenuItem(value: _SortMode.pengirim, child: Text('Pengirim A-Z'))], child: const Chip(avatar: Icon(Icons.sort, size: 18), label: Text('Urutkan'))), if (_pengirim != 'Semua' || _mulai != null || _sampai != null || _search.isNotEmpty) ...[const SizedBox(width: 8), ActionChip(label: const Text('Reset'), onPressed: _clearFilters)]]));
 
-  Widget _shipmentCard(Pengiriman p) => Card(margin: const EdgeInsets.only(bottom: 10), child: InkWell(onTap: () => _openShipment(p), borderRadius: BorderRadius.circular(18), child: Padding(padding: const EdgeInsets.all(15), child: Row(children: [Container(width: 44, height: 44, decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.local_shipping_outlined, color: AppColors.primary)), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(p.nomorResi, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)), const SizedBox(height: 4), Text('${p.pengirim} • ${_date(p.tanggal)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.muted, fontSize: 12)), const SizedBox(height: 5), Text('${p.barang.length} jenis barang • ${p.totalKubikasi.toStringAsFixed(3)} m³', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12))])), const Icon(Icons.chevron_right, color: AppColors.muted)]))));
+  Widget _shipmentCard(Pengiriman p) => Card(margin: const EdgeInsets.only(bottom: 10), child: InkWell(onTap: () => _openShipment(p), borderRadius: BorderRadius.circular(18), child: Padding(padding: const EdgeInsets.all(15), child: Row(children: [Container(width: 44, height: 44, decoration: BoxDecoration(color: AppColors.primarySoft, borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.local_shipping_outlined, color: AppColors.primary)), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(p.nomorResi.isEmpty ? 'Resi belum diisi' : p.nomorResi, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)), const SizedBox(height: 4), Text('${p.pengirim}${p.namaPenerima.isEmpty ? '' : ' → ${p.namaPenerima}'} • ${_date(p.tanggal)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.muted, fontSize: 12)), const SizedBox(height: 5), Text('${p.barang.length} jenis barang • ${p.totalKubikasi.toStringAsFixed(3)} m³', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12))])), const Icon(Icons.chevron_right, color: AppColors.muted)]))));
 
   Widget _emptyState({required bool filtered}) => Card(
         child: Padding(
