@@ -80,9 +80,7 @@ class StorageService {
         );
       }
 
-      if (item.pengirim.trim().isEmpty ||
-          item.nomorResi.trim().isEmpty ||
-          item.barang.isEmpty) {
+      if (item.pengirim.trim().isEmpty || item.barang.isEmpty) {
         throw FormatException(
           'Record pengiriman ke-${index + 1} tidak lengkap. '
           'Data tidak diubah untuk mencegah kehilangan data.',
