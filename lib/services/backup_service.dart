@@ -279,9 +279,7 @@ class BackupService {
           'Daftar barang pada pengiriman ke-${index + 1} di backup tidak utuh.',
         );
       }
-      if (shipment.pengirim.trim().isEmpty ||
-          shipment.nomorResi.trim().isEmpty ||
-          shipment.barang.isEmpty) {
+      if (shipment.pengirim.trim().isEmpty || shipment.barang.isEmpty) {
         throw FormatException(
           'Record pengiriman ke-${index + 1} pada backup tidak lengkap.',
         );
@@ -470,6 +468,8 @@ class BackupService {
           Pengiriman(
             id: shipment.id,
             pengirim: shipment.pengirim,
+            namaPenerima: shipment.namaPenerima,
+            beratGlobal: shipment.beratGlobal,
             noTelepon: shipment.noTelepon,
             tanggal: shipment.tanggal,
             nomorResi: shipment.nomorResi,

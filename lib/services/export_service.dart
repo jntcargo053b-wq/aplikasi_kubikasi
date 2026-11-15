@@ -266,7 +266,7 @@ class ExportService {
         [
           '${i + 1}', p.barang[i].nama, p.barang[i].jumlah.toString(),
           '${_fmtNum(p.barang[i].panjang)}×${_fmtNum(p.barang[i].lebar)}×${_fmtNum(p.barang[i].tinggi)}',
-          p.barang[i].totalBerat.toStringAsFixed(2), p.barang[i].volume.toStringAsFixed(2), p.barang[i].kubikasi.toStringAsFixed(3),
+          p.beratGlobal == null ? p.barang[i].totalBerat.toStringAsFixed(2) : '-', p.barang[i].volume.toStringAsFixed(2), p.barang[i].kubikasi.toStringAsFixed(3),
         ],
     ];
 
@@ -280,7 +280,7 @@ class ExportService {
       ]),
       build: (context) => [
         pw.SizedBox(height: 4),
-        _infoRow('Nomor Resi', p.nomorResi), _infoRow('Pengirim', p.pengirim),
+        _infoRow('Nomor Resi', p.nomorResi), _infoRow('Pengirim', p.pengirim), _infoRow('Nama Penerima', p.namaPenerima),
         _infoRow('No. Telepon', p.noTelepon),
         _infoRow('Tanggal', _tanggalFmt.format(p.tanggal)), _infoRow('Kota/Kab. Tujuan', p.kotaKabupaten), _infoRow('Kecamatan Tujuan', p.kecamatan), _infoRow('Jumlah Jenis Barang', '${p.barang.length}'),
         pw.SizedBox(height: 14),
@@ -360,8 +360,8 @@ class ExportService {
       build: (context) => [
         pw.SizedBox(height: 4),
         pw.TableHelper.fromTextArray(
-          headers: const ['No', 'Tanggal', 'Resi', 'Pengirim', 'No. Telepon', 'Kota/Kab. Tujuan', 'Kecamatan Tujuan', 'Barang', 'Berat (kg)', 'Kubikasi (m³)'],
-          data: [for (var i = 0; i < sorted.length; i++) ['${i + 1}', _tanggalFmt.format(sorted[i].tanggal), sorted[i].nomorResi, sorted[i].pengirim, sorted[i].noTelepon, sorted[i].kotaKabupaten, sorted[i].kecamatan, '${sorted[i].totalJumlah}', sorted[i].totalBerat.toStringAsFixed(2), sorted[i].totalKubikasi.toStringAsFixed(3)]],
+          headers: const ['No', 'Tanggal', 'Resi', 'Pengirim', 'Penerima', 'No. Telepon', 'Kota/Kab. Tujuan', 'Kecamatan Tujuan', 'Barang', 'Berat (kg)', 'Kubikasi (m³)'],
+          data: [for (var i = 0; i < sorted.length; i++) ['${i + 1}', _tanggalFmt.format(sorted[i].tanggal), sorted[i].nomorResi, sorted[i].pengirim, sorted[i].namaPenerima, sorted[i].noTelepon, sorted[i].kotaKabupaten, sorted[i].kecamatan, '${sorted[i].totalJumlah}', sorted[i].totalBerat.toStringAsFixed(2), sorted[i].totalKubikasi.toStringAsFixed(3)]],
           headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8), cellStyle: const pw.TextStyle(fontSize: 7.5),
           headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFE2E8F0)), border: pw.TableBorder.all(color: const PdfColor.fromInt(0xFFCBD5E1), width: 0.5),
         ),
@@ -431,6 +431,7 @@ class ExportService {
     sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row++)).value = xls.TextCellValue(reportTitle);
     sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row++)).value = xls.TextCellValue('Nomor Resi: ${p.nomorResi}');
     sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row++)).value = xls.TextCellValue('Pengirim: ${p.pengirim}');
+    sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row++)).value = xls.TextCellValue('Nama Penerima: ${p.namaPenerima}');
     sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row++)).value = xls.TextCellValue('No. Telepon: ${p.noTelepon}');
     sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row++)).value = xls.TextCellValue('Tanggal: ${_tanggalFmt.format(p.tanggal)}');
     sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row++)).value = xls.TextCellValue('Kota/Kab. Tujuan: ${p.kotaKabupaten}');
@@ -443,7 +444,7 @@ class ExportService {
     row++;
     for (var i = 0; i < p.barang.length; i++) {
       final b = p.barang[i];
-      final values = [i + 1, b.nama, b.jumlah, b.panjang, b.lebar, b.tinggi, b.berat, b.totalBerat, b.volume, b.kubikasi];
+      final values = [i + 1, b.nama, b.jumlah, b.panjang, b.lebar, b.tinggi, p.beratGlobal == null ? b.berat : '-', p.beratGlobal == null ? b.totalBerat : '-', b.volume, b.kubikasi];
       for (var j = 0; j < values.length; j++) {
         final value = values[j];
         final cell = sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: j, rowIndex: row));
@@ -488,7 +489,7 @@ class ExportService {
     if (address.isNotEmpty) sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row++)).value = xls.TextCellValue(address);
     sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row++)).value = xls.TextCellValue(reportTitle);
     row++;
-    final headers = ['No', 'Tanggal', 'Resi', 'Pengirim', 'No. Telepon', 'Kota/Kab. Tujuan', 'Kecamatan Tujuan', 'Jumlah Barang', 'Berat (kg)', 'Volume', 'Kubikasi (m³)'];
+    final headers = ['No', 'Tanggal', 'Resi', 'Pengirim', 'Penerima', 'No. Telepon', 'Kota/Kab. Tujuan', 'Kecamatan Tujuan', 'Jumlah Barang', 'Berat (kg)', 'Volume', 'Kubikasi (m³)'];
     for (var i = 0; i < headers.length; i++) {
       sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: i, rowIndex: row)).value = xls.TextCellValue(headers[i]);
     }
@@ -499,7 +500,7 @@ class ExportService {
     var totalKubikasi = 0.0;
     for (var i = 0; i < items.length; i++) {
       final p = items[i];
-      final values = [i + 1, _tanggalFmt.format(p.tanggal), p.nomorResi, p.pengirim, p.noTelepon, p.kotaKabupaten, p.kecamatan, p.totalJumlah, p.totalBerat, p.totalVolume, p.totalKubikasi];
+      final values = [i + 1, _tanggalFmt.format(p.tanggal), p.nomorResi, p.pengirim, p.namaPenerima, p.noTelepon, p.kotaKabupaten, p.kecamatan, p.totalJumlah, p.totalBerat, p.totalVolume, p.totalKubikasi];
       for (var j = 0; j < values.length; j++) {
         final value = values[j];
         final cell = sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: j, rowIndex: row));

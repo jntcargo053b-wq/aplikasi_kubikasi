@@ -15,6 +15,7 @@ Future<BarangItem?> showBarangFormSheet(
   BarangItem? existing,
   String? initialName,
   bool focusQuantity = false,
+  bool showWeightField = true,
   FutureOr<void> Function(BarangItem item)? onSaveAndAddAnother,
 }) {
   return showModalBottomSheet<BarangItem>(
@@ -26,6 +27,7 @@ Future<BarangItem?> showBarangFormSheet(
       existing: existing,
       initialName: initialName,
       focusQuantity: focusQuantity,
+      showWeightField: showWeightField,
       onSaveAndAddAnother: onSaveAndAddAnother,
     ),
   );
@@ -35,11 +37,13 @@ class _BarangForm extends StatefulWidget {
   final BarangItem? existing;
   final String? initialName;
   final bool focusQuantity;
+  final bool showWeightField;
   final FutureOr<void> Function(BarangItem item)? onSaveAndAddAnother;
   const _BarangForm({
     this.existing,
     this.initialName,
     this.focusQuantity = false,
+    this.showWeightField = true,
     this.onSaveAndAddAnother,
   });
 
@@ -373,14 +377,20 @@ class _BarangFormState extends State<_BarangForm> {
                   textInputAction: TextInputAction.next,
                   decoration: const InputDecoration(labelText: 'Jumlah', hintText: '1'),
                   scrollPadding: const EdgeInsets.only(bottom: 180),
-                  onFieldSubmitted: (_) => _beratFocus.requestFocus(),
+                  onFieldSubmitted: (_) {
+                    if (widget.showWeightField) {
+                      _beratFocus.requestFocus();
+                    } else {
+                      _save();
+                    }
+                  },
                   validator: (v) {
                     final x = int.tryParse(v?.trim() ?? '');
                     return x == null || x <= 0 ? 'Jumlah harus lebih dari 0' : null;
                   },
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
+                if (widget.showWeightField) TextFormField(
                   controller: _berat,
                   focusNode: _beratFocus,
                   onTap: () => _selectAll(_berat),

@@ -37,6 +37,8 @@ class _PengirimanForm extends StatefulWidget {
 
 class _PengirimanFormState extends State<_PengirimanForm> {
   late final TextEditingController _pengirim;
+  late final TextEditingController _namaPenerima;
+  late final TextEditingController _beratGlobalController;
   late final TextEditingController _noTelepon;
   late final TextEditingController _resi;
   late DateTime _tanggal;
@@ -56,6 +58,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
   bool _loadingKecamatan = false;
   bool _saved = false;
   bool _busy = false;
+  late bool _useGlobalWeight;
   String? _wilayahError;
   String? _resiError;
   String? _pengirimError;
@@ -75,6 +78,12 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     super.initState();
     final e = widget.existing ?? widget.duplicateFrom;
     _pengirim = TextEditingController(text: e?.pengirim ?? '');
+    _namaPenerima = TextEditingController(text: e?.namaPenerima ?? '');
+    _beratGlobalController = TextEditingController(
+      text: e?.beratGlobal == null ? '' : _formatWeight(e!.beratGlobal!),
+    );
+    _useGlobalWeight = e?.beratGlobal != null ||
+        (widget.existing == null && widget.initialBarang == null);
     _noTelepon = TextEditingController(text: e?.noTelepon ?? '');
     _resi = TextEditingController(text: widget.duplicateFrom != null ? '' : (e?.nomorResi ?? ''));
     _resiFocus = FocusNode();
@@ -92,6 +101,10 @@ class _PengirimanFormState extends State<_PengirimanForm> {
   }
 
   String _date(DateTime d) => DateFormat('dd/MM/yyyy').format(d);
+  String _formatWeight(double value) => value == value.roundToDouble() ? value.toInt().toString() : value.toString();
+  double? get _globalWeight => _beratGlobalController.text.trim().isEmpty
+      ? null
+      : double.tryParse(_beratGlobalController.text.trim().replaceAll(',', '.'));
 
   bool _sameBarang(BarangItem a, BarangItem b) =>
       a.id == b.id &&
@@ -115,14 +128,18 @@ class _PengirimanFormState extends State<_PengirimanForm> {
   bool get _hasChanges => widget.existing != null
       ? _resi.text.trim() != widget.existing!.nomorResi.trim() ||
           _pengirim.text.trim() != widget.existing!.pengirim.trim() ||
+          _namaPenerima.text.trim() != widget.existing!.namaPenerima.trim() ||
+          _useGlobalWeight != (widget.existing!.beratGlobal != null) ||
+          _beratGlobalController.text.trim() != (widget.existing!.beratGlobal == null ? '' : _formatWeight(widget.existing!.beratGlobal!)) ||
           _noTelepon.text.trim() != widget.existing!.noTelepon.trim() ||
           _tanggal.year != widget.existing!.tanggal.year ||
           _tanggal.month != widget.existing!.tanggal.month ||
           _tanggal.day != widget.existing!.tanggal.day ||
           _barangChanged ||
-          _selectedKotaKabupaten?.name != widget.existing!.kotaKabupaten ||
-          _selectedKecamatan?.name != widget.existing!.kecamatan
+          (_selectedKotaKabupaten?.name ?? '') != widget.existing!.kotaKabupaten ||
+          (_selectedKecamatan?.name ?? '') != widget.existing!.kecamatan
       : _resi.text.trim().isNotEmpty || _pengirim.text.trim().isNotEmpty ||
+          _namaPenerima.text.trim().isNotEmpty || _beratGlobalController.text.trim().isNotEmpty ||
           _noTelepon.text.trim().isNotEmpty || _barang.isNotEmpty ||
           _selectedKotaKabupaten != null || _selectedKecamatan != null;
 
@@ -226,6 +243,9 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     setState(() {
       _pengirim.text = last.pengirim;
       _noTelepon.text = last.noTelepon;
+      _namaPenerima.text = last.namaPenerima;
+      _beratGlobalController.text = last.beratGlobal == null ? '' : _formatWeight(last.beratGlobal!);
+      _useGlobalWeight = last.beratGlobal != null;
       if (last.pengirim.trim().isNotEmpty) _pengirimError = null;
     });
     final city = last.kotaKabupaten.trim().toLowerCase();
@@ -297,7 +317,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                         return ListTile(
                           leading: const Icon(Icons.inventory_2_outlined),
                           title: Text(item.nama),
-                          subtitle: Text('${item.panjang} × ${item.lebar} × ${item.tinggi} cm • ${item.berat} kg/unit'),
+                          subtitle: Text('${item.panjang} × ${item.lebar} × ${item.tinggi} cm${_useGlobalWeight ? '' : ' • ${item.berat} kg/unit'}'),
                           onTap: () => Navigator.pop(sheetContext, item),
                         );
                       },
@@ -332,6 +352,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
         context,
         existing: draft,
         focusQuantity: true,
+        showWeightField: !_useGlobalWeight,
       );
       if (item != null && mounted) {
         if (item.photoPath != null) _sessionPhotoPaths.add(item.photoPath!);
@@ -578,6 +599,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
       final item = await showBarangFormSheet(
         context,
         initialName: 'Barang ${_barang.length + 1}',
+        showWeightField: !_useGlobalWeight,
         onSaveAndAddAnother: (item) async {
           if (!mounted) return;
           if (item.photoPath != null) _sessionPhotoPaths.add(item.photoPath!);
@@ -608,7 +630,11 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     final beforePhoto = before.photoPath;
     setState(() => _busy = true);
     try {
-      final item = await showBarangFormSheet(context, existing: before);
+      final item = await showBarangFormSheet(
+        context,
+        existing: before,
+        showWeightField: !_useGlobalWeight,
+      );
       if (item != null && mounted) {
         final newPhoto = item.photoPath;
         if (newPhoto != null &&
@@ -655,21 +681,14 @@ class _PengirimanFormState extends State<_PengirimanForm> {
   }
 
   Future<void> _scrollToFirstError({
-    required bool resiEmpty,
     required bool pengirimEmpty,
-    required bool kotaEmpty,
-    required bool kecamatanEmpty,
     required bool barangEmpty,
   }) async {
     GlobalKey? target;
-    if (_resiError != null || resiEmpty) {
+    if (_resiError != null) {
       target = _resiKey;
     } else if (pengirimEmpty) {
       target = _pengirimKey;
-    } else if (kotaEmpty) {
-      target = _kotaKey;
-    } else if (kecamatanEmpty) {
-      target = _kecamatanKey;
     } else if (barangEmpty) {
       target = _barangKey;
     }
@@ -689,34 +708,32 @@ class _PengirimanFormState extends State<_PengirimanForm> {
   void _save() {
     _validateResi(_resi.text);
     final pengirimEmpty = _pengirim.text.trim().isEmpty;
-    final resiEmpty = _resi.text.trim().isEmpty;
-    final kotaEmpty = _selectedKotaKabupaten == null;
-    final kecamatanEmpty = _selectedKecamatan == null;
+    final invalidGlobalWeight = _useGlobalWeight &&
+        _beratGlobalController.text.trim().isNotEmpty &&
+        (_globalWeight == null || !_globalWeight!.isFinite || _globalWeight! < 0);
     final barangEmpty = _barang.isEmpty;
     setState(() {
       _pengirimError = pengirimEmpty ? 'Nama pengirim wajib diisi.' : null;
-      _kotaError = kotaEmpty ? 'Kota/kabupaten tujuan wajib dipilih.' : null;
-      _kecamatanError = kecamatanEmpty ? 'Kecamatan tujuan wajib dipilih.' : null;
+      _kotaError = null;
+      _kecamatanError = null;
       _barangError = barangEmpty ? 'Tambahkan minimal satu barang.' : null;
     });
-    if (_resiError != null || resiEmpty) {
+    if (_resiError != null) {
       _resiFocus.requestFocus();
       _scrollToFirstError(
-        resiEmpty: resiEmpty,
         pengirimEmpty: pengirimEmpty,
-        kotaEmpty: kotaEmpty,
-        kecamatanEmpty: kecamatanEmpty,
         barangEmpty: barangEmpty,
       );
       return;
     }
-    if (pengirimEmpty || kotaEmpty || kecamatanEmpty || barangEmpty) {
+    if (invalidGlobalWeight) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Berat global harus berupa angka nol atau lebih.')));
+      return;
+    }
+    if (pengirimEmpty || barangEmpty) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       _scrollToFirstError(
-        resiEmpty: false,
         pengirimEmpty: pengirimEmpty,
-        kotaEmpty: kotaEmpty,
-        kecamatanEmpty: kecamatanEmpty,
         barangEmpty: barangEmpty,
       );
       return;
@@ -725,11 +742,13 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     final result = Pengiriman(
       id: widget.existing?.id ?? const Uuid().v4(),
       pengirim: _pengirim.text.trim(),
+      namaPenerima: _namaPenerima.text.trim(),
+      beratGlobal: _useGlobalWeight ? (_globalWeight ?? 0) : null,
       noTelepon: _noTelepon.text.trim(),
       tanggal: _tanggal,
       nomorResi: _resi.text.trim(),
-      kotaKabupaten: _selectedKotaKabupaten!.name,
-      kecamatan: _selectedKecamatan!.name,
+      kotaKabupaten: _selectedKotaKabupaten?.name ?? '',
+      kecamatan: _selectedKecamatan?.name ?? '',
       barang: _barang.map((x) => x.copyWith()).toList(),
     );
     _saved = true;
@@ -752,6 +771,8 @@ class _PengirimanFormState extends State<_PengirimanForm> {
       Future.microtask(() => PhotoStorageService.deleteAll(paths));
     }
     _pengirim.dispose();
+    _namaPenerima.dispose();
+    _beratGlobalController.dispose();
     _noTelepon.dispose();
     _resi.dispose();
     _resiFocus.dispose();
@@ -840,7 +861,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 4),
           child: Text(
-            '${b.jumlah} pcs • ${b.panjang} × ${b.lebar} × ${b.tinggi} cm • ${b.berat} kg/unit\n${b.kubikasi.toStringAsFixed(3)} m³ • ${b.totalBerat.toStringAsFixed(2)} kg',
+            '${b.jumlah} pcs • ${b.panjang} × ${b.lebar} × ${b.tinggi} cm\n${b.kubikasi.toStringAsFixed(3)} m³${_useGlobalWeight ? '' : ' • ${b.totalBerat.toStringAsFixed(2)} kg'}',
           ),
         ),
         isThreeLine: true,
@@ -971,6 +992,34 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                   ],
                 ),
               ),
+              Card(
+                margin: const EdgeInsets.only(top: 4, bottom: 12),
+                child: Column(
+                  children: [
+                    SwitchListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                      title: const Text('Gunakan berat global'),
+                      subtitle: const Text('Satu nilai berat untuk seluruh pengiriman, bukan per barang.'),
+                      value: _useGlobalWeight,
+                      onChanged: _busy ? null : (value) => setState(() => _useGlobalWeight = value),
+                    ),
+                    if (_useGlobalWeight)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                        child: TextField(
+                          controller: _beratGlobalController,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          onChanged: (_) => setState(() {}),
+                          decoration: const InputDecoration(
+                            labelText: 'Berat total pengiriman',
+                            hintText: 'Masukkan berat keseluruhan',
+                            suffixText: 'kg',
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
               if (widget.existing == null && widget.duplicateFrom == null && _savedShipments.isNotEmpty) ...[
                 Align(
                   alignment: Alignment.centerLeft,
@@ -1097,6 +1146,16 @@ class _PengirimanFormState extends State<_PengirimanForm> {
               ),
               const SizedBox(height: 12),
               TextField(
+                controller: _namaPenerima,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(
+                  labelText: 'Nama Penerima (opsional)',
+                  prefixIcon: Icon(Icons.person_pin_outlined),
+                ),
+                scrollPadding: const EdgeInsets.only(bottom: 180),
+              ),
+              const SizedBox(height: 12),
+              TextField(
                 controller: _noTelepon,
                 keyboardType: TextInputType.phone,
                 textInputAction: TextInputAction.next,
@@ -1217,6 +1276,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                 onChanged: _validateResi,
                 decoration: InputDecoration(
                   labelText: 'Nomor Resi',
+                  hintText: 'Opsional, bisa diisi nanti',
                   errorText: _resiError,
                   suffixIcon: IconButton(
                     tooltip: 'Scan Resi',
@@ -1262,7 +1322,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                               ),
                               const SizedBox(height: 3),
                               Text(
-                                '${_barang.fold<double>(0, (sum, item) => sum + item.kubikasi).toStringAsFixed(3)} m³ • ${_barang.fold<double>(0, (sum, item) => sum + item.totalBerat).toStringAsFixed(2)} kg',
+                                '${_barang.fold<double>(0, (sum, item) => sum + item.kubikasi).toStringAsFixed(3)} m³ • ${(_useGlobalWeight ? (_globalWeight ?? 0) : _barang.fold<double>(0, (sum, item) => sum + item.totalBerat)).toStringAsFixed(2)} kg',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
