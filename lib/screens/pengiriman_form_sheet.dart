@@ -136,8 +136,8 @@ class _PengirimanFormState extends State<_PengirimanForm> {
           _tanggal.month != widget.existing!.tanggal.month ||
           _tanggal.day != widget.existing!.tanggal.day ||
           _barangChanged ||
-          _selectedKotaKabupaten?.name != widget.existing!.kotaKabupaten ||
-          _selectedKecamatan?.name != widget.existing!.kecamatan
+          (_selectedKotaKabupaten?.name ?? '') != widget.existing!.kotaKabupaten ||
+          (_selectedKecamatan?.name ?? '') != widget.existing!.kecamatan
       : _resi.text.trim().isNotEmpty || _pengirim.text.trim().isNotEmpty ||
           _namaPenerima.text.trim().isNotEmpty || _beratGlobalController.text.trim().isNotEmpty ||
           _noTelepon.text.trim().isNotEmpty || _barang.isNotEmpty ||
