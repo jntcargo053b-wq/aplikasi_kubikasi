@@ -681,10 +681,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
   }
 
   Future<void> _scrollToFirstError({
-    required bool resiEmpty,
     required bool pengirimEmpty,
-    required bool kotaEmpty,
-    required bool kecamatanEmpty,
     required bool barangEmpty,
   }) async {
     GlobalKey? target;
@@ -692,10 +689,6 @@ class _PengirimanFormState extends State<_PengirimanForm> {
       target = _resiKey;
     } else if (pengirimEmpty) {
       target = _pengirimKey;
-    } else if (kotaEmpty) {
-      target = _kotaKey;
-    } else if (kecamatanEmpty) {
-      target = _kecamatanKey;
     } else if (barangEmpty) {
       target = _barangKey;
     }
@@ -730,10 +723,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     if (_resiError != null) {
       _resiFocus.requestFocus();
       _scrollToFirstError(
-        resiEmpty: false,
         pengirimEmpty: pengirimEmpty,
-        kotaEmpty: false,
-        kecamatanEmpty: false,
         barangEmpty: barangEmpty,
       );
       return;
