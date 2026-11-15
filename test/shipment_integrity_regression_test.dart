@@ -78,7 +78,7 @@ void main() {
       );
 
   testWidgets(
-    'multiple goods remain in one shipment form and receipt is required',
+    'multiple goods can be saved without destination or receipt',
     (tester) async {
       addTearDown(() => tester.binding.setSurfaceSize(null));
       await openForm(
@@ -93,14 +93,17 @@ void main() {
       expect(find.text('Paket'), findsOneWidget);
       expect(find.text('2 barang • 2 pcs'), findsOneWidget);
       expect(field('Nama Pengirim'), findsOneWidget);
+      await tester.enterText(field('Nama Pengirim'), 'Pengirim Uji');
+      await tester.enterText(field('Nama Penerima (opsional)'), 'Penerima Uji');
+      await tester.tap(find.text('Gunakan berat global'));
+      await tester.pumpAndSettle();
+      await tester.enterText(field('Berat total pengiriman'), '125.5');
 
       await tester.tap(find.text('Simpan Pengiriman'));
       await tester.pumpAndSettle();
 
-      // Empty receipt must block saving and leave the form open.
-      expect(find.text('Nomor Resi'), findsOneWidget);
-      expect(find.text('Daftar Barang'), findsOneWidget);
-      expect(find.text('2 barang • 2 pcs'), findsOneWidget);
+      // Empty destination and receipt are now valid; the sheet closes.
+      expect(find.text('Daftar Barang'), findsNothing);
     },
   );
 
