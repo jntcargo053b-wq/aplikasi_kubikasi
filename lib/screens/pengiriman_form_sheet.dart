@@ -708,8 +708,6 @@ class _PengirimanFormState extends State<_PengirimanForm> {
   void _save() {
     _validateResi(_resi.text);
     final pengirimEmpty = _pengirim.text.trim().isEmpty;
-    final kotaEmpty = false;
-    final kecamatanEmpty = false;
     final invalidGlobalWeight = _useGlobalWeight &&
         _beratGlobalController.text.trim().isNotEmpty &&
         (_globalWeight == null || !_globalWeight!.isFinite || _globalWeight! < 0);
@@ -735,10 +733,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
     if (pengirimEmpty || barangEmpty) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       _scrollToFirstError(
-        resiEmpty: false,
         pengirimEmpty: pengirimEmpty,
-        kotaEmpty: false,
-        kecamatanEmpty: false,
         barangEmpty: barangEmpty,
       );
       return;
