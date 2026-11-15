@@ -11,6 +11,36 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
+  test('shipment round-trip preserves recipient and global weight while allowing blank receipt', () async {
+    SharedPreferences.setMockInitialValues({});
+    final shipment = Pengiriman(
+      id: 'global-weight-1',
+      pengirim: 'Pengirim',
+      namaPenerima: 'Penerima',
+      tanggal: DateTime(2026, 11, 15),
+      nomorResi: '',
+      beratGlobal: 125.5,
+      barang: [
+        BarangItem(
+          id: 'global-item-1',
+          nama: 'Box',
+          jumlah: 2,
+          panjang: 10,
+          lebar: 20,
+          tinggi: 30,
+          berat: 3,
+        ),
+      ],
+    );
+    final storage = StorageService();
+    await storage.savePengiriman([shipment]);
+    final restored = (await storage.loadPengiriman()).single;
+    expect(restored.nomorResi, isEmpty);
+    expect(restored.namaPenerima, 'Penerima');
+    expect(restored.beratGlobal, 125.5);
+    expect(restored.totalBerat, 125.5);
+  });
+
   test('multiple goods, photo references and totals survive storage round-trip', () async {
     final storage = StorageService();
     final shipment = Pengiriman(
