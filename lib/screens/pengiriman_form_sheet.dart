@@ -317,7 +317,7 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                         return ListTile(
                           leading: const Icon(Icons.inventory_2_outlined),
                           title: Text(item.nama),
-                          subtitle: Text('${item.panjang} × ${item.lebar} × ${item.tinggi} cm • ${item.berat} kg/unit'),
+                          subtitle: Text('${item.panjang} × ${item.lebar} × ${item.tinggi} cm${_useGlobalWeight ? '' : ' • ${item.berat} kg/unit'}'),
                           onTap: () => Navigator.pop(sheetContext, item),
                         );
                       },
@@ -1275,7 +1275,8 @@ class _PengirimanFormState extends State<_PengirimanForm> {
                 textInputAction: TextInputAction.next,
                 onChanged: _validateResi,
                 decoration: InputDecoration(
-                  labelText: 'Nomor Resi (opsional)',
+                  labelText: 'Nomor Resi',
+                  hintText: 'Opsional, bisa diisi nanti',
                   errorText: _resiError,
                   suffixIcon: IconButton(
                     tooltip: 'Scan Resi',
