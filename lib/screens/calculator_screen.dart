@@ -34,8 +34,8 @@ class _CalculatorItem {
   double get singleM3 =>
       _number(panjang) * _number(lebar) * _number(tinggi) / kFaktorKubikasi;
   double get kubikasi => singleM3 * qty;
-  double get volumetricWeight =>
-      _number(panjang) * _number(lebar) * _number(tinggi) * qty / kFaktorVolumetrik;
+  double volumetricWeight(int divisor) =>
+      _number(panjang) * _number(lebar) * _number(tinggi) * qty / divisor;
   double get actualWeight => _number(berat) * qty;
 
   void dispose() {
@@ -52,6 +52,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
   final List<_CalculatorItem> _items = [_CalculatorItem()];
   bool _savingShipment = false;
   bool _allowPopOnce = false;
+  int _volumeDivisor = 5000;
 
   bool get _hasCalculatorInput => _items.any((item) =>
       item.panjang.text.trim().isNotEmpty ||
@@ -109,7 +110,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
   }
 
   double get _totalKubikasi => _items.fold(0, (sum, item) => sum + item.kubikasi);
-  double get _totalVolumetric => _items.fold(0, (sum, item) => sum + item.volumetricWeight);
+  double get _totalVolumetric => _items.fold(0, (sum, item) => sum + item.volumetricWeight(_volumeDivisor));
   double get _totalActual => _items.fold(0, (sum, item) => sum + item.actualWeight);
   int get _totalPieces => _items.fold(0, (sum, item) => sum + item.qty);
 
@@ -120,7 +121,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
       item._number(item.tinggi) > 0 &&
       item._number(item.berat) >= 0 &&
       item.kubikasi.isFinite &&
-      item.volumetricWeight.isFinite &&
+      item.volumetricWeight(_volumeDivisor).isFinite &&
       item.actualWeight.isFinite;
 
   Future<void> _continueToShipment() async {
@@ -320,6 +321,34 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                   style: TextStyle(color: AppColors.muted),
                 ),
                 const SizedBox(height: 14),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Pembagi berat volumetrik',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    DropdownButton<int>(
+                      value: _volumeDivisor,
+                      items: const [4000, 5000, 6000]
+                          .map(
+                            (value) => DropdownMenuItem<int>(
+                              value: value,
+                              child: Text(value.toString()),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: _savingShipment
+                          ? null
+                          : (value) {
+                              if (value == null) return;
+                              setState(() => _volumeDivisor = value);
+                            },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
                 Row(
                   children: [
                     Expanded(
