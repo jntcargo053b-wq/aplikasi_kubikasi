@@ -5,6 +5,7 @@ import '../services/storage_service.dart';
 import '../services/photo_storage_service.dart';
 import 'package:uuid/uuid.dart';
 import 'pengiriman_form_sheet.dart';
+import 'packing_calculator_screen.dart';
 
 class CalculatorScreen extends StatefulWidget {
   const CalculatorScreen({super.key});
@@ -289,6 +290,17 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
       appBar: AppBar(
         title: const Text('Hitung Kubikasi'),
         actions: [
+          IconButton(
+            tooltip: 'Kalkulator Packing Kayu',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const PackingCalculatorScreen(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.handyman_outlined),
+          ),
           IconButton(
             tooltip: 'Clear semua',
             onPressed: _clearAll,
