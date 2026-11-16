@@ -42,18 +42,22 @@ class BackupService {
         .where((p) => p.trim().isNotEmpty)
         .toSet();
     final photoFiles = <String, File>{};
+    final missingPhotoPaths = <String>{};
+    var missingFileCount = 0;
     final docs = await getApplicationDocumentsDirectory();
 
     for (final path in photoPaths) {
       final file = File(path);
+      // Missing media must not block the only recovery/export path. Its
+      // reference is cleared in the backup copy below; local data is untouched.
+      if (!await file.exists()) {
+        missingPhotoPaths.add(path);
+        missingFileCount++;
+        continue;
+      }
       if (!await _isOwnedFile(file, docs.path)) {
         throw FormatException(
           'Foto pengiriman berada di luar penyimpanan aplikasi dan tidak dapat dibackup: $path',
-        );
-      }
-      if (!await file.exists()) {
-        throw FormatException(
-          'Foto yang direferensikan pengiriman tidak ditemukan: $path',
         );
       }
       photoFiles[path] = file;
@@ -62,24 +66,42 @@ class BackupService {
     final integrity = <String, String>{};
     String? logoData;
     final logoPath = settings.logoPath;
+    final backupSettings = settings.toJson();
     if (logoPath != null && logoPath.trim().isNotEmpty) {
-      // Report logos are app-owned files too. Never read an arbitrary path
-      // outside the app documents directory while creating a backup.
-      if (!await _isOwnedFile(File(logoPath), docs.path)) {
-        throw FormatException(
-          'Logo header laporan berada di luar penyimpanan aplikasi dan tidak dapat dibackup: $logoPath',
-        );
-      }
       final file = File(logoPath);
       if (!await file.exists()) {
-        throw FormatException(
-          'Logo header laporan yang direferensikan tidak ditemukan: $logoPath',
-        );
+        // Do not preserve a dangling logo path in a portable backup.
+        backupSettings['logoPath'] = null;
+        missingFileCount++;
+      } else {
+        // Report logos are app-owned files too. Never read an arbitrary path
+        // outside the app documents directory while creating a backup.
+        if (!await _isOwnedFile(file, docs.path)) {
+          throw FormatException(
+            'Logo header laporan berada di luar penyimpanan aplikasi dan tidak dapat dibackup: $logoPath',
+          );
+        }
+        final bytes = await file.readAsBytes();
+        logoData = base64Encode(bytes);
+        integrity['logo'] = sha256.convert(bytes).toString();
       }
-      final bytes = await file.readAsBytes();
-      logoData = base64Encode(bytes);
-      integrity['logo'] = sha256.convert(bytes).toString();
     }
+
+    final backupShipments = items.map((item) {
+      final json = item.toJson();
+      final rawItems = json['barang'];
+      if (rawItems is List) {
+        for (final rawItem in rawItems) {
+          if (rawItem is Map) {
+            final photoPath = rawItem['photoPath'];
+            if (photoPath is String && missingPhotoPaths.contains(photoPath)) {
+              rawItem['photoPath'] = null;
+            }
+          }
+        }
+      }
+      return json;
+    }).toList();
 
     final payload = <String, dynamic>{
       'format': format,
@@ -89,9 +111,10 @@ class BackupService {
         'shipments': items.length,
         'items': items.fold<int>(0, (sum, e) => sum + e.barang.length),
         'photos': photoFiles.length,
+        'skippedMissingFiles': missingFileCount,
       },
-      'shipments': items.map((e) => e.toJson()).toList(),
-      'reportSettings': settings.toJson(),
+      'shipments': backupShipments,
+      'reportSettings': backupSettings,
     };
 
     final name = formatBackupFilename(DateTime.now());

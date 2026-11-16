@@ -117,6 +117,10 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
 
   bool _isReadyForShipment(_CalculatorItem item) =>
       item.qty > 0 &&
+      item.panjang.text.trim().isNotEmpty &&
+      item.lebar.text.trim().isNotEmpty &&
+      item.tinggi.text.trim().isNotEmpty &&
+      item.berat.text.trim().isNotEmpty &&
       item._number(item.panjang) > 0 &&
       item._number(item.lebar) > 0 &&
       item._number(item.tinggi) > 0 &&
@@ -238,8 +242,9 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
       return;
     }
     final item = _items.removeAt(index);
-    item.dispose();
     setState(() {});
+    // Dispose only after the frame in which TextFields detach from this item.
+    WidgetsBinding.instance.addPostFrameCallback((_) => item.dispose());
   }
 
   void _clearItem(_CalculatorItem item) {
@@ -261,13 +266,17 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
       );
       if (!discard || !mounted) return;
     }
-    for (final item in _items) {
-      item.dispose();
-    }
+    final previousItems = List<_CalculatorItem>.of(_items);
     setState(() {
       _items
         ..clear()
         ..add(_CalculatorItem());
+    });
+    // Keep old controllers alive until their TextFields are unmounted.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final item in previousItems) {
+        item.dispose();
+      }
     });
   }
 

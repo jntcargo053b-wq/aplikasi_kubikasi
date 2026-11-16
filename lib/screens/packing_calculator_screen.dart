@@ -50,10 +50,21 @@ class _PackingCalculatorScreenState extends State<PackingCalculatorScreen> {
   );
 
   double _read(TextEditingController c) {
-    final raw = c.text.trim();
-    final normalized = raw.contains(',')
-        ? raw.replaceAll('.', '').replaceAll(',', '.')
-        : raw;
+    final raw = c.text.trim().replaceAll(' ', '');
+    if (raw.isEmpty) return 0;
+    final String normalized;
+    if (raw.contains(',')) {
+      normalized = raw.replaceAll('.', '').replaceAll(',', '.');
+    } else {
+      final groups = raw.split('.');
+      final isThousands = groups.length > 1 &&
+          groups.first.isNotEmpty &&
+          groups.first.length <= 3 &&
+          groups.skip(1).every(
+            (group) => group.length == 3 && int.tryParse(group) != null,
+          );
+      normalized = isThousands ? raw.replaceAll('.', '') : raw;
+    }
     return double.tryParse(normalized) ?? 0;
   }
 
@@ -113,24 +124,24 @@ class _PackingCalculatorScreenState extends State<PackingCalculatorScreen> {
         final decoded = jsonDecode(raw);
         if (decoded is Map) {
           final r = PackingRates.fromJson(Map<String, dynamic>.from(decoded));
-          _woodRate.text = r.woodPerLonjor.toStringAsFixed(0);
+          _woodRate.text = r.woodPerLonjor.toString();
           _woodStickLength.text = r.woodStickLengthCm.toString();
           _woodLengthMultiplier.text = r.woodLengthMultiplier.toString();
           _woodWidthMultiplier.text = r.woodWidthMultiplier.toString();
           _woodHeightMultiplier.text = r.woodHeightMultiplier.toString();
-          _screwRate.text = r.screwPerPiece.toStringAsFixed(0);
-          _nailRate.text = r.nailPerGram.toStringAsFixed(0);
+          _screwRate.text = r.screwPerPiece.toString();
+          _nailRate.text = r.nailPerGram.toString();
           _nailsPerKg.text = r.nailsPerKg.toString();
           _fasteners.text = r.fastenersPerPackage.toString();
-          _laborRate.text = r.laborPerPackage.toStringAsFixed(0);
-          _electricityRate.text = r.electricityPerPackage.toStringAsFixed(0);
-          _overheadRate.text = r.overheadPerPackage.toStringAsFixed(0);
-          _margin.text = r.marginPercent.toStringAsFixed(0);
+          _laborRate.text = r.laborPerPackage.toString();
+          _electricityRate.text = r.electricityPerPackage.toString();
+          _overheadRate.text = r.overheadPerPackage.toString();
+          _margin.text = r.marginPercent.toString();
           _boardSheets.text = r.boardSheetsPerPackage.toString();
-          _boardPrice.text = r.boardPricePerSheet.toStringAsFixed(0);
+          _boardPrice.text = r.boardPricePerSheet.toString();
           _additionalName.text = r.additionalMaterialName;
           _additionalQuantity.text = r.additionalMaterialQuantityPerPackage.toString();
-          _additionalPrice.text = r.additionalMaterialPricePerUnit.toStringAsFixed(0);
+          _additionalPrice.text = r.additionalMaterialPricePerUnit.toString();
         }
       } catch (_) {}
     }
