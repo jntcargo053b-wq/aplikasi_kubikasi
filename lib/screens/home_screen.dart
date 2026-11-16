@@ -204,7 +204,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final result = await showPengirimanFormSheet(context, existing: item);
     if (result == null || !mounted) return;
     final i = _items.indexWhere((e) => e.id == item.id);
-    if (i == -1) return;
+    if (i == -1) {
+      // The shipment may have been removed while its edit form was open.
+      // Discard only photos introduced by this stale edit result.
+      await _cleanupNewPhotosOnFailedSave(_items, result);
+      return;
+    }
     if (_hasDuplicateResi(result, excludingId: item.id)) {
       await _cleanupNewPhotosOnFailedSave(_items, result);
       if (mounted) {
@@ -235,7 +240,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     if (result == null || !mounted) return;
     final i = _items.indexWhere((e) => e.id == shipment.id);
-    if (i == -1) return;
     final previous = List<Pengiriman>.of(_items);
     final updated = List<BarangItem>.of(shipment.barang)..[index] = result;
     final updatedShipment = Pengiriman(
@@ -250,14 +254,18 @@ class _HomeScreenState extends State<HomeScreen> {
       kecamatan: shipment.kecamatan,
       barang: updated,
     );
+    if (i == -1) {
+      // The parent shipment disappeared while the item editor was open.
+      // Do not persist a stale shipment; remove only newly introduced media.
+      await _cleanupNewPhotosOnFailedSave(_items, updatedShipment);
+      return;
+    }
     final next = List<Pengiriman>.of(_items)..[i] = updatedShipment;
     if (await _persistItems(next)) {
       setState(() => _items = next);
       await _cleanupAfterSuccessfulSave(previous, next);
     } else {
-      final oldPaths = _photoPaths(previous);
-      final newPath = result.photoPath;
-      if (newPath != null && newPath.isNotEmpty && !oldPaths.contains(newPath)) await PhotoStorageService.delete(newPath);
+      await _cleanupNewPhotosOnFailedSave(_items, updatedShipment);
     }
   }
 
