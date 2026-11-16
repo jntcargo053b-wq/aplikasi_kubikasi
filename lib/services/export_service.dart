@@ -524,7 +524,7 @@ class ExportService {
       final values = [i + 1, _tanggalFmt.format(p.tanggal), p.nomorResi, p.pengirim, p.namaPenerima, p.noTelepon, p.kotaKabupaten, p.kecamatan, p.totalJumlah, p.totalBerat, p.totalVolume, p.totalKubikasi];
       for (var j = 0; j < values.length; j++) {
         final value = values[j];
-        if (value == null) continue; // leave the cell empty (no '-' text in numeric columns)
+
         final cell = sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: j, rowIndex: row));
         if (value is int) {
           cell.value = xls.IntCellValue(value);
