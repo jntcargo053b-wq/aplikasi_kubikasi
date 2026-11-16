@@ -20,9 +20,14 @@ class _PackingCalculatorScreenState extends State<PackingCalculatorScreen> {
   final _width = TextEditingController();
   final _height = TextEditingController();
   final _packages = TextEditingController(text: '1');
-  final _boardCost = TextEditingController(text: '0');
+  final _boardSheets = TextEditingController(text: '0');
+  final _boardPrice = TextEditingController(text: '0');
 
   final _woodRate = TextEditingController(text: '3500');
+  final _woodStickLength = TextEditingController(text: '200');
+  final _woodLengthMultiplier = TextEditingController(text: '8');
+  final _woodWidthMultiplier = TextEditingController(text: '8');
+  final _woodHeightMultiplier = TextEditingController(text: '4');
   final _screwRate = TextEditingController(text: '320');
   final _nailRate = TextEditingController(text: '25');
   final _nailsPerKg = TextEditingController(text: '430');
@@ -31,6 +36,7 @@ class _PackingCalculatorScreenState extends State<PackingCalculatorScreen> {
   final _electricityRate = TextEditingController(text: '1500');
   final _overheadRate = TextEditingController(text: '5000');
   final _margin = TextEditingController(text: '25');
+  final _additionalMaterial = TextEditingController(text: '0');
 
   PackingFastener _fastener = PackingFastener.nails;
   bool _includeBoard = false;
@@ -53,6 +59,10 @@ class _PackingCalculatorScreenState extends State<PackingCalculatorScreen> {
 
   PackingRates get _rates => PackingRates(
     woodPerLonjor: _read(_woodRate),
+    woodStickLengthCm: _read(_woodStickLength),
+    woodLengthMultiplier: _read(_woodLengthMultiplier),
+    woodWidthMultiplier: _read(_woodWidthMultiplier),
+    woodHeightMultiplier: _read(_woodHeightMultiplier),
     screwPerPiece: _read(_screwRate),
     nailPerGram: _read(_nailRate),
     nailsPerKg: _readInt(_nailsPerKg),
@@ -61,6 +71,9 @@ class _PackingCalculatorScreenState extends State<PackingCalculatorScreen> {
     overheadPerPackage: _read(_overheadRate),
     fastenersPerPackage: _readInt(_fasteners),
     marginPercent: _read(_margin),
+    boardSheetsPerPackage: _read(_boardSheets),
+    boardPricePerSheet: _read(_boardPrice),
+    additionalMaterialCostPerPackage: _read(_additionalMaterial),
   );
 
   PackingCalculation? get _calculation {
@@ -75,7 +88,7 @@ class _PackingCalculatorScreenState extends State<PackingCalculatorScreen> {
         fastener: _fastener,
         rates: _rates,
         includeBoard: _includeBoard,
-        boardCostPerPackage: _read(_boardCost),
+        boardCostPerPackage: null,
       );
     } on ArgumentError {
       return null;
@@ -97,6 +110,10 @@ class _PackingCalculatorScreenState extends State<PackingCalculatorScreen> {
         if (decoded is Map) {
           final r = PackingRates.fromJson(Map<String, dynamic>.from(decoded));
           _woodRate.text = r.woodPerLonjor.toStringAsFixed(0);
+          _woodStickLength.text = r.woodStickLengthCm.toString();
+          _woodLengthMultiplier.text = r.woodLengthMultiplier.toString();
+          _woodWidthMultiplier.text = r.woodWidthMultiplier.toString();
+          _woodHeightMultiplier.text = r.woodHeightMultiplier.toString();
           _screwRate.text = r.screwPerPiece.toStringAsFixed(0);
           _nailRate.text = r.nailPerGram.toStringAsFixed(0);
           _nailsPerKg.text = r.nailsPerKg.toString();
@@ -105,6 +122,9 @@ class _PackingCalculatorScreenState extends State<PackingCalculatorScreen> {
           _electricityRate.text = r.electricityPerPackage.toStringAsFixed(0);
           _overheadRate.text = r.overheadPerPackage.toStringAsFixed(0);
           _margin.text = r.marginPercent.toStringAsFixed(0);
+          _boardSheets.text = r.boardSheetsPerPackage.toString();
+          _boardPrice.text = r.boardPricePerSheet.toStringAsFixed(0);
+          _additionalMaterial.text = r.additionalMaterialCostPerPackage.toStringAsFixed(0);
         }
       } catch (_) {}
     }
@@ -116,6 +136,10 @@ class _PackingCalculatorScreenState extends State<PackingCalculatorScreen> {
     final r = _rates;
     if (r.nailsPerKg <= 0 || r.fastenersPerPackage < 0 ||
         r.marginPercent < 0 || r.marginPercent >= 100 ||
+        r.woodStickLengthCm <= 0 ||
+        [r.woodStickLengthCm, r.woodLengthMultiplier, r.woodWidthMultiplier,
+          r.woodHeightMultiplier, r.boardSheetsPerPackage, r.boardPricePerSheet,
+          r.additionalMaterialCostPerPackage].any((v) => !v.isFinite || v < 0) ||
         [r.woodPerLonjor, r.screwPerPiece, r.nailPerGram,
           r.laborPerPackage, r.electricityPerPackage, r.overheadPerPackage]
             .any((v) => !v.isFinite || v < 0)) {
@@ -148,9 +172,11 @@ class _PackingCalculatorScreenState extends State<PackingCalculatorScreen> {
   @override
   void dispose() {
     for (final c in [
-      _length, _width, _height, _packages, _boardCost, _woodRate,
+      _length, _width, _height, _packages, _boardSheets, _boardPrice, _woodRate,
       _screwRate, _nailRate, _nailsPerKg, _fasteners, _laborRate,
-      _electricityRate, _overheadRate, _margin,
+      _electricityRate, _overheadRate, _margin, _woodStickLength,
+      _woodLengthMultiplier, _woodWidthMultiplier, _woodHeightMultiplier,
+      _additionalMaterial,
     ]) {
       c.dispose();
     }
@@ -238,7 +264,9 @@ class _PackingCalculatorScreenState extends State<PackingCalculatorScreen> {
                     ),
                     if (_includeBoard) ...[
                       const SizedBox(height: 8),
-                      _rateField('Biaya papan per koli', _boardCost, suffix: 'Rp'),
+                      _rateField('Kebutuhan papan per koli', _boardSheets, suffix: 'lembar'),
+                      const SizedBox(height: 8),
+                      _rateField('Harga per lembar papan', _boardPrice, suffix: 'Rp'),
                     ],
                   ]),
                 )),
@@ -248,7 +276,19 @@ class _PackingCalculatorScreenState extends State<PackingCalculatorScreen> {
                   subtitle: const Text('Tarif dapat disesuaikan dan disimpan secara lokal.'),
                   childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                   children: [
-                    _rateField('Kayu per lonjor (2 meter)', _woodRate, suffix: 'Rp'),
+                    _rateField('Harga kayu per lonjor', _woodRate, suffix: 'Rp'),
+                    const SizedBox(height: 8),
+                    _rateField('Panjang satu lonjor', _woodStickLength, suffix: 'cm'),
+                    const SizedBox(height: 8),
+                    const Align(alignment: Alignment.centerLeft, child: Text('Kebutuhan rangka per ukuran barang', style: TextStyle(fontWeight: FontWeight.w700))),
+                    const SizedBox(height: 6),
+                    Row(children: [
+                      Expanded(child: _rateField('Pengali panjang', _woodLengthMultiplier)),
+                      const SizedBox(width: 8),
+                      Expanded(child: _rateField('Pengali lebar', _woodWidthMultiplier)),
+                      const SizedBox(width: 8),
+                      Expanded(child: _rateField('Pengali tinggi', _woodHeightMultiplier)),
+                    ]),
                     const SizedBox(height: 8),
                     _rateField('Sekrup per buah', _screwRate, suffix: 'Rp'),
                     const SizedBox(height: 8),
@@ -263,6 +303,8 @@ class _PackingCalculatorScreenState extends State<PackingCalculatorScreen> {
                     _rateField('Listrik per koli', _electricityRate, suffix: 'Rp'),
                     const SizedBox(height: 8),
                     _rateField('Overhead per koli', _overheadRate, suffix: 'Rp'),
+                    const SizedBox(height: 8),
+                    _rateField('Bahan tambahan per koli', _additionalMaterial, suffix: 'Rp'),
                     const SizedBox(height: 8),
                     _rateField('Margin keuntungan', _margin, suffix: '%'),
                     const SizedBox(height: 12),
@@ -300,7 +342,9 @@ class _PackingCalculatorScreenState extends State<PackingCalculatorScreen> {
                         _moneyLine('Upah pengerjaan', result.laborCost),
                         _moneyLine('Listrik', result.electricityCost),
                         _moneyLine('Overhead', result.overheadCost),
-                        if (_includeBoard) _moneyLine('Papan penutup', result.boardCost),
+                        if (_includeBoard) _moneyLine('Papan penutup (${result.boardQuantity.toStringAsFixed(1)} lembar)', result.boardCost),
+                        if (_rates.additionalMaterialCostPerPackage > 0)
+                          _moneyLine('Bahan tambahan', result.additionalMaterialCost),
                         const Divider(height: 22),
                         _moneyLine('Total modal', result.totalCost),
                         _moneyLine('Harga sebelum pembulatan', result.suggestedPrice),
