@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../app_theme.dart';
@@ -16,66 +17,43 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
   final _backupService = BackupService();
   bool _busy = false;
 
-  Future<void> _backupToSelectedFolder() async {
+  /// Writes the backup into app-private temp storage, then opens the system
+  /// share sheet. Writing straight to a user-picked folder with dart:io fails
+  /// on Android 10+ (scoped storage); the share sheet lets the user save the
+  /// file to Files/Drive/WhatsApp through the OS instead.
+  Future<void> _createAndShareBackup() async {
     if (_busy) return;
     setState(() => _busy = true);
     try {
-      final directory = await FilePicker.platform.getDirectoryPath(
-        dialogTitle: 'Pilih folder untuk menyimpan backup Nextcube',
-      );
-      if (directory == null || directory.trim().isEmpty) return;
+      final tmp = await getTemporaryDirectory();
+      final dir = Directory('${tmp.path}/backups');
+      if (await dir.exists()) {
+        await for (final entry in dir.list()) {
+          if (entry is File) {
+            try {
+              await entry.delete();
+            } catch (_) {}
+          }
+        }
+      } else {
+        await dir.create(recursive: true);
+      }
 
       final file = await _backupService.createBackup(
-        destinationDirectory: directory,
+        destinationDirectory: dir.path,
       );
       if (!mounted) return;
-      await _showBackupSaved(file);
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text: 'Backup data Nextcube',
+        subject: 'Backup Nextcube',
+      );
     } catch (e) {
       if (!mounted) return;
       _message(_friendlyError(e, action: 'backup'), error: true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
-  }
-
-  Future<void> _showBackupSaved(File file) async {
-    await showDialog<void>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Backup berhasil disimpan'),
-        content: Text(
-          'File backup tersimpan di:\n${file.parent.path}\n\n'
-          'Nama file:\n${file.uri.pathSegments.isNotEmpty ? file.uri.pathSegments.last : file.path}',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Selesai'),
-          ),
-          FilledButton.icon(
-            onPressed: () async {
-              Navigator.pop(context);
-              try {
-                await Share.shareXFiles(
-                  [XFile(file.path)],
-                  text: 'Backup data Nextcube',
-                  subject: 'Backup Nextcube',
-                );
-              } catch (e) {
-                if (mounted) {
-                  _message(
-                    _friendlyError(e, action: 'backup'),
-                    error: true,
-                  );
-                }
-              }
-            },
-            icon: const Icon(Icons.share_outlined),
-            label: const Text('Bagikan'),
-          ),
-        ],
-      ),
-    );
   }
 
   Future<void> _restore() async {
@@ -256,14 +234,14 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                   ),
                   const SizedBox(height: 10),
                   const Text(
-                    'Backup menyimpan pengiriman, barang, foto, serta header laporan dalam satu file offline (.ncbak). Anda dapat memilih folder tujuan langsung dari perangkat, sehingga backup dapat disimpan di folder lokal, kartu/penyimpanan yang tersedia, atau folder cloud yang disediakan sistem.',
+                    'Backup menyimpan pengiriman, barang, foto, serta header laporan dalam satu file offline (.ncbak). Setelah backup dibuat, pilih tujuan dari menu berbagi: Files/penyimpanan perangkat, Google Drive, WhatsApp, atau aplikasi lain.',
                     style: TextStyle(color: AppColors.muted, height: 1.4),
                   ),
                   const SizedBox(height: 18),
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
-                      onPressed: _busy ? null : _backupToSelectedFolder,
+                      onPressed: _busy ? null : _createAndShareBackup,
                       icon: _busy
                           ? const SizedBox(
                               width: 18,
@@ -274,7 +252,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                               ),
                             )
                           : const Icon(Icons.backup_outlined),
-                      label: const Text('Pilih Folder & Simpan Backup'),
+                      label: const Text('Buat & Simpan Backup'),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -297,7 +275,7 @@ class _BackupRestoreScreenState extends State<BackupRestoreScreen> {
                 ListTile(
                   leading: Icon(Icons.cloud_upload_outlined),
                   title: Text('Cara menyimpan ke cloud'),
-                  subtitle: Text('Pilih folder → simpan file .ncbak. Setelah tersimpan, backup tetap bisa dibagikan ke Google Drive, OneDrive, WhatsApp, atau aplikasi lain.'),
+                  subtitle: Text('Buat backup → pilih Google Drive/OneDrive di menu berbagi, atau simpan ke Files. Simpan salinan di luar perangkat.'),
                 ),
                 Divider(height: 1),
                 ListTile(
