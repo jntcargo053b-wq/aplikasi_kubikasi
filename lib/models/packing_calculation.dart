@@ -15,6 +15,7 @@ class PackingRates {
   final int fastenersPerPackage;
   final double boardSheetsPerPackage;
   final double boardPricePerSheet;
+  final String additionalMaterialName;
   final double additionalMaterialQuantityPerPackage;
   final double additionalMaterialPricePerUnit;
   final double marginPercent;
@@ -34,6 +35,7 @@ class PackingRates {
     this.fastenersPerPackage = 68,
     this.boardSheetsPerPackage = 0,
     this.boardPricePerSheet = 0,
+    this.additionalMaterialName = 'Bahan tambahan',
     this.additionalMaterialQuantityPerPackage = 0,
     this.additionalMaterialPricePerUnit = 0,
     this.marginPercent = 25,
@@ -54,6 +56,7 @@ class PackingRates {
     'fastenersPerPackage': fastenersPerPackage,
     'boardSheetsPerPackage': boardSheetsPerPackage,
     'boardPricePerSheet': boardPricePerSheet,
+    'additionalMaterialName': additionalMaterialName,
     'additionalMaterialQuantityPerPackage': additionalMaterialQuantityPerPackage,
     'additionalMaterialPricePerUnit': additionalMaterialPricePerUnit,
     'marginPercent': marginPercent,
@@ -74,6 +77,7 @@ class PackingRates {
     fastenersPerPackage: (json['fastenersPerPackage'] as num?)?.toInt() ?? 68,
     boardSheetsPerPackage: (json['boardSheetsPerPackage'] as num?)?.toDouble() ?? 0,
     boardPricePerSheet: (json['boardPricePerSheet'] as num?)?.toDouble() ?? 0,
+    additionalMaterialName: json['additionalMaterialName'] as String? ?? 'Bahan tambahan',
     additionalMaterialQuantityPerPackage: (json['additionalMaterialQuantityPerPackage'] as num?)?.toDouble() ?? 0,
     additionalMaterialPricePerUnit: (json['additionalMaterialPricePerUnit'] as num?)?.toDouble() ?? 0,
     marginPercent: (json['marginPercent'] as num?)?.toDouble() ?? 25,
