@@ -2,6 +2,10 @@ enum PackingFastener { nails, screws }
 
 class PackingRates {
   final double woodPerLonjor;
+  final double woodStickLengthCm;
+  final double woodLengthMultiplier;
+  final double woodWidthMultiplier;
+  final double woodHeightMultiplier;
   final double screwPerPiece;
   final double nailPerGram;
   final int nailsPerKg;
@@ -9,10 +13,17 @@ class PackingRates {
   final double electricityPerPackage;
   final double overheadPerPackage;
   final int fastenersPerPackage;
+  final double boardSheetsPerPackage;
+  final double boardPricePerSheet;
+  final double additionalMaterialCostPerPackage;
   final double marginPercent;
 
   const PackingRates({
     this.woodPerLonjor = 3500,
+    this.woodStickLengthCm = 200,
+    this.woodLengthMultiplier = 8,
+    this.woodWidthMultiplier = 8,
+    this.woodHeightMultiplier = 4,
     this.screwPerPiece = 320,
     this.nailPerGram = 25,
     this.nailsPerKg = 430,
@@ -20,11 +31,18 @@ class PackingRates {
     this.electricityPerPackage = 1500,
     this.overheadPerPackage = 5000,
     this.fastenersPerPackage = 68,
+    this.boardSheetsPerPackage = 0,
+    this.boardPricePerSheet = 0,
+    this.additionalMaterialCostPerPackage = 0,
     this.marginPercent = 25,
   });
 
   Map<String, dynamic> toJson() => {
     'woodPerLonjor': woodPerLonjor,
+    'woodStickLengthCm': woodStickLengthCm,
+    'woodLengthMultiplier': woodLengthMultiplier,
+    'woodWidthMultiplier': woodWidthMultiplier,
+    'woodHeightMultiplier': woodHeightMultiplier,
     'screwPerPiece': screwPerPiece,
     'nailPerGram': nailPerGram,
     'nailsPerKg': nailsPerKg,
@@ -32,11 +50,18 @@ class PackingRates {
     'electricityPerPackage': electricityPerPackage,
     'overheadPerPackage': overheadPerPackage,
     'fastenersPerPackage': fastenersPerPackage,
+    'boardSheetsPerPackage': boardSheetsPerPackage,
+    'boardPricePerSheet': boardPricePerSheet,
+    'additionalMaterialCostPerPackage': additionalMaterialCostPerPackage,
     'marginPercent': marginPercent,
   };
 
   factory PackingRates.fromJson(Map<String, dynamic> json) => PackingRates(
     woodPerLonjor: (json['woodPerLonjor'] as num?)?.toDouble() ?? 3500,
+    woodStickLengthCm: (json['woodStickLengthCm'] as num?)?.toDouble() ?? 200,
+    woodLengthMultiplier: (json['woodLengthMultiplier'] as num?)?.toDouble() ?? 8,
+    woodWidthMultiplier: (json['woodWidthMultiplier'] as num?)?.toDouble() ?? 8,
+    woodHeightMultiplier: (json['woodHeightMultiplier'] as num?)?.toDouble() ?? 4,
     screwPerPiece: (json['screwPerPiece'] as num?)?.toDouble() ?? 320,
     nailPerGram: (json['nailPerGram'] as num?)?.toDouble() ?? 25,
     nailsPerKg: (json['nailsPerKg'] as num?)?.toInt() ?? 430,
@@ -44,6 +69,9 @@ class PackingRates {
     electricityPerPackage: (json['electricityPerPackage'] as num?)?.toDouble() ?? 1500,
     overheadPerPackage: (json['overheadPerPackage'] as num?)?.toDouble() ?? 5000,
     fastenersPerPackage: (json['fastenersPerPackage'] as num?)?.toInt() ?? 68,
+    boardSheetsPerPackage: (json['boardSheetsPerPackage'] as num?)?.toDouble() ?? 0,
+    boardPricePerSheet: (json['boardPricePerSheet'] as num?)?.toDouble() ?? 0,
+    additionalMaterialCostPerPackage: (json['additionalMaterialCostPerPackage'] as num?)?.toDouble() ?? 0,
     marginPercent: (json['marginPercent'] as num?)?.toDouble() ?? 25,
   );
 }
@@ -58,7 +86,9 @@ class PackingCalculation {
   final double laborCost;
   final double electricityCost;
   final double overheadCost;
+  final double boardQuantity;
   final double boardCost;
+  final double additionalMaterialCost;
   final double totalCost;
   final double suggestedPrice;
   final double roundedPrice;
@@ -73,7 +103,9 @@ class PackingCalculation {
     required this.laborCost,
     required this.electricityCost,
     required this.overheadCost,
+    required this.boardQuantity,
     required this.boardCost,
+    required this.additionalMaterialCost,
     required this.totalCost,
     required this.suggestedPrice,
     required this.roundedPrice,
@@ -87,21 +119,31 @@ class PackingCalculation {
     PackingFastener fastener = PackingFastener.nails,
     PackingRates rates = const PackingRates(),
     bool includeBoard = false,
-    double boardCostPerPackage = 0,
+    double? boardCostPerPackage,
   }) {
-    if (![lengthCm, widthCm, heightCm, boardCostPerPackage].every(
-      (value) => value.isFinite && value >= 0,
-    ) || lengthCm <= 0 || widthCm <= 0 || heightCm <= 0 ||
-        packageCount <= 0 || rates.nailsPerKg <= 0 ||
-        rates.fastenersPerPackage < 0 ||
-        rates.marginPercent < 0 || rates.marginPercent >= 100) {
+    final values = [
+      lengthCm, widthCm, heightCm,
+      rates.woodPerLonjor, rates.woodStickLengthCm,
+      rates.woodLengthMultiplier, rates.woodWidthMultiplier,
+      rates.woodHeightMultiplier, rates.screwPerPiece,
+      rates.nailPerGram, rates.laborPerPackage,
+      rates.electricityPerPackage, rates.overheadPerPackage,
+      rates.boardSheetsPerPackage, rates.boardPricePerSheet,
+      rates.additionalMaterialCostPerPackage,
+      rates.marginPercent, boardCostPerPackage ?? 0,
+    ];
+    if (values.any((value) => !value.isFinite || value < 0) ||
+        lengthCm <= 0 || widthCm <= 0 || heightCm <= 0 ||
+        rates.woodStickLengthCm <= 0 || packageCount <= 0 ||
+        rates.nailsPerKg <= 0 || rates.fastenersPerPackage < 0 ||
+        rates.marginPercent >= 100) {
       throw ArgumentError('Input kalkulasi packing tidak valid.');
     }
 
-    // Four corner posts + top/bottom perimeters + mid-rails on all
-    // four sides + one cross rail on the top and bottom.
-    final frameLength = 4 * heightCm + 8 * (lengthCm + widthCm);
-    final sticksPerPackage = (frameLength / 200).ceil();
+    final frameLength = rates.woodLengthMultiplier * lengthCm +
+        rates.woodWidthMultiplier * widthCm +
+        rates.woodHeightMultiplier * heightCm;
+    final sticksPerPackage = (frameLength / rates.woodStickLengthCm).ceil();
     final woodCost = sticksPerPackage * rates.woodPerLonjor * packageCount;
 
     final fastenerCount = rates.fastenersPerPackage * packageCount;
@@ -115,8 +157,13 @@ class PackingCalculation {
     final labor = rates.laborPerPackage * packageCount;
     final electricity = rates.electricityPerPackage * packageCount;
     final overhead = rates.overheadPerPackage * packageCount;
-    final board = includeBoard ? boardCostPerPackage * packageCount : 0.0;
-    final total = woodCost + fastenerCost + labor + electricity + overhead + board;
+    final boardQuantity = includeBoard ? rates.boardSheetsPerPackage * packageCount : 0.0;
+    final board = includeBoard
+        ? (boardCostPerPackage ?? boardQuantity * rates.boardPricePerSheet * 1.0)
+        : 0.0;
+    final additional = rates.additionalMaterialCostPerPackage * packageCount;
+    final total = woodCost + fastenerCost + labor + electricity +
+        overhead + board + additional;
     final suggested = total / (1 - rates.marginPercent / 100);
     final rounded = (suggested / 1000).ceil() * 1000.0;
 
@@ -130,7 +177,9 @@ class PackingCalculation {
       laborCost: labor,
       electricityCost: electricity,
       overheadCost: overhead,
+      boardQuantity: boardQuantity,
       boardCost: board,
+      additionalMaterialCost: additional,
       totalCost: total,
       suggestedPrice: suggested,
       roundedPrice: rounded,
