@@ -41,8 +41,13 @@ class _PackingCalculatorScreenState extends State<PackingCalculatorScreen> {
     locale: 'id_ID', symbol: 'Rp', decimalDigits: 0,
   );
 
-  double _read(TextEditingController c) =>
-      double.tryParse(c.text.trim().replaceAll('.', '').replaceAll(',', '.')) ?? 0;
+  double _read(TextEditingController c) {
+    final raw = c.text.trim();
+    final normalized = raw.contains(',')
+        ? raw.replaceAll('.', '').replaceAll(',', '.')
+        : raw;
+    return double.tryParse(normalized) ?? 0;
+  }
 
   int _readInt(TextEditingController c) => int.tryParse(c.text.trim()) ?? 0;
 
