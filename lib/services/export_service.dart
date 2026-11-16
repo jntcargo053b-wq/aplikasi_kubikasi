@@ -418,6 +418,28 @@ class ExportService {
     return (file: file, hasPhotos: totalEmbedded > 0);
   }
 
+  /// Writes label/value pairs with numeric values so totals stay usable in
+  /// Excel (sum, pivot, charts) instead of being embedded in text.
+  void _writeTotals(xls.Sheet sheet, int startRow, List<(String, num)> totals) {
+    var row = startRow;
+    for (final (label, value) in totals) {
+      sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value =
+          xls.TextCellValue(label);
+      sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value =
+          value is int ? xls.IntCellValue(value) : xls.DoubleCellValue(value.toDouble());
+      row++;
+    }
+  }
+
+  /// createExcel() always adds an empty 'Sheet1'; remove it so the report
+  /// sheet is the only/first sheet.
+  void _dropDefaultSheet(xls.Excel excel, String keep) {
+    if (keep != 'Sheet1' && excel.tables.containsKey('Sheet1')) {
+      excel.delete('Sheet1');
+    }
+    excel.setDefaultSheet(keep);
+  }
+
   Future<File> generateExcel(Pengiriman p, {ReportSettings settings = const ReportSettings()}) async {
     final excel = xls.Excel.createExcel();
     final sheet = excel['Laporan'];
@@ -444,9 +466,10 @@ class ExportService {
     row++;
     for (var i = 0; i < p.barang.length; i++) {
       final b = p.barang[i];
-      final values = [i + 1, b.nama, b.jumlah, b.panjang, b.lebar, b.tinggi, p.beratGlobal == null ? b.berat : '-', p.beratGlobal == null ? b.totalBerat : '-', b.volume, b.kubikasi];
+      final values = [i + 1, b.nama, b.jumlah, b.panjang, b.lebar, b.tinggi, p.beratGlobal == null ? b.berat : null, p.beratGlobal == null ? b.totalBerat : null, b.volume, b.kubikasi];
       for (var j = 0; j < values.length; j++) {
         final value = values[j];
+        if (value == null) continue; // leave the cell empty (no '-' text in numeric columns)
         final cell = sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: j, rowIndex: row));
         if (value is int) {
           cell.value = xls.IntCellValue(value);
@@ -459,15 +482,13 @@ class ExportService {
       row++;
     }
     row++;
-    final totals = [
-      'TOTAL JUMLAH BARANG: ${p.totalJumlah}',
-      'TOTAL BERAT: ${p.totalBerat.toStringAsFixed(2)} kg',
-      'TOTAL VOLUME: ${p.totalVolume.toStringAsFixed(2)}',
-      'TOTAL KUBIKASI: ${p.totalKubikasi.toStringAsFixed(3)} m³',
-    ];
-    for (final t in totals) {
-      sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row++)).value = xls.TextCellValue(t);
-    }
+    _writeTotals(sheet, row, [
+      ('TOTAL JUMLAH BARANG', p.totalJumlah),
+      ('TOTAL BERAT (kg)', p.totalBerat),
+      ('TOTAL VOLUME', p.totalVolume),
+      ('TOTAL KUBIKASI (m³)', p.totalKubikasi),
+    ]);
+    _dropDefaultSheet(excel, 'Laporan');
     final bytes = excel.encode();
     if (bytes == null) throw StateError('Gagal membuat file Excel.');
     final dir = await _tempDir();
@@ -503,6 +524,7 @@ class ExportService {
       final values = [i + 1, _tanggalFmt.format(p.tanggal), p.nomorResi, p.pengirim, p.namaPenerima, p.noTelepon, p.kotaKabupaten, p.kecamatan, p.totalJumlah, p.totalBerat, p.totalVolume, p.totalKubikasi];
       for (var j = 0; j < values.length; j++) {
         final value = values[j];
+        if (value == null) continue; // leave the cell empty (no '-' text in numeric columns)
         final cell = sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: j, rowIndex: row));
         if (value is int) {
           cell.value = xls.IntCellValue(value);
@@ -519,16 +541,14 @@ class ExportService {
       totalKubikasi += p.totalKubikasi;
     }
     row++;
-    final totals = [
-      'TOTAL PENGIRIMAN: ${items.length}',
-      'TOTAL JUMLAH BARANG: $totalJumlah',
-      'TOTAL BERAT: ${totalBerat.toStringAsFixed(2)} kg',
-      'TOTAL VOLUME: ${totalVolume.toStringAsFixed(2)}',
-      'TOTAL KUBIKASI: ${totalKubikasi.toStringAsFixed(3)} m³',
-    ];
-    for (final t in totals) {
-      sheet.cell(xls.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row++)).value = xls.TextCellValue(t);
-    }
+    _writeTotals(sheet, row, [
+      ('TOTAL PENGIRIMAN', items.length),
+      ('TOTAL JUMLAH BARANG', totalJumlah),
+      ('TOTAL BERAT (kg)', totalBerat),
+      ('TOTAL VOLUME', totalVolume),
+      ('TOTAL KUBIKASI (m³)', totalKubikasi),
+    ]);
+    _dropDefaultSheet(excel, 'Rekap');
     final bytes = excel.encode();
     if (bytes == null) throw StateError('Gagal membuat file Excel gabungan.');
     final dir = await _tempDir();
