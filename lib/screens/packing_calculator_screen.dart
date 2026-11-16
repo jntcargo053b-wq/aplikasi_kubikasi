@@ -36,6 +36,7 @@ class _PackingCalculatorScreenState extends State<PackingCalculatorScreen> {
   final _electricityRate = TextEditingController(text: '1500');
   final _overheadRate = TextEditingController(text: '5000');
   final _margin = TextEditingController(text: '25');
+  final _additionalName = TextEditingController(text: 'Bahan tambahan');
   final _additionalQuantity = TextEditingController(text: '0');
   final _additionalPrice = TextEditingController(text: '0');
 
@@ -74,6 +75,7 @@ class _PackingCalculatorScreenState extends State<PackingCalculatorScreen> {
     marginPercent: _read(_margin),
     boardSheetsPerPackage: _read(_boardSheets),
     boardPricePerSheet: _read(_boardPrice),
+    additionalMaterialName: _additionalName.text.trim().isEmpty ? 'Bahan tambahan' : _additionalName.text.trim(),
     additionalMaterialQuantityPerPackage: _read(_additionalQuantity),
     additionalMaterialPricePerUnit: _read(_additionalPrice),
   );
@@ -126,6 +128,7 @@ class _PackingCalculatorScreenState extends State<PackingCalculatorScreen> {
           _margin.text = r.marginPercent.toStringAsFixed(0);
           _boardSheets.text = r.boardSheetsPerPackage.toString();
           _boardPrice.text = r.boardPricePerSheet.toStringAsFixed(0);
+          _additionalName.text = r.additionalMaterialName;
           _additionalQuantity.text = r.additionalMaterialQuantityPerPackage.toString();
           _additionalPrice.text = r.additionalMaterialPricePerUnit.toStringAsFixed(0);
         }
@@ -179,7 +182,7 @@ class _PackingCalculatorScreenState extends State<PackingCalculatorScreen> {
       _screwRate, _nailRate, _nailsPerKg, _fasteners, _laborRate,
       _electricityRate, _overheadRate, _margin, _woodStickLength,
       _woodLengthMultiplier, _woodWidthMultiplier, _woodHeightMultiplier,
-      _additionalQuantity, _additionalPrice,
+      _additionalName, _additionalQuantity, _additionalPrice,
     ]) {
       c.dispose();
     }
@@ -307,6 +310,8 @@ class _PackingCalculatorScreenState extends State<PackingCalculatorScreen> {
                     const SizedBox(height: 8),
                     _rateField('Overhead per koli', _overheadRate, suffix: 'Rp'),
                     const SizedBox(height: 8),
+                    _rateField('Nama bahan tambahan', _additionalName),
+                    const SizedBox(height: 8),
                     _rateField('Kebutuhan bahan tambahan per koli', _additionalQuantity, suffix: 'unit'),
                     const SizedBox(height: 8),
                     _rateField('Harga per unit bahan tambahan', _additionalPrice, suffix: 'Rp'),
@@ -349,7 +354,7 @@ class _PackingCalculatorScreenState extends State<PackingCalculatorScreen> {
                         _moneyLine('Overhead', result.overheadCost),
                         if (_includeBoard) _moneyLine('Papan penutup (${result.boardQuantity.toStringAsFixed(1)} lembar)', result.boardCost),
                         if (result.additionalMaterialQuantity > 0)
-                          _moneyLine('Bahan tambahan (${result.additionalMaterialQuantity.toStringAsFixed(1)} unit)', result.additionalMaterialCost),
+                          _moneyLine('${_rates.additionalMaterialName} (${result.additionalMaterialQuantity.toStringAsFixed(1)} unit)', result.additionalMaterialCost),
                         const Divider(height: 22),
                         _moneyLine('Total modal', result.totalCost),
                         _moneyLine('Harga sebelum pembulatan', result.suggestedPrice),
@@ -362,7 +367,7 @@ class _PackingCalculatorScreenState extends State<PackingCalculatorScreen> {
                   ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Catatan: jumlah pengikat 68 buah per koli adalah asumsi awal yang bisa diubah. Biaya papan diisi manual karena ukuran dan harga lembar papan belum ditetapkan.',
+                  'Seluruh tarif dan kebutuhan bahan dapat diubah di Pengaturan tarif. Papan penutup tetap opsional; pengali rangka default mengikuti rumus 8 × panjang + 8 × lebar + 4 × tinggi.',
                   style: TextStyle(color: AppColors.muted, fontSize: 12),
                 ),
               ],
