@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 enum PackingFastener { nails, screws }
 
 class PackingRates {
