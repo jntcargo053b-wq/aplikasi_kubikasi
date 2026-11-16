@@ -135,7 +135,7 @@ class BackupService {
         for (final entry in photoFiles.entries) {
           if (!firstPhoto) sink.write(',');
           firstPhoto = false;
-          sink.write('${jsonEncode(entry.key)}: "'.replaceFirst(': ', ':'));
+          sink.write('${jsonEncode(entry.key)}:"');
           photoIntegrity['photo:${entry.key}'] =
               await _writePhotoBase64(entry.value, sink);
           sink.write('"');
@@ -168,8 +168,9 @@ class BackupService {
   }
 
   Future<BackupData> readBackup(File file) async {
-    final raw = await file.readAsString();
-    final decoded = jsonDecode(raw);
+    // Decode directly so the raw JSON string is not kept referenced next to
+    // the decoded tree (lowers peak memory for backups with many photos).
+    final decoded = jsonDecode(await file.readAsString());
     if (decoded is! Map) {
       throw const FormatException('Format backup tidak valid.');
     }
