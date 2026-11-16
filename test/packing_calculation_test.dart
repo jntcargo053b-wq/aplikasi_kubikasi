@@ -135,6 +135,7 @@ void main() {
       fastenersPerPackage: 44,
       boardSheetsPerPackage: 1.5,
       boardPricePerSheet: 18000,
+      additionalMaterialName: 'Plastik wrapping',
       additionalMaterialQuantityPerPackage: 2,
       additionalMaterialPricePerUnit: 3500,
     );
@@ -147,6 +148,7 @@ void main() {
     expect(restored.fastenersPerPackage, 44);
     expect(restored.boardSheetsPerPackage, 1.5);
     expect(restored.boardPricePerSheet, 18000);
+    expect(restored.additionalMaterialName, 'Plastik wrapping');
     expect(restored.additionalMaterialQuantityPerPackage, 2);
     expect(restored.additionalMaterialPricePerUnit, 3500);
   });
