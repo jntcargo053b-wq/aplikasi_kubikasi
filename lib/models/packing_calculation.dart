@@ -170,7 +170,9 @@ class PackingCalculation {
     final overhead = rates.overheadPerPackage * packageCount;
     final boardQuantity = includeBoard ? rates.boardSheetsPerPackage * packageCount : 0.0;
     final board = includeBoard
-        ? (boardCostPerPackage ?? boardQuantity * rates.boardPricePerSheet * 1.0)
+        ? (boardCostPerPackage != null
+            ? boardCostPerPackage * packageCount
+            : boardQuantity * rates.boardPricePerSheet)
         : 0.0;
     final additionalQuantity = rates.additionalMaterialQuantityPerPackage * packageCount;
     final additional = additionalQuantity * rates.additionalMaterialPricePerUnit;
