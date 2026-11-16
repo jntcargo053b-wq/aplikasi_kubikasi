@@ -15,7 +15,8 @@ class PackingRates {
   final int fastenersPerPackage;
   final double boardSheetsPerPackage;
   final double boardPricePerSheet;
-  final double additionalMaterialCostPerPackage;
+  final double additionalMaterialQuantityPerPackage;
+  final double additionalMaterialPricePerUnit;
   final double marginPercent;
 
   const PackingRates({
@@ -33,7 +34,8 @@ class PackingRates {
     this.fastenersPerPackage = 68,
     this.boardSheetsPerPackage = 0,
     this.boardPricePerSheet = 0,
-    this.additionalMaterialCostPerPackage = 0,
+    this.additionalMaterialQuantityPerPackage = 0,
+    this.additionalMaterialPricePerUnit = 0,
     this.marginPercent = 25,
   });
 
@@ -52,7 +54,8 @@ class PackingRates {
     'fastenersPerPackage': fastenersPerPackage,
     'boardSheetsPerPackage': boardSheetsPerPackage,
     'boardPricePerSheet': boardPricePerSheet,
-    'additionalMaterialCostPerPackage': additionalMaterialCostPerPackage,
+    'additionalMaterialQuantityPerPackage': additionalMaterialQuantityPerPackage,
+    'additionalMaterialPricePerUnit': additionalMaterialPricePerUnit,
     'marginPercent': marginPercent,
   };
 
@@ -71,7 +74,8 @@ class PackingRates {
     fastenersPerPackage: (json['fastenersPerPackage'] as num?)?.toInt() ?? 68,
     boardSheetsPerPackage: (json['boardSheetsPerPackage'] as num?)?.toDouble() ?? 0,
     boardPricePerSheet: (json['boardPricePerSheet'] as num?)?.toDouble() ?? 0,
-    additionalMaterialCostPerPackage: (json['additionalMaterialCostPerPackage'] as num?)?.toDouble() ?? 0,
+    additionalMaterialQuantityPerPackage: (json['additionalMaterialQuantityPerPackage'] as num?)?.toDouble() ?? 0,
+    additionalMaterialPricePerUnit: (json['additionalMaterialPricePerUnit'] as num?)?.toDouble() ?? 0,
     marginPercent: (json['marginPercent'] as num?)?.toDouble() ?? 25,
   );
 }
@@ -88,6 +92,7 @@ class PackingCalculation {
   final double overheadCost;
   final double boardQuantity;
   final double boardCost;
+  final double additionalMaterialQuantity;
   final double additionalMaterialCost;
   final double totalCost;
   final double suggestedPrice;
@@ -105,6 +110,7 @@ class PackingCalculation {
     required this.overheadCost,
     required this.boardQuantity,
     required this.boardCost,
+    required this.additionalMaterialQuantity,
     required this.additionalMaterialCost,
     required this.totalCost,
     required this.suggestedPrice,
@@ -129,7 +135,8 @@ class PackingCalculation {
       rates.nailPerGram, rates.laborPerPackage,
       rates.electricityPerPackage, rates.overheadPerPackage,
       rates.boardSheetsPerPackage, rates.boardPricePerSheet,
-      rates.additionalMaterialCostPerPackage,
+      rates.additionalMaterialQuantityPerPackage,
+      rates.additionalMaterialPricePerUnit,
       rates.marginPercent, boardCostPerPackage ?? 0,
     ];
     if (values.any((value) => !value.isFinite || value < 0) ||
@@ -161,7 +168,8 @@ class PackingCalculation {
     final board = includeBoard
         ? (boardCostPerPackage ?? boardQuantity * rates.boardPricePerSheet * 1.0)
         : 0.0;
-    final additional = rates.additionalMaterialCostPerPackage * packageCount;
+    final additionalQuantity = rates.additionalMaterialQuantityPerPackage * packageCount;
+    final additional = additionalQuantity * rates.additionalMaterialPricePerUnit;
     final total = woodCost + fastenerCost + labor + electricity +
         overhead + board + additional;
     final suggested = total / (1 - rates.marginPercent / 100);
@@ -179,6 +187,7 @@ class PackingCalculation {
       overheadCost: overhead,
       boardQuantity: boardQuantity,
       boardCost: board,
+      additionalMaterialQuantity: additionalQuantity,
       additionalMaterialCost: additional,
       totalCost: total,
       suggestedPrice: suggested,
