@@ -55,6 +55,19 @@ void main() {
     expect(withBoard.totalCost - withoutBoard.totalCost, 10000);
   });
 
+  test('board cost per package is multiplied by package count', () {
+    final one = PackingCalculation.calculate(
+      lengthCm: 54, widthCm: 43, heightCm: 45,
+      includeBoard: true, boardCostPerPackage: 10000,
+    );
+    final three = PackingCalculation.calculate(
+      lengthCm: 54, widthCm: 43, heightCm: 45, packageCount: 3,
+      includeBoard: true, boardCostPerPackage: 10000,
+    );
+    expect(one.boardCost, 10000);
+    expect(three.boardCost, 30000);
+  });
+
   test('multiple packages multiply materials and labor', () {
     final result = PackingCalculation.calculate(
       lengthCm: 54,
